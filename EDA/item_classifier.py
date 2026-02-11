@@ -287,100 +287,175 @@ def classify_items(
         'summary_stats': labels_df[['label', 'seasonal_strength', 'cycle_cv', 'initial_gap_fraction']].groupby('label').agg(['mean', 'min', 'max']),
     }
     
+    # Drop pontual features
+    df_classified = df_classified.drop(columns=['promotions', 'value'], errors='ignore')
+    
     return df_classified, summary
 
 def classify_items_adi_cv(
     df: pd.DataFrame,
-    adi_threshold: float = 1.32,  # ~25% of data intermittent
+    adi_threshold: float = 1.32,
     cv_threshold: float = 0.49,
-) -> Tuple[pd.DataFrame, Dict]:
+    item_col: str = "item_id",
+    value_col: str = "value",
+    date_col: Optional[str] = None,          # if None, expects DatetimeIndex
+    agg_per_date: Optional[str] = None,      # None | "sum" | "mean" (if duplicates per date)
+    # NEW detection
+    new_initial_gap_fraction: float = 0.2,   # >= this fraction of leading zeros => new
+    # EOL detection
+    eol_window: int = 56,                    # trailing window length (periods)
+    eol_gap: int = 28,                       # last sale at least this many periods before end
+    eol_max_nonzero_in_window: int = 1,      # activity allowed in the trailing window
+    # labeling behavior
+    override_label_for_new_eol: bool = False # if True, label='new'/'end_of_life' overrides quadrant
+) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
     """
-    Classify items using ADI/CV method (Syntetos et al.).
-    
-    ADI = Average Demand Interval (1 / proportion of non-zero periods)
-    CV = Coefficient of Variation of non-zero demand
-    
-    Categories:
-    - Smooth: ADI <= threshold AND CV <= threshold
-    - Seasonal: ADI <= threshold AND CV > threshold  
-    - Intermittent: ADI > threshold AND CV <= threshold
-    - Lumpy: ADI > threshold AND CV > threshold
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Must have 'item_id', 'value' columns and datetime index
-    adi_threshold : float
-        ADI threshold (default 1.32 = ~25% intermittent items)
-    cv_threshold : float
-        CV threshold (default 0.49)
-    
-    Returns
-    -------
-    df_classified : pd.DataFrame
-        With 'item_label' column
-    summary : dict
-        Classification summary statistics
+    ADI/CV classification + flags for NEW and End-of-Life (EOL).
+
+    Quadrants (Syntetos et al.):
+      - smooth, seasonal, intermittent, lumpy
+
+    Flags:
+      - is_new: large initial zero gap (leading zeros)
+      - is_end_of_life: long trailing gap + low activity in last window
+
+    If override_label_for_new_eol=True, the final label becomes:
+      'new' or 'end_of_life' (priority: end_of_life > new) else the quadrant label.
     """
-    
-    labels = []
-    
-    for item_id in df['item_id'].unique():
-        item_series = df[df['item_id'] == item_id]['value'].sort_index()
-        
-        # Calculate ADI
-        non_zero_periods = (item_series > 0).sum()
-        total_periods = len(item_series)
-        proportion_nonzero = non_zero_periods / total_periods if total_periods > 0 else 0
-        
-        if proportion_nonzero == 0:
-            adi = np.inf
+
+    work = df.copy()
+
+    # --- Ensure we can access dates
+    if date_col is not None:
+        work[date_col] = pd.to_datetime(work[date_col])
+        work = work.sort_values([item_col, date_col])
+    else:
+        if not isinstance(work.index, pd.DatetimeIndex):
+            raise ValueError("Provide date_col or ensure df has a DatetimeIndex.")
+        work = work.sort_index()
+
+    rows = []
+
+    for item_id in work[item_col].dropna().unique():
+        item_df = work.loc[work[item_col] == item_id, :]
+
+        # Build series indexed by date
+        if date_col is not None:
+            s = item_df.set_index(date_col)[value_col].sort_index()
         else:
-            adi = total_periods / non_zero_periods
-        
-        # Calculate CV of non-zero demands
-        nonzero_demands = item_series[item_series > 0]
+            s = item_df[value_col].sort_index()
+
+        # Optional aggregation per date (if duplicates)
+        if agg_per_date in ("sum", "mean"):
+            if agg_per_date == "sum":
+                s = s.groupby(level=0).sum()
+            else:
+                s = s.groupby(level=0).mean()
+
+        y = s.to_numpy()
+        n = len(y)
+
+        # ---- NEW flag (leading zeros fraction before first non-zero)
+        nz = np.flatnonzero(y > 0)
+        if len(nz) == 0:
+            first_sale_pos = None
+            initial_gap_frac = 1.0
+        else:
+            first_sale_pos = int(nz[0])
+            initial_gap_frac = first_sale_pos / n if n else 1.0
+        is_new = initial_gap_frac >= new_initial_gap_fraction
+
+        # ---- EOL flag (gap to end + low activity in last window)
+        if len(nz) == 0:
+            last_sale_pos = None
+            gap_to_end = n
+        else:
+            last_sale_pos = int(nz[-1])
+            gap_to_end = (n - 1) - last_sale_pos
+
+        tail = y[-min(eol_window, n):] if n else np.array([])
+        tail_nonzero = int((tail > 0).sum()) if n else 0
+        is_eol = (gap_to_end >= eol_gap) and (tail_nonzero <= eol_max_nonzero_in_window)
+
+        # ---- ADI
+        non_zero_periods = int((y > 0).sum())
+        total_periods = int(n)
+
+        adi = np.inf if non_zero_periods == 0 else (total_periods / non_zero_periods)
+
+        # ---- CV on non-zero demands
+        nonzero_demands = y[y > 0]
         if len(nonzero_demands) > 1:
-            cv = nonzero_demands.std() / nonzero_demands.mean()
+            cv = float(np.std(nonzero_demands, ddof=1) / np.mean(nonzero_demands))
         elif len(nonzero_demands) == 1:
-            cv = 0  # Single demand has no variability
+            cv = 0.0
         else:
             cv = np.inf
-        
-        # Classify using ADI/CV matrix
+
+        # ---- Quadrant label
         if adi <= adi_threshold and cv <= cv_threshold:
-            label = 'smooth'
+            quad_label = "smooth"
         elif adi <= adi_threshold and cv > cv_threshold:
-            label = 'seasonal'
+            quad_label = "seasonal"
         elif adi > adi_threshold and cv <= cv_threshold:
-            label = 'intermittent'
-        else:  # adi > threshold AND cv > threshold
-            label = 'lumpy'
-        
-        labels.append({
-            'item_id': item_id,
-            'label': label,
-            'adi': adi,
-            'cv': cv,
-            'non_zero_periods': non_zero_periods,
-            'total_periods': total_periods,
+            quad_label = "intermittent"
+        else:
+            quad_label = "lumpy"
+
+        # ---- Final label (optional override)
+        if override_label_for_new_eol:
+            if is_eol:
+                label = "end_of_life"
+            elif is_new:
+                label = "new"
+            else:
+                label = quad_label
+        else:
+            label = quad_label
+
+        rows.append({
+            item_col: item_id,
+            "label": label,
+            "quad_label": quad_label,
+            "adi": adi,
+            "cv": cv,
+            "non_zero_periods": non_zero_periods,
+            "total_periods": total_periods,
+            "is_new": bool(is_new),
+            "initial_gap_fraction": float(initial_gap_frac),
+            "is_end_of_life": bool(is_eol),
+            "gap_to_end": int(gap_to_end),
+            "tail_nonzero": int(tail_nonzero),
         })
+
+    labels_df = pd.DataFrame(rows)
+
     
-    labels_df = pd.DataFrame(labels)
-    
-    # Merge back
+
+    # ✅ Preserve DatetimeIndex: map labels (no merge)
     output_df = df.copy()
-    output_df = output_df.merge(
-        labels_df[['item_id', 'label']],
-        on='item_id',
-        how='left'
+    label_map = labels_df.set_index(item_col)["label"]
+    output_df["item_label"] = output_df[item_col].map(label_map)
+
+    # ✅ JSON-safe summary (no DataFrames inside the dict)
+    summary_stats = (
+        labels_df.groupby("label")[["adi", "cv", "initial_gap_fraction", "gap_to_end"]]
+        .agg(["mean", "min", "max"])
     )
-    output_df = output_df.rename(columns={'label': 'item_label'})
-    
+    # flatten MultiIndex columns -> strings
+    summary_stats.columns = [f"{a}_{b}" for a, b in summary_stats.columns]
+    summary_stats_json = summary_stats.reset_index().to_dict(orient="records")
+
     summary = {
-        'label_counts': labels_df['label'].value_counts().to_dict(),
-        'total_items': len(labels_df),
-        'summary_stats': labels_df[['label', 'adi', 'cv']].groupby('label').agg(['mean', 'min', 'max']),
+        "label_counts": labels_df["label"].value_counts().to_dict(),
+        "total_items": int(len(labels_df)),
+        "summary_stats": summary_stats_json,   # ✅ JSON-friendly
+        "flag_counts": {
+            "is_new": int(labels_df["is_new"].sum()),
+            "is_end_of_life": int(labels_df["is_end_of_life"].sum()),
+        }
     }
-    
+
+
     return output_df, labels_df, summary
+
