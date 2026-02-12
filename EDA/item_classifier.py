@@ -300,27 +300,15 @@ def classify_items_adi_cv(
     value_col: str = "value",
     date_col: Optional[str] = None,          # if None, expects DatetimeIndex
     agg_per_date: Optional[str] = None,      # None | "sum" | "mean" (if duplicates per date)
-    # NEW detection
-    new_initial_gap_fraction: float = 0.2,   # >= this fraction of leading zeros => new
-    # EOL detection
-    eol_window: int = 56,                    # trailing window length (periods)
-    eol_gap: int = 28,                       # last sale at least this many periods before end
-    eol_max_nonzero_in_window: int = 1,      # activity allowed in the trailing window
-    # labeling behavior
-    override_label_for_new_eol: bool = False # if True, label='new'/'end_of_life' overrides quadrant
 ) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
     """
-    ADI/CV classification + flags for NEW and End-of-Life (EOL).
+    ADI/CV classification (Syntetos et al.).
 
-    Quadrants (Syntetos et al.):
-      - smooth, seasonal, intermittent, lumpy
-
-    Flags:
-      - is_new: large initial zero gap (leading zeros)
-      - is_end_of_life: long trailing gap + low activity in last window
-
-    If override_label_for_new_eol=True, the final label becomes:
-      'new' or 'end_of_life' (priority: end_of_life > new) else the quadrant label.
+    Quadrants:
+      - smooth: ADI <= threshold AND CV <= threshold
+      - seasonal: ADI <= threshold AND CV > threshold  
+      - intermittent: ADI > threshold AND CV <= threshold
+      - lumpy: ADI > threshold AND CV > threshold
     """
 
     work = df.copy()
@@ -355,28 +343,6 @@ def classify_items_adi_cv(
         y = s.to_numpy()
         n = len(y)
 
-        # ---- NEW flag (leading zeros fraction before first non-zero)
-        nz = np.flatnonzero(y > 0)
-        if len(nz) == 0:
-            first_sale_pos = None
-            initial_gap_frac = 1.0
-        else:
-            first_sale_pos = int(nz[0])
-            initial_gap_frac = first_sale_pos / n if n else 1.0
-        is_new = initial_gap_frac >= new_initial_gap_fraction
-
-        # ---- EOL flag (gap to end + low activity in last window)
-        if len(nz) == 0:
-            last_sale_pos = None
-            gap_to_end = n
-        else:
-            last_sale_pos = int(nz[-1])
-            gap_to_end = (n - 1) - last_sale_pos
-
-        tail = y[-min(eol_window, n):] if n else np.array([])
-        tail_nonzero = int((tail > 0).sum()) if n else 0
-        is_eol = (gap_to_end >= eol_gap) and (tail_nonzero <= eol_max_nonzero_in_window)
-
         # ---- ADI
         non_zero_periods = int((y > 0).sum())
         total_periods = int(n)
@@ -394,52 +360,33 @@ def classify_items_adi_cv(
 
         # ---- Quadrant label
         if adi <= adi_threshold and cv <= cv_threshold:
-            quad_label = "smooth"
+            label = "smooth"
         elif adi <= adi_threshold and cv > cv_threshold:
-            quad_label = "seasonal"
+            label = "seasonal"
         elif adi > adi_threshold and cv <= cv_threshold:
-            quad_label = "intermittent"
+            label = "intermittent"
         else:
-            quad_label = "lumpy"
-
-        # ---- Final label (optional override)
-        if override_label_for_new_eol:
-            if is_eol:
-                label = "end_of_life"
-            elif is_new:
-                label = "new"
-            else:
-                label = quad_label
-        else:
-            label = quad_label
+            label = "lumpy"
 
         rows.append({
             item_col: item_id,
             "label": label,
-            "quad_label": quad_label,
             "adi": adi,
             "cv": cv,
             "non_zero_periods": non_zero_periods,
             "total_periods": total_periods,
-            "is_new": bool(is_new),
-            "initial_gap_fraction": float(initial_gap_frac),
-            "is_end_of_life": bool(is_eol),
-            "gap_to_end": int(gap_to_end),
-            "tail_nonzero": int(tail_nonzero),
         })
 
     labels_df = pd.DataFrame(rows)
 
-    
-
-    # ✅ Preserve DatetimeIndex: map labels (no merge)
+    # ✅ Preserve DatetimeIndex: map labels
     output_df = df.copy()
     label_map = labels_df.set_index(item_col)["label"]
     output_df["item_label"] = output_df[item_col].map(label_map)
 
-    # ✅ JSON-safe summary (no DataFrames inside the dict)
+    # ✅ JSON-safe summary
     summary_stats = (
-        labels_df.groupby("label")[["adi", "cv", "initial_gap_fraction", "gap_to_end"]]
+        labels_df.groupby("label")[["adi", "cv"]]
         .agg(["mean", "min", "max"])
     )
     # flatten MultiIndex columns -> strings
@@ -449,13 +396,8 @@ def classify_items_adi_cv(
     summary = {
         "label_counts": labels_df["label"].value_counts().to_dict(),
         "total_items": int(len(labels_df)),
-        "summary_stats": summary_stats_json,   # ✅ JSON-friendly
-        "flag_counts": {
-            "is_new": int(labels_df["is_new"].sum()),
-            "is_end_of_life": int(labels_df["is_end_of_life"].sum()),
-        }
+        "summary_stats": summary_stats_json,
     }
-
 
     return output_df, labels_df, summary
 

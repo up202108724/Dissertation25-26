@@ -146,8 +146,6 @@ def plot_product_value_evolution(
         print(f"Date range: {stats['date_min']} to {stats['date_max']}")
         print(f"Total records: {stats['total_records']}")
         print(f"Non-zero sales: {stats['non_zero_sales']}")
-        print("\nValue statistics:")
-        print(stats["describe"])
 
     created_fig = False
     if ax is None:
