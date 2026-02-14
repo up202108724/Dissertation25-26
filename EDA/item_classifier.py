@@ -5,6 +5,7 @@ Based on sales patterns and temporal characteristics.
 
 import pandas as pd
 import numpy as np
+from pandas import DataFrame
 from typing import Dict, List, Tuple, Optional
 from scipy import signal
 from scipy.stats import variation
@@ -12,285 +13,51 @@ from statsmodels.tsa.seasonal import STL
 
 
 class ItemClassifier:
-    """
-    Classifier for retail items based on their sales patterns.
     
-    Categories:
-    - Regular: Consistent sales pattern, no strong seasonality
-    - Seasonal: Periodic/cyclic sales pattern
-    - Intermittent: Erratic/unpredictable sales pattern
-    - New: Item with non-sales period at the beginning
-    """
-    
-    def __init__(
-        self,
-        seasonal_strength_threshold: float = 0.5,
-        cv_threshold: float = 0.8,
-        initial_gap_fraction: float = 0.2,
-        min_periods: int = 14,
-    ):
-        """
-        Parameters
-        ----------
-        seasonal_strength_threshold : float
-            Threshold for seasonality strength (0-1). Values above this indicate seasonal patterns.
-        cv_threshold : float
-            Coefficient of variation threshold to detect intermittence in cycle intervals.
-        initial_gap_fraction : float
-            If the fraction of zero-sales at the beginning exceeds this, mark as new.
-        min_periods : int
-            Minimum periods required for reliable seasonal detection.
-        """
-        self.seasonal_strength_threshold = seasonal_strength_threshold
-        self.cv_threshold = cv_threshold
-        self.initial_gap_fraction = initial_gap_fraction
-        self.min_periods = min_periods
-    
-    def classify_item(
-        self,
-        series: pd.Series,
-        item_id: Optional[int] = None,
-    ) -> Dict:
-        """
-        Classify a single item's sales series.
-        
-        Parameters
-        ----------
-        series : pd.Series
-            Sales values indexed by date/time, sorted chronologically.
-        item_id : int, optional
-            Item identifier for reference.
-        
-        Returns
-        -------
-        dict
-            Contains 'label', 'item_id', and diagnostic information.
-        """
-        result = {
-            'item_id': item_id,
-            'label': None,
-            'is_new': False,
-            'is_seasonal': False,
-            'is_intermittent': False,
-            'seasonal_strength': None,
-            'cycle_cv': None,
-            'initial_gap_fraction': None,
-            'n_observations': len(series),
-        }
-        
-        # Basic validation
-        if len(series) < self.min_periods:
-            result['label'] = 'regular'  # insufficient data -> regular by default
-            return result
-        
-        # 1. Check if NEW: significant non-sales period at the beginning
-        result['initial_gap_fraction'] = self._detect_new_item(series)
-        if result['initial_gap_fraction'] >= self.initial_gap_fraction:
-            result['is_new'] = True
-            result['label'] = 'new'
-            return result  # Don't classify further
-        
-        # 2. Check if SEASONAL: periodicity in sales pattern
-        result['seasonal_strength'] = self._detect_seasonality(series)
-        if result['seasonal_strength'] is not None and \
-           result['seasonal_strength'] >= self.seasonal_strength_threshold:
-            result['is_seasonal'] = True
-        
-        # 3. Check if INTERMITTENT: erratic intervals between sales/non-sales cycles
-        result['cycle_cv'] = self._detect_intermittence(series)
-        if result['cycle_cv'] is not None and result['cycle_cv'] >= self.cv_threshold:
-            result['is_intermittent'] = True
-        
-        # 4. Assign final label
-        if result['is_seasonal']:
-            result['label'] = 'seasonal'
-        elif result['is_intermittent']:
-            result['label'] = 'intermittent'
-        else:
-            result['label'] = 'regular'
-        
-        return result
-    
-    def _detect_new_item(self, series: pd.Series) -> float:
-        """
-        Detect if item is NEW: has significant non-sales at the beginning.
-        
-        Returns the fraction of zero-sales at the start before first non-zero sale.
-        """
-        # Find first non-zero sales
-        nonzero_idx = (series > 0).idxmax()
-        if not nonzero_idx:  # All zeros
-            return 1.0
-        
-        first_sale_pos = series.index.get_loc(nonzero_idx)
-        gap_fraction = first_sale_pos / len(series)
-        return gap_fraction
-    
-    def _detect_seasonality(self, series: pd.Series) -> Optional[float]:
-        """
-        Detect seasonality using STL decomposition.
-        
-        Returns the seasonal strength (0-1):
-        strength = 1 - Var(remainder) / Var(seasonal + remainder)
-        """
-        try:
-            # Need sufficient data for STL
-            if len(series) < 2 * self.min_periods:
-                return None
-            
-            # Determine seasonal period (assume weekly for retail)
-            period = min(7, len(series) // 4)
-            if period < 2:
-                return None
-            
-            # Fill NaN with 0 for STL
-            filled_series = series.fillna(0)
-            
-            # STL decomposition
-            stl = STL(filled_series, seasonal=period, robust=True)
-            result = stl.fit()
-            
-            seasonal = result.seasonal.values
-            residual = result.resid.values
-            
-            # Seasonal strength = 1 - Var(residual) / Var(seasonal + residual)
-            var_residual = np.var(residual)
-            var_seasonal_residual = np.var(seasonal + residual)
-            
-            if var_seasonal_residual == 0:
-                return 0.0
-            
-            strength = 1.0 - (var_residual / var_seasonal_residual)
-            strength = np.clip(strength, 0, 1)
-            return strength
-        except Exception:
-            return None
-    
-    def _detect_intermittence(self, series: pd.Series) -> Optional[float]:
-        """
-        Detect intermittence by analyzing variability in cycle intervals.
-        
-        For both sales and non-sales cycles, compute interval lengths and 
-        calculate coefficient of variation. High CV indicates intermittent pattern.
-        """
-        try:
-            # Create binary indicator: 1 if sale, 0 if non-sale
-            binary = (series > 0).astype(int).values
-            
-            if np.sum(binary) < 2:  # Too few sales
-                return None
-            
-            # Find transitions: points where binary value changes
-            transitions = np.where(np.diff(binary) != 0)[0] + 1
-            
-            if len(transitions) < 2:
-                return None
-            
-            # Compute interval lengths between transitions
-            interval_lengths = np.diff(transitions)
-            
-            if len(interval_lengths) < 2:
-                return None
-            
-            # Coefficient of variation
-            mean_interval = np.mean(interval_lengths)
-            if mean_interval == 0:
-                return 1.0  # Highly variable
-            
-            cv = np.std(interval_lengths) / mean_interval
-            return cv
-        except Exception:
-            return None
-    
-    def classify_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Classify all items in a dataframe.
-        
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Must have columns: 'item_id', 'value' (sales), and a datetime index or date column.
-        
-        Returns
-        -------
-        pd.DataFrame
-            Original df with added 'item_label' column.
-        """
-        # Ensure index is datetime
-        if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError("DataFrame index must be DatetimeIndex")
-        
-        labels = []
-        
-        for item_id in df['item_id'].unique():
-            item_series = df[df['item_id'] == item_id]['value'].sort_index()
-            result = self.classify_item(item_series, item_id=item_id)
-            labels.append(result)
-        
-        labels_df = pd.DataFrame(labels)
-        
-        # Merge back to original dataframe
-        output_df = df.copy()
-        output_df = output_df.merge(
-            labels_df[['item_id', 'label']],
-            on='item_id',
-            how='left'
-        )
-        output_df = output_df.rename(columns={'label': 'item_label'})
-        
-        return output_df, labels_df
-    
-    def get_label_summary(self, labels_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Get summary statistics of label distribution.
-        """
-        return labels_df[labels_df['label'].notna()].groupby('label').size().to_frame('count')
+    def __init__(self) -> None:
+        self.w1, self.w2, self.w3 = 0.1, 1.0, 0.5
+        self.max_dist = 0.5
 
+    
+    def set_weights(self, w1:float, w2:float, w3:float, max_dist:float) -> None:
+        self.w1, self.w2, self.w3 = w1, w2, w3
+        self.max_dist = max_dist
+        
+        
+    def is_irrelevant(self, ts: DataFrame, scat_ABC: tuple, target_var: str) -> bool:
+        _, B, C = scat_ABC
+        cond1 = ts[target_var].sum() < self.w1 * B
+        cond2 = ts[target_var].max() < self.w2 * C
+        return cond1 & cond2
+    
+    
+    def is_small(self, ts: DataFrame, scat_ABC, target_var: str) -> bool:
+        _, B, _ = scat_ABC
+        return (self.w1 * B) <= ts[target_var].sum() <= (self.w3 * B)
 
-def classify_items(
-    df: pd.DataFrame,
-    seasonal_strength_threshold: float = 0.3,
-    cv_threshold: float = 0.5,
-    initial_gap_fraction: float = 0.2,
-) -> Tuple[pd.DataFrame, Dict]:
-    """
-    Convenience function to classify items in a dataframe.
     
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Must have 'item_id', 'value' columns and datetime index.
-    seasonal_strength_threshold : float
-        Threshold for seasonal detection (0-1).
-    cv_threshold : float
-        Threshold for intermittent detection (CV of cycle intervals).
-    initial_gap_fraction : float
-        Threshold for new item detection.
+    def is_representative(self, ts: DataFrame, scat_ABC: tuple, scat_stats: tuple, target_var: str) -> bool:
+        
+        def close_factors(f1, f2, f3):
+            res = max(f1, f2, f3) / min(f1, f2, f3)
+            return res <= 1 + self.max_dist # 1.5 # 1.3
+        
+        _, B, _ = scat_ABC
+        scat_mean, scat_std, scat_amp = scat_stats
+        mean_factor = ts[target_var].mean() / scat_mean
+        std_factor = ts[target_var].std() / scat_std
+        amp_factor = (ts[target_var].max() - ts[target_var].min()) / scat_amp
+        return (ts[target_var].sum() > self.w3 * B) & close_factors(mean_factor, std_factor, amp_factor) # & close_factors(mean_factor, amp_factor)
     
-    Returns
-    -------
-    df_classified : pd.DataFrame
-        Original df with 'item_label' column added.
-    summary : dict
-        Summary statistics about label distribution.
-    """
-    classifier = ItemClassifier(
-        seasonal_strength_threshold=seasonal_strength_threshold,
-        cv_threshold=cv_threshold,
-        initial_gap_fraction=initial_gap_fraction,
-    )
     
-    df_classified, labels_df = classifier.classify_dataframe(df)
-    summary = {
-        'label_counts': labels_df['label'].value_counts().to_dict(),
-        'total_items': len(labels_df),
-        'summary_stats': labels_df[['label', 'seasonal_strength', 'cycle_cv', 'initial_gap_fraction']].groupby('label').agg(['mean', 'min', 'max']),
-    }
+    def select_classification(self, ts: DataFrame, scat_ABC: tuple, scat_stats: tuple, target_var: str) -> str:
+        if self.is_representative(ts, scat_ABC, scat_stats, target_var): return "representative"
+        if self.is_irrelevant(ts, scat_ABC, target_var): return "irrelevant"
+        if self.is_small(ts, scat_ABC, target_var): return "small"
+        return "independent"
     
-    # Drop pontual features
-    df_classified = df_classified.drop(columns=['promotions', 'value'], errors='ignore')
-    
-    return df_classified, summary
+
+ 
 
 def classify_items_adi_cv(
     df: pd.DataFrame,
@@ -397,6 +164,193 @@ def classify_items_adi_cv(
         "label_counts": labels_df["label"].value_counts().to_dict(),
         "total_items": int(len(labels_df)),
         "summary_stats": summary_stats_json,
+    }
+
+    return output_df, labels_df, summary
+
+
+def classify_items_item_classifier(
+    df: pd.DataFrame,
+    classifier: Optional[ItemClassifier] = None,
+    item_col: str = "item_id",
+    value_col: str = "value",
+    date_col: Optional[str] = None,          # if None, expects DatetimeIndex
+    agg_per_date: Optional[str] = None,      # None | "sum" | "mean" (if duplicates per date)
+    output_label_col: str = "item_label",
+    # "scat_ABC" calibration: A and B from total_sales quantiles; C from max_sales quantile
+    a_quantile: float = 0.80,
+    b_quantile: float = 0.50,
+    c_quantile: float = 0.50,
+    # "scat_stats" calibration from per-item stats
+    stats_agg: str = "median",              # "median" | "mean"
+    epsilon: float = 1e-8,
+) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
+    """Label items using the rule-based `ItemClassifier`.
+
+    This mirrors `classify_items_adi_cv`'s interface/outputs:
+    - returns `output_df` (same shape as input) with `output_label_col` mapped per item
+    - returns `labels_df` with one row per item and the computed label + diagnostics
+    - returns a JSON-safe `summary` dict
+
+    Notes on calibration
+    --------------------
+    `ItemClassifier` expects two calibration tuples:
+      - `scat_ABC = (A, B, C)` where B is a "typical" total-sales scale and C is a "typical" max-sales scale.
+      - `scat_stats = (mean, std, amp)` computed across items.
+
+    Since your project currently doesn't define how these are computed externally, this function derives them
+    from per-item aggregates via quantiles / central tendency. If you later decide on a different definition,
+    you can keep the labeling loop and swap out the calibration block.
+    """
+
+    if classifier is None:
+        classifier = ItemClassifier()
+
+    work = df.copy()
+
+    # --- Ensure we can access dates and keep a consistent order
+    if date_col is not None:
+        work[date_col] = pd.to_datetime(work[date_col])
+        work = work.sort_values([item_col, date_col])
+    else:
+        if not isinstance(work.index, pd.DatetimeIndex):
+            raise ValueError("Provide date_col or ensure df has a DatetimeIndex.")
+        work = work.sort_index()
+
+    if item_col not in work.columns:
+        raise ValueError(f"Missing required column: {item_col}")
+    if value_col not in work.columns:
+        raise ValueError(f"Missing required column: {value_col}")
+
+    # Ensure numeric values
+    work[value_col] = pd.to_numeric(work[value_col], errors="coerce").fillna(0.0)
+
+    # --- Per-item aggregates for calibration and diagnostics
+    per_item = (
+        work.groupby(item_col)[value_col]
+        .agg(
+            n_obs="count",
+            total_sales="sum",
+            mean_sales="mean",
+            std_sales="std",
+            max_sales="max",
+            min_sales="min",
+        )
+        .reset_index()
+    )
+    per_item["amp_sales"] = per_item["max_sales"] - per_item["min_sales"]
+
+    # Handle edge cases: std can be NaN for single-observation items
+    per_item["std_sales"] = per_item["std_sales"].fillna(0.0)
+
+    if len(per_item) == 0:
+        labels_df = pd.DataFrame(columns=[item_col, "label"])
+        output_df = df.copy()
+        output_df[output_label_col] = np.nan
+        summary = {"label_counts": {}, "total_items": 0, "summary_stats": []}
+        return output_df, labels_df, summary
+
+    # --- Build scat_ABC and scat_stats
+    def _q(series: pd.Series, q: float) -> float:
+        q = float(q)
+        q = 0.0 if q < 0.0 else 1.0 if q > 1.0 else q
+        return float(series.quantile(q))
+
+    A = _q(per_item["total_sales"], a_quantile)
+    B = _q(per_item["total_sales"], b_quantile)
+    C = _q(per_item["max_sales"], c_quantile)
+    scat_ABC = (A, B, C)
+
+    if stats_agg not in ("median", "mean"):
+        raise ValueError("stats_agg must be 'median' or 'mean'")
+
+    if stats_agg == "median":
+        scat_mean = float(per_item["mean_sales"].median())
+        scat_std = float(per_item["std_sales"].median())
+        scat_amp = float(per_item["amp_sales"].median())
+    else:
+        scat_mean = float(per_item["mean_sales"].mean())
+        scat_std = float(per_item["std_sales"].mean())
+        scat_amp = float(per_item["amp_sales"].mean())
+
+    # Avoid division by zero in `is_representative`
+    scat_stats = (
+        max(abs(scat_mean), epsilon),
+        max(abs(scat_std), epsilon),
+        max(abs(scat_amp), epsilon),
+    )
+
+    # --- Label each item
+    rows: List[Dict] = []
+    for current_item_id in work[item_col].dropna().unique():
+        item_df = work.loc[work[item_col] == current_item_id, :]
+
+        # Build per-item time series as a DataFrame; optionally aggregate duplicates per date
+        if date_col is not None:
+            ts = item_df[[date_col, value_col]].sort_values(date_col)
+            if agg_per_date in ("sum", "mean"):
+                ts = (
+                    ts.groupby(date_col, as_index=False)[value_col]
+                    .sum() if agg_per_date == "sum" else ts.groupby(date_col, as_index=False)[value_col].mean()
+                )
+            ts = ts.rename(columns={date_col: "date"})
+        else:
+            # DatetimeIndex
+            ts = item_df[[value_col]].copy()
+            if agg_per_date in ("sum", "mean"):
+                ts[value_col] = (
+                    ts[value_col].groupby(level=0).sum()
+                    if agg_per_date == "sum"
+                    else ts[value_col].groupby(level=0).mean()
+                )
+
+        label = classifier.select_classification(ts, scat_ABC=scat_ABC, scat_stats=scat_stats, target_var=value_col)
+
+        # Attach diagnostics from precomputed aggregates
+        agg_row = per_item.loc[per_item[item_col] == current_item_id].iloc[0]
+        rows.append({
+            item_col: current_item_id,
+            "label": label,
+            "n_obs": int(agg_row["n_obs"]),
+            "total_sales": float(agg_row["total_sales"]),
+            "mean_sales": float(agg_row["mean_sales"]),
+            "std_sales": float(agg_row["std_sales"]),
+            "max_sales": float(agg_row["max_sales"]),
+            "amp_sales": float(agg_row["amp_sales"]),
+        })
+
+    labels_df = pd.DataFrame(rows)
+
+    # Map back onto the original df (preserve original index)
+    output_df = df.copy()
+    label_map = labels_df.set_index(item_col)["label"]
+    output_df[output_label_col] = output_df[item_col].map(label_map)
+
+    # JSON-safe summary
+    label_counts = labels_df["label"].value_counts().to_dict()
+    summary_stats = (
+        labels_df
+        .groupby("label")[["n_obs", "total_sales", "mean_sales", "std_sales", "max_sales", "amp_sales"]]
+        .agg(["mean", "min", "max"])
+    )
+    summary_stats.columns = [f"{a}_{b}" for a, b in summary_stats.columns]
+    summary_stats_json = summary_stats.reset_index().to_dict(orient="records")
+
+    summary = {
+        "label_counts": label_counts,
+        "total_items": int(len(labels_df)),
+        "summary_stats": summary_stats_json,
+        "calibration": {
+            "scat_ABC": {"A_total_sales": float(A), "B_total_sales": float(B), "C_max_sales": float(C)},
+            "scat_stats": {"mean": float(scat_stats[0]), "std": float(scat_stats[1]), "amp": float(scat_stats[2])},
+            "params": {
+                "a_quantile": float(a_quantile),
+                "b_quantile": float(b_quantile),
+                "c_quantile": float(c_quantile),
+                "stats_agg": stats_agg,
+                "agg_per_date": agg_per_date,
+            },
+        },
     }
 
     return output_df, labels_df, summary
