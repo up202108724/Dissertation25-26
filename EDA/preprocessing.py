@@ -5,9 +5,10 @@ Missing Value Imputation Methods
 
 import pandas as pd
 import numpy as np
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from statsmodels.tsa.seasonal import STL
 from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -242,3 +243,162 @@ class ImputationMethods:
         result.iloc[missing_indices] = cluster_mean.iloc[missing_indices]
         
         return result
+
+
+def preprocess_features(df: pd.DataFrame, 
+                       fit_encoders: bool = True,
+                       encoding_type: str = 'label',
+                       encoders: Dict = None,
+                       scalers: Dict = None,
+                       onehot_categories: Dict = None) -> Tuple[pd.DataFrame, Dict, Dict, Dict]:
+    """
+    Preprocess features before train/val/test split.
+    
+    Encodes categorical features (label or one-hot) and scales numerical features.
+    Call with fit_encoders=True on training data, then use the returned
+    encoders/scalers on validation/test data.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Raw dataframe with all features
+    fit_encoders : bool
+        If True, fit new encoders/scalers. If False, use provided ones.
+    encoding_type : str
+        'label' - Use LabelEncoder (implies ordering, faster, smaller)
+        'onehot' - Use one-hot encoding (no ordering, categorical handling, larger)
+    encoders : Dict, optional
+        Fitted LabelEncoders for categorical features (required if fit_encoders=False and encoding_type='label')
+    scalers : Dict, optional
+        Fitted StandardScalers for numerical features (required if fit_encoders=False)
+    onehot_categories : Dict, optional
+        Categories for each column (required if fit_encoders=False and encoding_type='onehot')
+        
+    Returns
+    -------
+    Tuple[pd.DataFrame, Dict, Dict, Dict]
+        - Preprocessed dataframe (encoded + scaled)
+        - Dictionary of fitted encoders (or empty if using onehot)
+        - Dictionary of fitted scalers
+        - Dictionary of one-hot categories (or empty if using label)
+        
+    Example
+    -------
+    >>> # Label encoding (default, faster)
+    >>> train_df, encoders, scalers, _ = preprocess_features(
+    ...     df_train, fit_encoders=True, encoding_type='label'
+    ... )
+    >>> test_df, _, _, _ = preprocess_features(
+    ...     df_test, fit_encoders=False, encoding_type='label',
+    ...     encoders=encoders, scalers=scalers
+    ... )
+    
+    >>> # One-hot encoding (no ordering assumption)
+    >>> train_df, _, scalers, onehot_cats = preprocess_features(
+    ...     df_train, fit_encoders=True, encoding_type='onehot'
+    ... )
+    >>> test_df, _, _, _ = preprocess_features(
+    ...     df_test, fit_encoders=False, encoding_type='onehot',
+    ...     scalers=scalers, onehot_categories=onehot_cats
+    ... )
+    """
+    df = df.copy()
+    
+    # Define feature groups
+    categorical_cols = ['cat_label', 'sdep_label', 'dep_label', 'dmn_label']
+    numerical_cols = ['value'] + [col for col in df.columns if col.startswith('promo_value_')]
+    
+    # Filter to columns that exist
+    categorical_cols = [col for col in categorical_cols if col in df.columns]
+    numerical_cols = [col for col in numerical_cols if col in df.columns]
+    
+    if encoding_type not in ['label', 'onehot']:
+        raise ValueError("encoding_type must be 'label' or 'onehot'")
+    
+    # Initialize containers for return values
+    encoders_dict = {}
+    scalers_dict = {}
+    onehot_dict = {}
+    
+    # ========== CATEGORICAL ENCODING ==========
+    if encoding_type == 'label':
+        # Label Encoding
+        if fit_encoders:
+            encoders_dict = {}
+            
+            # Fit and transform categorical features
+            for col in categorical_cols:
+                le = LabelEncoder()
+                df[col] = df[col].fillna('missing')
+                df[col] = le.fit_transform(df[col])
+                encoders_dict[col] = le
+        else:
+            if encoders is None:
+                raise ValueError("encoders must be provided when fit_encoders=False with encoding_type='label'")
+            
+            # Transform categorical features
+            for col in categorical_cols:
+                df[col] = df[col].fillna('missing')
+                # Handle unseen categories
+                known_labels = set(encoders[col].classes_)
+                df[col] = df[col].apply(
+                    lambda x: encoders[col].transform([x])[0] if x in known_labels else -1
+                )
+    
+    elif encoding_type == 'onehot':
+        # One-hot Encoding
+        if fit_encoders:
+            onehot_dict = {}
+            
+            # Fit and transform each categorical column
+            for col in categorical_cols:
+                df[col] = df[col].fillna('missing')
+                onehot_dict[col] = df[col].unique().tolist()
+                # Create one-hot encoded columns
+                onehot_encoded = pd.get_dummies(df[[col]], prefix=col, drop_first=False)
+                df = df.drop(columns=[col])
+                df = pd.concat([df, onehot_encoded], axis=1)
+        else:
+            if onehot_categories is None:
+                raise ValueError("onehot_categories must be provided when fit_encoders=False with encoding_type='onehot'")
+            
+            # Transform with known categories
+            for col in categorical_cols:
+                df[col] = df[col].fillna('missing')
+                # Create one-hot with only known categories, unknown = all zeros
+                onehot_encoded = pd.get_dummies(df[[col]], prefix=col, drop_first=False)
+                
+                # Ensure all expected columns exist
+                expected_cols = [f"{col}_{cat}" for cat in onehot_categories[col]]
+                for expected_col in expected_cols:
+                    if expected_col not in onehot_encoded.columns:
+                        onehot_encoded[expected_col] = 0
+                
+                # Keep only expected columns in correct order
+                onehot_encoded = onehot_encoded[[col for col in expected_cols if col in onehot_encoded.columns]]
+                
+                df = df.drop(columns=[col])
+                df = pd.concat([df, onehot_encoded], axis=1)
+    
+    # ========== NUMERICAL SCALING ==========
+    if fit_encoders:
+        scalers_dict = {}
+        
+        # Fit and transform numerical features
+        for col in numerical_cols:
+            scaler = StandardScaler()
+            df[col] = df[col].fillna(0)
+            df[col] = scaler.fit_transform(df[[col]]).flatten()
+            scalers_dict[col] = scaler
+    else:
+        if scalers is None:
+            raise ValueError("scalers must be provided when fit_encoders=False")
+        
+        # Transform numerical features
+        for col in numerical_cols:
+            df[col] = df[col].fillna(0)
+            df[col] = scalers[col].transform(df[[col]]).flatten()
+    
+    return df, encoders_dict, scalers_dict, onehot_dict
+
+
