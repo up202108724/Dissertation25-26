@@ -250,68 +250,21 @@ def preprocess_features(df: pd.DataFrame,
                        encoding_type: str = 'label',
                        encoders: Dict = None,
                        scalers: Dict = None,
-                       onehot_categories: Dict = None) -> Tuple[pd.DataFrame, Dict, Dict, Dict]:
-    """
-    Preprocess features before train/val/test split.
-    
-    Encodes categorical features (label or one-hot) and scales numerical features.
-    Call with fit_encoders=True on training data, then use the returned
-    encoders/scalers on validation/test data.
-    
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Raw dataframe with all features
-    fit_encoders : bool
-        If True, fit new encoders/scalers. If False, use provided ones.
-    encoding_type : str
-        'label' - Use LabelEncoder (implies ordering, faster, smaller)
-        'onehot' - Use one-hot encoding (no ordering, categorical handling, larger)
-    encoders : Dict, optional
-        Fitted LabelEncoders for categorical features (required if fit_encoders=False and encoding_type='label')
-    scalers : Dict, optional
-        Fitted StandardScalers for numerical features (required if fit_encoders=False)
-    onehot_categories : Dict, optional
-        Categories for each column (required if fit_encoders=False and encoding_type='onehot')
-        
-    Returns
-    -------
-    Tuple[pd.DataFrame, Dict, Dict, Dict]
-        - Preprocessed dataframe (encoded + scaled)
-        - Dictionary of fitted encoders (or empty if using onehot)
-        - Dictionary of fitted scalers
-        - Dictionary of one-hot categories (or empty if using label)
-        
-    Example
-    -------
-    >>> # Label encoding (default, faster)
-    >>> train_df, encoders, scalers, _ = preprocess_features(
-    ...     df_train, fit_encoders=True, encoding_type='label'
-    ... )
-    >>> test_df, _, _, _ = preprocess_features(
-    ...     df_test, fit_encoders=False, encoding_type='label',
-    ...     encoders=encoders, scalers=scalers
-    ... )
-    
-    >>> # One-hot encoding (no ordering assumption)
-    >>> train_df, _, scalers, onehot_cats = preprocess_features(
-    ...     df_train, fit_encoders=True, encoding_type='onehot'
-    ... )
-    >>> test_df, _, _, _ = preprocess_features(
-    ...     df_test, fit_encoders=False, encoding_type='onehot',
-    ...     scalers=scalers, onehot_categories=onehot_cats
-    ... )
-    """
+                       onehot_categories: Dict = None,
+                       use_log1p: bool = False) -> Tuple[pd.DataFrame, Dict, Dict, Dict]:
+   
     df = df.copy()
     
     # Define feature groups
     categorical_cols = ['cat_label', 'sdep_label', 'dep_label', 'dmn_label']
-    numerical_cols = ['value'] + [col for col in df.columns if col.startswith('promo_value_')]
+    numerical_cols = ['value'] 
+    promotional_cols =  [col for col in df.columns if col.startswith('promo_value_')]
     
     # Filter to columns that exist
     categorical_cols = [col for col in categorical_cols if col in df.columns]
     numerical_cols = [col for col in numerical_cols if col in df.columns]
-    
+    promotional_cols = [col for col in promotional_cols if col in df.columns]
+
     if encoding_type not in ['label', 'onehot']:
         raise ValueError("encoding_type must be 'label' or 'onehot'")
     
@@ -384,21 +337,55 @@ def preprocess_features(df: pd.DataFrame,
     if fit_encoders:
         scalers_dict = {}
         
+        # Store log1p flag for inverse transformation
+        scalers_dict['use_log1p'] = use_log1p
+        
         # Fit and transform numerical features
         for col in numerical_cols:
             scaler = StandardScaler()
             df[col] = df[col].fillna(0)
+            
+            # Apply log1p transformation if enabled (for 'value' column)
+            if use_log1p and col == 'value':
+                df[col] = np.log1p(df[col])
+            
             df[col] = scaler.fit_transform(df[[col]]).flatten()
             scalers_dict[col] = scaler
     else:
         if scalers is None:
             raise ValueError("scalers must be provided when fit_encoders=False")
         
+        # Get log1p flag from training scalers
+        use_log1p_from_train = scalers.get('use_log1p', False)
+        
         # Transform numerical features
         for col in numerical_cols:
             df[col] = df[col].fillna(0)
+            
+            # Apply log1p transformation if it was used in training
+            if use_log1p_from_train and col == 'value':
+                df[col] = np.log1p(df[col])
+            
             df[col] = scalers[col].transform(df[[col]]).flatten()
     
     return df, encoders_dict, scalers_dict, onehot_dict
+
+
+def inverse_transform_target(values: np.ndarray, scaler: StandardScaler, 
+                             scalers_dict: Dict) -> np.ndarray:
+   
+    # Ensure 2D shape for scaler
+    if values.ndim == 1:
+        values = values.reshape(-1, 1)
+    
+    # Inverse scale
+    values_unscaled = scaler.inverse_transform(values).flatten()
+    
+    # Inverse log1p if it was applied
+    if scalers_dict.get('use_log1p', False):
+        values_unscaled = np.expm1(values_unscaled)
+    
+    return values_unscaled
+
 
 
