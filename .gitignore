@@ -1,4 +1,5 @@
 /dataset
 __pycache__
 /.venv
-/training_plots
+/LSTM/training_plots
+

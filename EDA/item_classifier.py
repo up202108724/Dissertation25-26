@@ -65,7 +65,7 @@ def classify_items_adi_cv(
     cv_threshold: float = 0.49,
     item_col: str = "item_id",
     value_col: str = "value",
-    date_col: Optional[str] = None,          # if None, expects DatetimeIndex
+    date_col: Optional[str] = None,          
     agg_per_date: Optional[str] = None,      # None | "sum" | "mean" (if duplicates per date)
 ) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
     """
@@ -174,15 +174,13 @@ def classify_items_item_classifier(
     classifier: Optional[ItemClassifier] = None,
     item_col: str = "item_id",
     value_col: str = "value",
-    date_col: Optional[str] = None,          # if None, expects DatetimeIndex
-    agg_per_date: Optional[str] = None,      # None | "sum" | "mean" (if duplicates per date)
+    date_col: Optional[str] = None,          
+    agg_per_date: Optional[str] = None,     
     output_label_col: str = "item_label",
-    # "scat_ABC" calibration: A and B from total_sales quantiles; C from max_sales quantile
     a_quantile: float = 0.80,
     b_quantile: float = 0.50,
     c_quantile: float = 0.50,
-    # "scat_stats" calibration from per-item stats
-    stats_agg: str = "median",              # "median" | "mean"
+    stats_agg: str = "median",            
     epsilon: float = 1e-8,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
     """Label items using the rule-based `ItemClassifier`.
