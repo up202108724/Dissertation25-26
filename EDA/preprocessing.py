@@ -154,22 +154,37 @@ def inverse_transform_target(values: np.ndarray, scaler: StandardScaler,
 
 # Need to test this function with a sample dataframe to ensure it works correctly, especially the handling of log1p and inverse transformations.
 
-df = feather.read_table('C:\\Users\\andre.silva\\OneDrive - Retail Consult\\Desktop\\Dissertation25-26\\dataset\\subset_set.feather', memory_map=True).to_pandas()
-df.to_csv('C:\\Users\\andre.silva\\OneDrive - Retail Consult\\Desktop\\Dissertation25-26\\dataset\\subset_set.csv', index=False)
-train_df, encoders, scalers, onehot_cats = preprocess_features(
-            df,
-            fit_encoders=True,
-            encoding_type='onehot',
-            use_log1p=False
-        )
-
-train_df.to_csv('C:\\Users\\andre.silva\\OneDrive - Retail Consult\\Desktop\\Dissertation25-26\\dataset\\train_preprocessed.csv', index=False)
-
-train_df_recovered = train_df.copy()
-# Inverse transform 'value' column
-if 'value' in scalers:
-    train_df_recovered['value'] = inverse_transform_target(train_df['value'].values, scalers['value'], scalers)
-
-train_df_recovered.to_csv('C:\\Users\\andre.silva\\OneDrive - Retail Consult\\Desktop\\Dissertation25-26\\dataset\\train_preprocessed_recovered.csv', index=False)
+if __name__ == '__main__':
+    from pathlib import Path
+    
+    # Get the dataset path based on script location
+    script_dir = Path(__file__).parent
+    project_root = script_dir.parent
+    dataset_dir = project_root / 'dataset'
+    
+    # Load data
+    df = feather.read_table(str(dataset_dir / 'subset_set.feather'), memory_map=True).to_pandas()
+    df.to_csv(str(dataset_dir / 'subset_set.csv'), index=False)
+    
+    # Preprocess features
+    train_df, encoders, scalers, onehot_cats = preprocess_features(
+                df,
+                fit_encoders=True,
+                encoding_type='onehot',
+                use_log1p=False
+            )
+    
+    train_df.to_csv(str(dataset_dir / 'train_preprocessed.csv'), index=False)
+    
+    # Inverse transform 'value' column
+    train_df_recovered = train_df.copy()
+    if 'value' in scalers:
+        train_df_recovered['value'] = inverse_transform_target(train_df['value'].values, scalers['value'], scalers)
+    
+    train_df_recovered.to_csv(str(dataset_dir / 'train_preprocessed_recovered.csv'), index=False)
+    
+    print("✓ Preprocessing complete!")
+    print(f"  - Loaded from: {dataset_dir / 'subset_set.feather'}")
+    print(f"  - Saved to: {dataset_dir / 'train_preprocessed_recovered.csv'}")
 
 

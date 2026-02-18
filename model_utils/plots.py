@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import List, Optional
-
+from IPython.display import Image, display
 
 def create_plot_dir(base_dir: str, store_id: int, item_id: int) -> Path:
     """Create directory for saving plots for a specific item.
@@ -272,3 +272,25 @@ def plot_forecast_comparison(df: pd.DataFrame, forecast: np.ndarray,
     plt.tight_layout()
     plt.savefig(plot_dir / 'forecast_comparison.png', dpi=150, bbox_inches='tight')
     plt.close()
+
+def show_item_plots(store_id, item_id, plots_dir='./training_plots'):
+    """Display all plots for a specific item."""
+    item_dir = Path(plots_dir) / f"store_{store_id}_item_{item_id}"
+    
+    if not item_dir.exists():
+        print(f"No plots found for Store {store_id}, Item {item_id}")
+        return
+    
+    plot_files = ['data_distribution.png', 'loss_curves.png', 'forecast_comparison.png']
+    
+    for plot_file in plot_files:
+        plot_path = item_dir / plot_file
+        if plot_path.exists():
+            print(f"\n{'='*80}")
+            print(f"  {plot_file.replace('_', ' ').title().replace('.png', '')}")
+            print('='*80)
+            display(Image(filename=str(plot_path)))
+        else:
+            print(f"Plot not found: {plot_file}")
+
+# View plots for the first trained item

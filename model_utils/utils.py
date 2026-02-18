@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 
+
 def select_best_seasonal_smooth(df, top_n=100, max_zero_rate=0.2, sales_col='value', item_col='item_id', label_col='item_label', labels=('seasonal','smooth'), by='total_sales'):
     # filter seasonal / smooth
     df_sub = df[df[label_col].isin(labels)].copy()
