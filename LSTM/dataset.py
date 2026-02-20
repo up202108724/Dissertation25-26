@@ -68,28 +68,6 @@ class TimeSeriesDataset(Dataset):
         return torch.FloatTensor(x_seq), torch.FloatTensor([y_val])
 
 
-def collate_variable_length(batch):
-    """Custom collate function for variable-length sequences.
-    
-    Pads sequences to max length in batch.
-    """
-    X_list, y_list = zip(*batch)
-    
-    # Get max length in this batch
-    max_len = max(len(x) for x in X_list)
-    
-    # Pad X sequences to max length (pad at the beginning with edge values)
-    X_padded = []
-    for x in X_list:
-        padded = np.pad(x, (max_len - len(x), 0), mode='edge')  # Pad at the beginning
-        X_padded.append(padded)
-    
-    X_tensor = torch.FloatTensor(np.array(X_padded)).unsqueeze(-1)  # Shape: (batch, max_len, 1)
-    y_tensor = torch.FloatTensor(np.concatenate(y_list))  # Shape: (batch,)
-    
-    return X_tensor, y_tensor
-
-
 
 
 

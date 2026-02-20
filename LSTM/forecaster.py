@@ -1,398 +1,248 @@
 
-import pyarrow.feather as feather
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-from typing import Dict, List, Tuple
-
+import pandas as pd
 import torch
 import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-from dataset import TimeSeriesDataset
-from lstm import LSTMForecaster
+from torch.utils.data import TensorDataset, DataLoader
+from sklearn.preprocessing import MinMaxScaler
+import matplotlib.pyplot as plt
+import os
 
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# -----------------------------------------------------------------------------
+# CONFIGURATION
+# -----------------------------------------------------------------------------
+ITEM_ID = 27           # Example item_id from sample_head.csv
+STORE_ID = 6269        # Example store_id from sample_head.csv
+DATA_PATH = '../dataset/data_andre.feather' # Adjust path if needed
+TARGET_COL = 'value'
+DATE_COL = 'date'
 
-from EDA.preprocessing import preprocess_features, inverse_transform_target
-from dataset import TimeSeriesDataset, collate_variable_length
-# Import LSTM plotting utilities
-from model_utils.plots import plot_loss_curves, plot_data_distribution, plot_forecast_comparison
+N_FORECAST = 1 
+N_LOOKBACK = 60
+N_FUTURE = 365
+EPOCHS = 50            # Reduced epochs for quicker testing
+BATCH_SIZE = 32
+LEARNING_RATE = 0.001
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {DEVICE}")
+
+# -----------------------------------------------------------------------------
+# DATA LOADING & PREPROCESSING
+# -----------------------------------------------------------------------------
+print(f"Loading data from {DATA_PATH}...")
+
+# Check if file exists
+if not os.path.exists(DATA_PATH):
+    # Fallback to sample_head.csv for demonstration if feather not found
+    DATA_PATH = '../dataset/sample_head.csv'
+    print(f"Feather file not found. Loading sample data from {DATA_PATH}...")
+    df_full = pd.read_csv(DATA_PATH)
+else:
+    df_full = pd.read_feather(DATA_PATH)
+
+print(f"Filtering for Item: {ITEM_ID}, Store: {STORE_ID}...")
+# Filter for specific item and store
+df = df_full[(df_full['item_id'] == ITEM_ID) & (df_full['store_id'] == STORE_ID)].copy()
+
+if df.empty:
+    # If filtered dataframe is empty, list some available options
+    available_items = df_full['item_id'].unique()[:5]
+    available_stores = df_full['store_id'].unique()[:5]
+    print(f"Warning: No data found for Item {ITEM_ID} and Store {STORE_ID}.")
+    print(f"Available items: {available_items}")
+    print(f"Available stores: {available_stores}")
+    
+    # Just grab the first available combination to proceed with demonstration
+    ITEM_ID = available_items[0]
+    STORE_ID = df_full[df_full['item_id'] == ITEM_ID]['store_id'].unique()[0]
+    print(f"Switching to Item: {ITEM_ID}, Store: {STORE_ID}...")
+    df = df_full[(df_full['item_id'] == ITEM_ID) & (df_full['store_id'] == STORE_ID)].copy()
+
+# Ensure date is datetime and sort
+df[DATE_COL] = pd.to_datetime(df[DATE_COL])
+df = df.sort_values(DATE_COL)
+
+# Prepare target variable
+# Using 'value' as the target (sales/demand)
+y = df[TARGET_COL].fillna(method='ffill').values.reshape(-1, 1)
+
+# Scale the data
+scaler = MinMaxScaler(feature_range=(0, 1))
+scaler = scaler.fit(y)
+y_scaled = scaler.transform(y)
+
+# Generate the training sequences
+X = []
+Y = []
+
+for i in range(N_LOOKBACK, len(y_scaled) - N_FORECAST + 1):
+    X.append(y_scaled[i - N_LOOKBACK: i])
+    Y.append(y_scaled[i: i + N_FORECAST])
+
+X = np.array(X)
+Y = np.array(Y)
+
+print(f"Training data shape: X={X.shape}, Y={Y.shape}")
+
+# Convert to PyTorch tensors
+X_tensor = torch.from_numpy(X).float().to(DEVICE)
+Y_tensor = torch.from_numpy(Y).float().to(DEVICE)
+
+# Create DataLoader
+dataset = TensorDataset(X_tensor, Y_tensor)
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+# -----------------------------------------------------------------------------
+# MODEL DEFINITION (PyTorch)
+# -----------------------------------------------------------------------------
+class LSTMModel(nn.Module):
+    def __init__(self, input_size=1, hidden_size=50):
+        super(LSTMModel, self).__init__()
+        # First LSTM layer: returns sequences equivalent to return_sequences=True
+        self.lstm1 = nn.LSTM(input_size, hidden_size, batch_first=True)
+        # Second LSTM layer: equivalent to return_sequences=False (we take last output)
+        self.lstm2 = nn.LSTM(hidden_size, hidden_size, batch_first=True)
+        self.fc1 = nn.Linear(hidden_size, 25)
+        self.fc2 = nn.Linear(25, 1)
+
+    def forward(self, x):
+        # x shape: (batch_size, seq_len, input_size)
+        out, _ = self.lstm1(x)
+        # out shape: (batch_size, seq_len, hidden_size)
+        
+        out, (h_n, c_n) = self.lstm2(out)
+        # We only want the last time step output for the second LSTM layer
+        # out shape: (batch_size, seq_len, hidden_size)
+        
+        # Take the output of the last time step
+        out = out[:, -1, :] 
+        
+        out = self.fc1(out)
+        out = self.fc2(out)
+        return out
+
+torch.manual_seed(0)
+model = LSTMModel().to(DEVICE)
+criterion = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+# -----------------------------------------------------------------------------
+# TRAINING LOOP
+# -----------------------------------------------------------------------------
+print("Starting training...")
+# Only train if we have enough data
+if len(X) > 0:
+    for epoch in range(EPOCHS):
+        model.train()
+        epoch_loss = 0
+        for batch_X, batch_Y in dataloader:
+            optimizer.zero_grad()
+            outputs = model(batch_X)
+            
+            # Reshape Y if necessary to match output shape
+            loss = criterion(outputs, batch_Y.view(-1, 1))
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            
+        if (epoch + 1) % 10 == 0:
+            print(f'Epoch [{epoch+1}/{EPOCHS}], Loss: {epoch_loss/len(dataloader):.4f}')
+else:
+    print("Not enough data to train. Please check lookback period or data source.")
+    exit()
+
+# -----------------------------------------------------------------------------
+# FORECASTING
+# -----------------------------------------------------------------------------
+print(f"Generating forecasts for {N_FUTURE} days...")
+
+model.eval()
+y_future = []
+
+# Prepare initial input
+# Make sure to keep dimensions consistent (1, 60, 1)
+x_pred = X[-1:, :, :]  # Last observed input sequence (numpy)
+x_pred_tensor = torch.from_numpy(x_pred).float().to(DEVICE) # Convert to tensor for model
+
+y_pred_val = Y[-1][0] # Last observed target value (scalar)
+y_last_tensor = torch.tensor([y_pred_val]).float().to(DEVICE).view(1, 1, 1)
+
+current_input = x_pred_tensor 
+last_val = y_last_tensor
+
+with torch.no_grad():
+    for i in range(N_FUTURE):
+        # Shift window: remove first time step, append last known/predicted value
+        # current_input shape: (1, 60, 1)
+        # last_val shape: (1, 1, 1)
+        
+        # New input for prediction
+        next_input = torch.cat((current_input[:, 1:, :], last_val), dim=1)
+        
+        # Predict
+        output = model(next_input) # Output shape: (1, 1)
+        
+        val = output.item()
+        y_future.append(val)
+        
+        # Update state - we reuse next_input for shifting in next iteration
+        current_input = next_input
+        # New last val is the prediction we just made
+        last_val = output.view(1, 1, 1)
+        # last_val shape: (1, 1, 1)
+        
+        # New input for prediction
+        next_input = torch.cat((current_input[:, 1:, :], last_val), dim=1)
+        
+        # Predict
+        output = model(next_input)
+        # output shape (1, 1)
+        
+        val = output.item()
+        y_future.append(val)
+        
+        # Update state
+        current_input = next_input
+        last_val = output.view(1, 1, 1)
 
 
-class MultiProductForecaster:
-    """Forecaster for multiple products using recursive autoregressive LSTM."""
-    
-    def __init__(self, train_ratio: float = 0.6, val_ratio: float = 0.2,
-                 lookback_days: int = None,  # Ignored in autoregressive mode
-                 hidden_size: int = 128, num_layers: int = 2,
-                 save_plots: bool = True, plots_base_dir: str = './training_plots',
-                 device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
-                 use_log1p: bool = False):
-        self.train_ratio = train_ratio
-        self.val_ratio = val_ratio
-        self.test_ratio = 1.0 - train_ratio - val_ratio
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.models = {}
-        self.scalers = {}  # Will store full scalers_dict per product
-        self.forecast_horizons = {}
-        self.save_plots = save_plots
-        self.plots_base_dir = plots_base_dir
-        self.use_log1p = use_log1p  # Apply log1p to target for better handling of skewed sales data
-        self.device = device  # device for model training and inference
-        
-    def calculate_splits(self, total_length: int) -> Tuple[int, int, int]:
-        """Calculate train/val/test split indices."""
-        train_end = int(total_length * self.train_ratio)
-        val_end = int(total_length * (self.train_ratio + self.val_ratio))
-        test_length = total_length - val_end  # Forecast horizon
-        return train_end, val_end, test_length
-        
-    def prepare_data(self, df: pd.DataFrame, store_id: int, item_id: int,
-                    include_features: List[str] = None):
-        """Prepare train/val/test datasets for autoregressive LSTM.
-        
-        Creates one-step-ahead prediction pairs: [t] -> [t+1]
-        """
-        
-        # Filter to store-item
-        product_data = df[
-            (df['store_id'] == store_id) & (df['item_id'] == item_id)
-        ].sort_values('date').reset_index(drop=True)
-        
-        total_length = len(product_data)
-        train_end = int(total_length * self.train_ratio)
-        val_end = int(total_length * (self.train_ratio + self.val_ratio))
-        test_length = total_length - val_end  # Forecast horizon
-        
-        if train_end < 10:
-            print(f"Skipping item {item_id}: insufficient training data (need >10, have {train_end})")
-            return None, None, None, None, None, None
-        
-        # Plot data distribution before training (using original unscaled data)
-        if self.save_plots:
-            plot_data_distribution(product_data, store_id, item_id, train_end, val_end, self.plots_base_dir)
-        
-        # Store forecast horizon for this product
-        key = (store_id, item_id)
-        self.forecast_horizons[key] = test_length
-        
-        # ========== PROPER PREPROCESSING WITH TRAIN/VAL/TEST SPLIT ==========
-        # Split RAW data first (before any preprocessing)
-        train_raw = product_data.iloc[:train_end].copy()
-        val_raw = product_data.iloc[:val_end].copy()  # Val includes train data
-        test_raw = product_data.copy()  # Test includes all data
-        
-        # Preprocess: Fit on training data only
-        train_df, encoders, scalers, onehot_cats = preprocess_features(
-            train_raw,
-            fit_encoders=True,
-            encoding_type='onehot',  # or 'label' depending on preference
-            use_log1p=self.use_log1p
-        )
-        
-        # Transform validation and test data using training preprocessors
-        val_df, _, _, _ = preprocess_features(
-            val_raw,
-            fit_encoders=False,
-            encoding_type='onehot',
-            encoders=encoders,
-            scalers=scalers,
-            onehot_categories=onehot_cats,
-            use_log1p=self.use_log1p
-        )
-        
-        test_df, _, _, _ = preprocess_features(
-            test_raw,
-            fit_encoders=False,
-            encoding_type='onehot',
-            encoders=encoders,
-            scalers=scalers,
-            onehot_categories=onehot_cats,
-            use_log1p=self.use_log1p
-        )
-        
-        # Store full scalers_dict for inverse transform during prediction
-        # Contains 'value' scaler, 'use_log1p' flag, encoders, and onehot_categories
-        scalers['encoders'] = encoders
-        scalers['onehot_categories'] = onehot_cats
-        self.scalers[key] = scalers
-        
-        # Create datasets (autoregressive: no lookback, no forecast_horizon params)
-        train_dataset = TimeSeriesDataset(
-            train_df, store_id=store_id, item_id=item_id
-        )
-        
-        val_dataset = TimeSeriesDataset(
-            val_df, store_id=store_id, item_id=item_id
-        )
-        
-        test_dataset = TimeSeriesDataset(
-            test_df, store_id=store_id, item_id=item_id
-        )
-        
-        print(f"  Total: {total_length} | Train: {train_end} | Val: {val_end-train_end} | Test: {test_length}")
-        print(f"  One-step pairs - Train: {len(train_dataset)} | Val: {len(val_dataset)} | Test: {len(test_dataset)}")
-        
-        return train_dataset, val_dataset, test_dataset, scalers, test_length, product_data
-    
-    def train_product(self, store_id: int, item_id: int, 
-                     train_dataset: TimeSeriesDataset, val_dataset: TimeSeriesDataset,
-                     forecast_horizon: int, num_epochs: int = 50, 
-                     learning_rate: float = 0.001, batch_size: int = 32,
-                     early_stopping_patience: int = 10):
-        """Train LSTM model for single-step-ahead prediction."""
-        
-        if train_dataset is None or len(train_dataset) == 0:
-            return None, None
-        
-        # Create data loaders with custom collate function for variable-length sequences
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_variable_length)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_variable_length) if val_dataset and len(val_dataset) > 0 else None
-        
-        # Initialize model (univariate autoregressive: input_size=1, outputs single value)
-        model = LSTMForecaster(
-            input_size=1,  # Single value input
-            hidden_size=self.hidden_size,
-            num_layers=self.num_layers
-        ).to(self.device)
-        
-        # Loss and optimizer
-        criterion = nn.MSELoss()
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        
-        # Training loop with validation
-        train_losses = []
-        val_losses = []
-        best_val_loss = float('inf')
-        patience_counter = 0
-        best_model_state = None
-        
-        for epoch in range(num_epochs):
-            # Training phase
-            model.train()
-            total_train_loss = 0
-            for X_batch, y_batch in train_loader:
-                X_batch = X_batch.to(self.device)
-                y_batch = y_batch.to(self.device)
-                
-                # Forward pass
-                outputs = model(X_batch)
-                loss = criterion(outputs, y_batch)
-                
-                # Backward pass
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                
-                total_train_loss += loss.item()
-            
-            avg_train_loss = total_train_loss / len(train_loader)
-            train_losses.append(avg_train_loss)
-            
-            # Validation phase
-            if val_loader:
-                model.eval()
-                total_val_loss = 0
-                with torch.no_grad():
-                    for X_batch, y_batch in val_loader:
-                        X_batch = X_batch.to(self.device)
-                        y_batch = y_batch.to(self.device)
-                        outputs = model(X_batch)
-                        loss = criterion(outputs, y_batch)
-                        total_val_loss += loss.item()
-                
-                avg_val_loss = total_val_loss / len(val_loader)
-                val_losses.append(avg_val_loss)
-                
-                # Early stopping check
-                if avg_val_loss < best_val_loss:
-                    best_val_loss = avg_val_loss
-                    patience_counter = 0
-                    best_model_state = model.state_dict().copy()
-                else:
-                    patience_counter += 1
-                
-                if (epoch + 1) % 10 == 0:
-                    print(f"  Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
-                
-                # Early stopping
-                if patience_counter >= early_stopping_patience:
-                    print(f"  Early stopping at epoch {epoch+1}")
-                    break
-            else:
-                if (epoch + 1) % 10 == 0:
-                    print(f"  Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}")
-        
-        # Load best model
-        if best_model_state is not None:
-            model.load_state_dict(best_model_state)
-        
-        # Plot loss curves
-        if self.save_plots:
-            plot_loss_curves(train_losses, val_losses, store_id, item_id, self.plots_base_dir)
-        
-        # Store model
-        key = (store_id, item_id)
-        self.models[key] = model
-        
-        return model, {'train_losses': train_losses, 'val_losses': val_losses}
-    
-    def predict(self, store_id: int, item_id: int, 
-                recent_data: pd.DataFrame, include_features: List[str] = None) -> np.ndarray:
-        """
-        Generate recursive forecast using all available history.
-        
-        For each prediction step, uses ALL history from start up to current day.
-        
-        Parameters
-        ----------
-        store_id, item_id : int
-            Product identifier
-        recent_data : pd.DataFrame
-            Full historical data for the product
-        include_features : List[str], optional
-            Ignored in univariate mode
-        
-        Returns
-        -------
-        np.ndarray
-            Forecast (unscaled, original units) with length = forecast_horizon
-        """
-        key = (store_id, item_id)
-        
-        if key not in self.models:
-            print(f"No model found for store {store_id}, item {item_id}")
-            return None
-        
-        model = self.models[key]
-        scalers_dict = self.scalers[key]
-        value_scaler = scalers_dict['value']
-        forecast_horizon = self.forecast_horizons.get(key, 20)
-        
-        # Filter to product and sort by date
-        product_data = recent_data[
-            (recent_data['store_id'] == store_id) & 
-            (recent_data['item_id'] == item_id)
-        ].sort_values('date')
-        
-        if len(product_data) == 0:
-            print(f"No data found for store {store_id}, item {item_id}")
-            return None
-        
-        # Preprocess all data
-        preprocessed_data, _, _, _ = preprocess_features(
-            product_data,
-            fit_encoders=False,
-            encoding_type='onehot',
-            encoders=scalers_dict.get('encoders', {}),
-            scalers=scalers_dict,
-            onehot_categories=scalers_dict.get('onehot_categories', {}),
-            use_log1p=self.use_log1p
-        )
-        
-        # Extract scaled values - this will be our growing history
-        history_scaled = preprocessed_data['value'].values.tolist()
-        
-        # Recursive forecasting: maintain all history
-        forecast_scaled = []
-        model.eval()
-        
-        with torch.no_grad():
-            for step in range(forecast_horizon):
-                # Create input: all history up to current step
-                history_array = np.array(history_scaled, dtype=np.float32)
-                x_input = torch.FloatTensor(history_array).unsqueeze(0).unsqueeze(-1)  # Shape: (1, history_len, 1)
-                
-                # Predict next value
-                next_value_scaled = model(x_input).cpu().numpy()[0]
-                forecast_scaled.append(next_value_scaled)
-                
-                # Add prediction to history for next iteration
-                history_scaled.append(next_value_scaled)
-        
-        # Convert to numpy array
-        forecast_scaled = np.array(forecast_scaled)
-        
-        # Inverse transform to original units
-        forecast = inverse_transform_target(forecast_scaled, value_scaler, scalers_dict)
-        
-        return forecast
-    
-    def train_all_products(self, df: pd.DataFrame, store_id: int = None,
-                          num_epochs: int = 50, learning_rate: float = 0.001,
-                          include_features: List[str] = None):
-        """Train models for all products in the dataset.
-        
-        Uses recursive autoregressive forecasting (one-step-ahead predictions).
-        
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Preprocessed dataframe with encoded/scaled features
-        store_id : int, optional
-            If provided, train only for this store
-        num_epochs : int
-            Number of training epochs
-        learning_rate : float
-            Adam optimizer learning rate
-        include_features : List[str], optional
-            Ignored in univariate autoregressive mode
-        """
-        
-        if store_id is not None:
-            product_pairs = [(store_id, item_id) for item_id in df[df['store_id'] == store_id]['item_id'].unique()]
-        else:
-            product_pairs = df.groupby(['store_id', 'item_id']).size().index.tolist()
-        
-        results = {}
-        
-        print(f"\n{'='*80}")
-        print(f"Training Recursive Autoregressive LSTM for {len(product_pairs)} products")
-        print(f"Mode: One-step-ahead predictions (univariate)")
-        print(f"Train {self.train_ratio:.0%} | Val {self.val_ratio:.0%} | Test {self.test_ratio:.0%}")
-        if self.save_plots:
-            print(f"Plots will be saved to: {self.plots_base_dir}")
-        print(f"{'='*80}\n")
-        
-        for i, (s_id, i_id) in enumerate(product_pairs):
-            print(f"[{i+1}/{len(product_pairs)}] Training model for Store {s_id}, Item {i_id}")
-            
-            # Prepare data
-            result_tuple = self.prepare_data(df, s_id, i_id, include_features=include_features)
-            
-            if result_tuple[0] is None:
-                continue
-            
-            train_ds, val_ds, test_ds, scaler, forecast_horizon, product_data = result_tuple
-            
-            # Train model with validation
-            model, losses = self.train_product(
-                s_id, i_id, train_ds, val_ds, forecast_horizon,
-                num_epochs=num_epochs, 
-                learning_rate=learning_rate
-            )
-            
-            # Generate forecast and plot comparison
-            if model is not None:
-                forecast = self.predict(s_id, i_id, df, include_features=include_features)
-                if forecast is not None and self.save_plots:
-                    val_end = int(len(product_data) * (self.train_ratio + self.val_ratio))
-                    plot_forecast_comparison(product_data, forecast, s_id, i_id, val_end, self.plots_base_dir)
-            
-            results[(s_id, i_id)] = {
-                'model': model,
-                'losses': losses,
-                'train_size': len(train_ds) if train_ds else 0,
-                'val_size': len(val_ds) if val_ds else 0,
-                'test_size': len(test_ds) if test_ds else 0,
-                'forecast_horizon': forecast_horizon
-            }
-        
-        return results
+# transform the forecasts back to the original scale
+y_future = np.array(y_future).reshape(-1, 1)
+y_future = scaler.inverse_transform(y_future)
+
+# -----------------------------------------------------------------------------
+# RESULTS
+# -----------------------------------------------------------------------------
+# Organize the results in a data frame
+df_past = df[[DATE_COL, TARGET_COL]].copy()
+df_past.rename(columns={DATE_COL: 'Date', TARGET_COL: 'Actual'}, inplace=True)
+df_past['Forecast'] = np.nan
+
+# Prepare forecast dataframe
+last_date = df_past['Date'].iloc[-1]
+future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=N_FUTURE)
+
+df_future = pd.DataFrame({
+    'Date': future_dates,
+    'Forecast': y_future.flatten(),
+    'Actual': np.nan
+})
+
+results = pd.concat([df_past, df_future]).set_index('Date')
+
+# Plot the results
+plt.figure(figsize=(14, 7))
+plt.plot(results.index, results['Actual'], label='Actual Sales')
+plt.plot(results.index, results['Forecast'], label='Forecast', color='orange')
+plt.title(f'Sales Forecast for Item {ITEM_ID} (Store {STORE_ID})')
+plt.xlabel('Date')
+plt.ylabel('Sales Value')
+plt.legend()
+plt.grid(True)
+plt.savefig('../forecast_plot.png')
+print("Plot saved as ../forecast_plot.png")
+
+
+
+
+
