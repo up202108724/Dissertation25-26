@@ -6,31 +6,18 @@ import numpy as np
 import pandas as pd
 from typing import List, Tuple
 from torch.utils.data import Dataset, DataLoader
-
+from torch.nn.utils.rnn import pad_sequence
+from loguru import logger
 class TimeSeriesDataset(Dataset):
-    """Dataset for recursive autoregressive LSTM time series forecasting.
+    """Dataset for LSTM time series forecasting with fixed lookback window.
     
-    Uses all available history up to each point:
-    [all_history_from_start_to_t] -> [t+1]
+    Creates sequences: [t-lookback:t] -> [t+1]
     """
     
-    def __init__(self, data: pd.DataFrame, lookback: int = None, forecast_horizon: int = None, 
+    def __init__(self, data: pd.DataFrame, lookback: int = 30, forecast_horizon: int = None, 
                  store_id: int = None, item_id: int = None,
                  include_features: List[str] = None):
-        """
-        Parameters
-        ----------
-        data : pd.DataFrame
-            DataFrame with columns: date, store_id, item_id, value, and optional features
-        lookback : int, optional
-            Ignored in this mode (all history is used)
-        forecast_horizon : int, optional
-            Ignored in this mode
-        store_id, item_id : int, optional
-            If provided, filter to specific store-item pair
-        include_features : List[str], optional
-            Not used in univariate mode
-        """
+
         # Filter data if store/item specified
         if store_id is not None and item_id is not None:
             data = data[(data['store_id'] == store_id) & (data['item_id'] == item_id)].copy()
@@ -40,54 +27,47 @@ class TimeSeriesDataset(Dataset):
         
         # Extract target (sales values) - univariate only
         self.values = data['value'].values
+        self.lookback = lookback
         
-        # Create variable-length sequences: all history up to t -> t+1
+        # Create fixed-length sequences: [t-lookback:t] -> [t+1]
         self.X, self.y = self._create_sequences()
         
     def _create_sequences(self):
-        """Create pairs where input is all history from start to t, output is t+1"""
+        
         X, y = [], []
         
-        # For each point, use all history from start to that point
-        for i in range(1, len(self.values)):
-            x_seq = self.values[:i]  # All history from start to current point
-            y_val = self.values[i]    # Next value to predict
-            
+        # Start from lookback position (need at least lookback points)
+        for i in range(self.lookback, len(self.values)):
+            x_seq = self.values[i-self.lookback:i]  # Fixed lookback window
+            y_val = self.values[i]                   # Next value to predict
             X.append(x_seq)
             y.append(y_val)
         
-        return X, np.array(y, dtype=np.float32)
+        X_array = np.array(X, dtype=np.float32)
+        y_array = np.array(y, dtype=np.float32)
+        
+        logger.info(f"Sequence creation complete:")
+        logger.info(f"  Total time series length: {len(self.values)}")
+        logger.info(f"  Lookback window: {self.lookback}")
+        logger.info(f"  Sequences created: {len(X_array)}")
+        logger.info(f"  X shape: {X_array.shape} (num_sequences, lookback)")
+        logger.info(f"  y shape: {y_array.shape} (num_sequences,)")
+        
+        return X_array, y_array
     
     def __len__(self):
         return len(self.y)
     
     def __getitem__(self, idx):
-        """Return variable-length sequence and its target value"""
-        x_seq = self.X[idx]  # Variable length array
-        y_val = self.y[idx]
-        return torch.FloatTensor(x_seq), torch.FloatTensor([y_val])
-
-
-def collate_variable_length(batch):
-    """Custom collate function for variable-length sequences.
-    
-    Pads sequences to max length in batch.
-    """
-    X_list, y_list = zip(*batch)
-    
-    # Get max length in this batch
-    max_len = max(len(x) for x in X_list)
-    
-    # Pad X sequences to max length (pad at the beginning with edge values)
-    X_padded = []
-    for x in X_list:
-        padded = np.pad(x, (max_len - len(x), 0), mode='edge')  # Pad at the beginning
-        X_padded.append(padded)
-    
-    X_tensor = torch.FloatTensor(np.array(X_padded)).unsqueeze(-1)  # Shape: (batch, max_len, 1)
-    y_tensor = torch.FloatTensor(np.concatenate(y_list))  # Shape: (batch,)
-    
-    return X_tensor, y_tensor
+        """Return fixed-length sequence and target value"""
+        x_seq = self.X[idx]  # Shape: (lookback,)
+        y_val = self.y[idx]  # Shape: scalar
+        
+        # Convert to tensors and reshape for LSTM
+        x_tensor = torch.FloatTensor(x_seq).unsqueeze(-1)  # (lookback,) -> (lookback, 1)
+        y_tensor = torch.FloatTensor([y_val])  # (1,)
+        
+        return x_tensor, y_tensor
 
 
 

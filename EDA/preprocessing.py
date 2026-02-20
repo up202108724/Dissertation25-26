@@ -126,11 +126,13 @@ def preprocess_features(df: pd.DataFrame,
         for col in numerical_cols:
             df[col] = df[col].fillna(0)
             
+
+            df[col] = scalers[col].transform(df[[col]]).flatten()
             # Apply log1p transformation if it was used in training
             if use_log1p_from_train and col == 'value':
                 df[col] = np.log1p(df[col])
             
-            df[col] = scalers[col].transform(df[[col]]).flatten()
+            #df[col] = scalers[col].transform(df[[col]]).flatten()
     
     return df, encoders_dict, scalers_dict, onehot_dict
 
@@ -154,6 +156,7 @@ def inverse_transform_target(values: np.ndarray, scaler: StandardScaler,
 
 # Need to test this function with a sample dataframe to ensure it works correctly, especially the handling of log1p and inverse transformations.
 
+'''
 if __name__ == '__main__':
     from pathlib import Path
     
@@ -188,3 +191,4 @@ if __name__ == '__main__':
     print(f"  - Saved to: {dataset_dir / 'train_preprocessed_recovered.csv'}")
 
 
+'''
