@@ -1,12 +1,13 @@
 import matplotlib.pyplot as plt
 
+# Redefine plot_results to support saving
 def plot_results(train, val, test, forecast, 
                 train_index, val_index, test_index, 
                 train_losses, val_losses, 
-                target_col='value', title='Forecast vs Actual'):
+                target_col='value', title='Forecast vs Actual', save_path=None):
     
     # Visualize results
-    _, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
     
     # Plot forecast vs actual - ax1
     ax1.plot(train_index, train, label='Train', alpha=0.7)
@@ -29,5 +30,9 @@ def plot_results(train, val, test, forecast,
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.show()
     
+    if save_path:
+        plt.savefig(save_path)
+        plt.close(fig)  # Close the figure to free memory
+    else:
+        plt.show()

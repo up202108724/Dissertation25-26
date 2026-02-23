@@ -9,13 +9,15 @@ class MLP(nn.Module):
         # Input layer
         layers.append(nn.Linear(self.flatten_dim, hidden_size))
         layers.append(nn.ReLU())
-        layers.append(nn.Dropout(dropout))
+        if dropout > 0:
+            layers.append(nn.Dropout(dropout))
         
         # Hidden layers
         for _ in range(num_layers - 1):
             layers.append(nn.Linear(hidden_size, hidden_size))
             layers.append(nn.ReLU())
-            layers.append(nn.Dropout(dropout))
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
             
         # Output layer
         layers.append(nn.Linear(hidden_size, 1))
