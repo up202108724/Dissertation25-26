@@ -1,0 +1,5 @@
+/dataset
+__pycache__
+/.venv
+/LSTM/grid_search_plots
+

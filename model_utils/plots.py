@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import pandas as pd
+import matplotlib.dates as mdates
 
 # Redefine plot_results to support saving
 def plot_results(train, val, test, forecast, 
@@ -14,11 +16,24 @@ def plot_results(train, val, test, forecast,
     ax1.plot(val_index, val, label='Validation', alpha=0.7, color='orange')
     ax1.plot(test_index, test, label='Actual Test', linewidth=2, color='green')
     ax1.plot(test_index, forecast, label='Forecast', linestyle='--', linewidth=2, color='red')
+    
+    # Set x-axis major ticks to every 100 days
+    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=100))
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    
+    # Pinpoint specific dates
+    ax1.axvline(pd.to_datetime('2022-09-24'), color='purple', linestyle=':', linewidth=2, label='2022-09-24')
+    if len(test_index) > 0:
+        ax1.axvline(test_index[-1], color='brown', linestyle=':', linewidth=2, label='Last Date')
+        
     ax1.legend()
     ax1.set_title(title)
-    ax1.set_xlabel('Time')
+    ax1.set_xlabel('Date')
     ax1.set_ylabel(target_col)
     ax1.grid(True, alpha=0.3)
+    
+    # Rotate x-axis labels for better readability
+    fig.autofmt_xdate()
     
     # Plot training loss - ax2
     ax2.plot(train_losses, label='Train Loss')
