@@ -2,4 +2,9 @@
 __pycache__
 /.venv
 /LSTM/training_plots
+grid_search_plots/
+best_models/
+grid_search_results.csv
+training_logs/
+
 

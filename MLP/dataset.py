@@ -30,8 +30,7 @@ class TimeSeriesDataset(Dataset):
             # exog_seq: (seq_length, n_exog)
             exog_seq = self.exog_data[idx:idx + self.seq_length]
 
-            # target_seq.unsqueeze(1): (seq_length, 1)
-            # x: (seq_length, 1 + n_exog)
+
             x = torch.cat([target_seq.unsqueeze(1), exog_seq], dim=1)
         else:
             x = target_seq.unsqueeze(1)  # (seq_length, 1)
