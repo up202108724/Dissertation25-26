@@ -1,9 +1,0 @@
-item_id,store_id,order,seasonal_order,rmse,mae,plot_path
-26008,6269,"(1, 1, 1)","(0, 0, 0, 0)",63.43416247765483,41.17651724978074,"grid_search_plots/sarimax_item26008_store6269_order(1, 1, 1)_seasonal(0, 0, 0, 0).png"
-26008,6269,"(1, 1, 1)","(1, 0, 1, 12)",63.963713554363416,42.20709071644246,"grid_search_plots/sarimax_item26008_store6269_order(1, 1, 1)_seasonal(1, 0, 1, 12).png"
-26008,6269,"(2, 1, 2)","(0, 0, 0, 0)",63.46467947317686,41.07252377127652,"grid_search_plots/sarimax_item26008_store6269_order(2, 1, 2)_seasonal(0, 0, 0, 0).png"
-26008,6269,"(2, 1, 2)","(1, 0, 1, 12)",63.96947265730476,42.15254027975824,"grid_search_plots/sarimax_item26008_store6269_order(2, 1, 2)_seasonal(1, 0, 1, 12).png"
-921558,6269,"(1, 1, 1)","(0, 0, 0, 0)",5.852024629959177,4.682804031888339,"grid_search_plots/sarimax_item921558_store6269_order(1, 1, 1)_seasonal(0, 0, 0, 0).png"
-921558,6269,"(1, 1, 1)","(1, 0, 1, 12)",5.851642800028421,4.687633382620358,"grid_search_plots/sarimax_item921558_store6269_order(1, 1, 1)_seasonal(1, 0, 1, 12).png"
-921558,6269,"(2, 1, 2)","(0, 0, 0, 0)",5.878322278662603,4.712942133529941,"grid_search_plots/sarimax_item921558_store6269_order(2, 1, 2)_seasonal(0, 0, 0, 0).png"
-921558,6269,"(2, 1, 2)","(1, 0, 1, 12)",5.887496107265339,4.7273851439060195,"grid_search_plots/sarimax_item921558_store6269_order(2, 1, 2)_seasonal(1, 0, 1, 12).png"
