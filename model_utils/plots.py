@@ -24,7 +24,8 @@ def plot_results(train, val, test, forecast,
     # Pinpoint specific dates
     ax1.axvline(pd.to_datetime('2022-09-24'), color='purple', linestyle=':', linewidth=2, label='2022-09-24')
     if len(test_index) > 0:
-        ax1.axvline(test_index[-1], color='brown', linestyle=':', linewidth=2, label='Last Date')
+        # Use .iloc[-1] to access the last element by position, not by label
+        ax1.axvline(test_index.iloc[-1], color='brown', linestyle=':', linewidth=2, label='Last Date')
         
     ax1.legend()
     ax1.set_title(title)
