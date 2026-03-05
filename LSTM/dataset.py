@@ -27,7 +27,7 @@ class TimeSeriesDataset(Dataset):
         
         if self.has_exog:
             # Combine target with exogenous variables
-            exog_seq = self.exog_data[idx:idx+self.seq_length]
+            exog_seq = self.exog_data[idx+1:idx+self.seq_length+1]  # Align exog with target sequence
             # Stack target and exog features: shape (seq_length, 1 + n_exog)
             x = np.column_stack([target_seq.reshape(-1, 1), exog_seq])
         else:
