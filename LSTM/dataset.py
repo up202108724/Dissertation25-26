@@ -1,9 +1,17 @@
 import torch
 from torch.utils.data import Dataset
 import numpy as np
+
 class TimeSeriesDataset(Dataset):
     def __init__(self, target_data, exog_data, seq_length):
-       
+        """
+        Dataset for time series with optional exogenous variables.
+        
+        Args:
+            target_data: Scaled target variable data
+            exog_data: Scaled exogenous variables data (can be None)
+            seq_length: Length of input sequences
+        """
         self.target_data = target_data
         self.exog_data = exog_data
         self.seq_length = seq_length

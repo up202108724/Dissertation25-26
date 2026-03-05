@@ -1,13 +1,29 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 import matplotlib.dates as mdates
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # Redefine plot_results to support saving
 def plot_results(train, val, test, forecast, 
                 train_index, val_index, test_index, 
                 train_losses, val_losses, 
-                target_col='value', title='Forecast vs Actual', save_path=None):
+                target_col='value', title='Forecast vs Actual', save_path=None,
+                rmse=None, mae=None, bias=None, score=None):
     
+    # Calculate metrics if not provided
+    if rmse is None:
+        rmse = np.sqrt(mean_squared_error(test, forecast))
+    if mae is None:
+        mae = mean_absolute_error(test, forecast)
+    if bias is None:
+        bias = np.mean(forecast - test)
+    if score is None:
+        score = r2_score(test, forecast)
+        
+    # Update title
+    title = f"{title}\nRMSE: {rmse:.4f} | MAE: {mae:.4f} | Bias: {bias:.4f} | Score: {score:.4f}"
+
     # Visualize results
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
     
@@ -25,7 +41,11 @@ def plot_results(train, val, test, forecast,
     ax1.axvline(pd.to_datetime('2022-09-24'), color='purple', linestyle=':', linewidth=2, label='2022-09-24')
     if len(test_index) > 0:
         # Use .iloc[-1] to access the last element by position, not by label
-        ax1.axvline(test_index.iloc[-1], color='brown', linestyle=':', linewidth=2, label='Last Date')
+        if hasattr(test_index, 'iloc'):
+            last_date = test_index.iloc[-1]
+        else:
+            last_date = test_index[-1]
+        ax1.axvline(last_date, color='brown', linestyle=':', linewidth=2, label='Last Date')
         
     ax1.legend()
     ax1.set_title(title)
