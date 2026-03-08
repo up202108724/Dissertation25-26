@@ -1,7 +1,7 @@
-import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import matplotlib.dates as mdates
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # Redefine plot_results to support saving
@@ -9,7 +9,7 @@ def plot_results(train, val, test, forecast,
                 train_index, val_index, test_index, 
                 train_losses, val_losses, 
                 target_col='value', title='Forecast vs Actual', save_path=None,
-                rmse=None, mae=None, bias=None, score=None):
+                rmse=None, mae=None, bias=None, score=None, df_full=None):
     
     # Calculate metrics if not provided
     if rmse is None:
@@ -22,64 +22,105 @@ def plot_results(train, val, test, forecast,
         score = r2_score(test, forecast)
         
     # Update title
-    title = f"{title}\nRMSE: {rmse:.4f} | MAE: {mae:.4f} | Bias: {bias:.4f} | Score: {score:.4f}"
+    full_title = f"{title}<br>RMSE: {rmse:.4f} | MAE: {mae:.4f} | Bias: {bias:.4f} | Score: {score:.4f}"
 
     # Visualize results
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 15))
+    fig = make_subplots(rows=3, cols=1, 
+                        subplot_titles=(full_title, 'Test vs Forecast', 'Training and Validation Loss'),
+                        vertical_spacing=0.1)
     
     # Plot forecast vs actual - ax1
-    ax1.plot(train_index, train, label='Train', alpha=0.7)
-    ax1.plot(val_index, val, label='Validation', alpha=0.7, color='orange')
-    ax1.plot(test_index, test, label='Actual Test', linewidth=2, color='green')
-    ax1.plot(test_index, forecast, label='Forecast', linestyle='--', linewidth=2, color='red')
-    
-    # Set x-axis major ticks to every 100 days
-    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=100))
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    fig.add_trace(go.Scatter(x=train_index, y=train, name='Train', opacity=0.7, mode='lines'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=val_index, y=val, name='Validation', opacity=0.7, mode='lines', line=dict(color='orange')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=test_index, y=forecast, name='Forecast', mode='lines', line=dict(color='red', width=2, dash='dash')), row=1, col=1)
     
     # Pinpoint specific dates
-    ax1.axvline(pd.to_datetime('2022-09-24'), color='purple', linestyle=':', linewidth=2, label='2022-09-24')
+    fig.add_vline(x='2022-09-24', line_dash="dot", line_color="purple", line_width=2, row=1, col=1)
     if len(test_index) > 0:
         # Use .iloc[-1] to access the last element by position, not by label
         if hasattr(test_index, 'iloc'):
             last_date = test_index.iloc[-1]
         else:
             last_date = test_index[-1]
-        ax1.axvline(last_date, color='brown', linestyle=':', linewidth=2, label='Last Date')
+        fig.add_vline(x=last_date, line_dash="dot", line_color="brown", line_width=2, row=1, col=1)
         
-    ax1.legend()
-    ax1.set_title(title)
-    ax1.set_xlabel('Date')
-    ax1.set_ylabel(target_col)
-    ax1.grid(True, alpha=0.3)
+    # Mark promotion days using scatter points
+    if df_full is not None:
+        # Detect promo columns dynamically
+        promo_type_cols = [c for c in df_full.columns if c.startswith('promo_type_')]
+        promo_colors = ['rgba(255, 0, 255, 0.5)', 'rgba(0, 255, 255, 0.5)', 'rgba(255, 255, 0, 0.5)']
+        color_idx = 0
+        
+        for promo_col in promo_type_cols:
+            promo_dates = df_full[df_full[promo_col] == 1]['date']
+            # Find the target values for these dates across train, val, and test to correctly place markers
+            y_vals = []
+            valid_dates = []
+            
+            for d in promo_dates:
+                # Combine train, val, test arrays and indices
+                all_idx = np.concatenate([train_index, val_index, test_index])
+                all_y = np.concatenate([train, val, test])
+                
+                # Check if date is in indices
+                if d in all_idx:
+                    idx_pos = np.where(all_idx == d)[0][0]
+                    y_vals.append(all_y[idx_pos])
+                    valid_dates.append(d)
+                    
+            if valid_dates:
+                 color = promo_colors[color_idx % len(promo_colors)]
+                 promo_name = promo_col.replace('promo_type_', '')
+                 # Add scatter points where promotions occur
+                 fig.add_trace(go.Scatter(x=valid_dates, y=y_vals, mode='markers',
+                                          name=f'Promo: {promo_name}',
+                                          marker=dict(color=color, size=10, symbol='star')), 
+                               row=1, col=1)
+                 color_idx += 1
+                 
+    # Set tick format for x-axis to 3 months     
+    fig.update_xaxes(
+        title_text='Date', 
+        dtick="M3", 
+        tickformat="%b\n%Y",
+        row=1, col=1
+    )
+    fig.update_yaxes(title_text=target_col, row=1, col=1)
     
     # Plot forecast vs actual test only - ax2
-    ax2.plot(test_index, test, label='Actual Test', linewidth=2, color='green')
-    ax2.plot(test_index, forecast, label='Forecast', linestyle='--', linewidth=2, color='red')
-    ax2.xaxis.set_major_locator(mdates.DayLocator(interval=30))
-    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    ax2.legend()
-    ax2.set_title('Test vs Forecast')
-    ax2.set_xlabel('Date')
-    ax2.set_ylabel(target_col)
-    ax2.grid(True, alpha=0.3)
+    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test (Zoom)', mode='lines', line=dict(color='green', width=2), showlegend=False), row=2, col=1)
+    fig.add_trace(go.Scatter(x=test_index, y=forecast, name='Forecast (Zoom)', mode='lines', line=dict(color='red', width=2, dash='dash'), showlegend=False), row=2, col=1)
+    
+    fig.update_xaxes(
+        title_text='Date',
+        dtick="M3",
+        tickformat="%b\n%Y",
+        row=2, col=1
+    )
+    fig.update_yaxes(title_text=target_col, row=2, col=1)
 
-    # Rotate x-axis labels for better readability
-    fig.autofmt_xdate()
-    
     # Plot training loss - ax3
-    ax3.plot(train_losses, label='Train Loss')
-    ax3.plot(val_losses, label='Validation Loss')
-    ax3.legend()
-    ax3.set_title('Training and Validation Loss')
-    ax3.set_xlabel('Epoch')
-    ax3.set_ylabel('Loss')
-    ax3.grid(True, alpha=0.3)
+    epochs = list(range(1, len(train_losses) + 1))
+    fig.add_trace(go.Scatter(x=epochs, y=train_losses, name='Train Loss', mode='lines'), row=3, col=1)
+    fig.add_trace(go.Scatter(x=epochs, y=val_losses, name='Validation Loss', mode='lines'), row=3, col=1)
     
-    plt.tight_layout()
+    fig.update_yaxes(title_text='Loss', row=3, col=1)
+    fig.update_xaxes(title_text='Epoch', row=3, col=1)
+    
+    fig.update_layout(height=1200, width=1000, 
+                      hovermode="x unified",
+                      template="plotly_white")
     
     if save_path:
-        plt.savefig(save_path)
-        plt.close(fig)  # Close the figure to free memory
+        if save_path.endswith('.html'):
+            fig.write_html(save_path)
+        else:
+            # If kaleido is installed, it can save to png/jpg/pdf. 
+            # Otherwise we'll fallback to writing html if it fails.
+            try:
+                fig.write_image(save_path)
+            except Exception:
+                fig.write_html(save_path + '.html')
     else:
-        plt.show()
+        fig.show()
