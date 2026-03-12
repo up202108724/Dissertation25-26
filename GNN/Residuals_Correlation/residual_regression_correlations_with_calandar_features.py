@@ -1,84 +1,16 @@
 
 import pandas as pd
-
-
-def _compute_residuals(
-    df: pd.DataFrame,
-    node_col: str = "item_id",
-    date_col: str = "date",
-    value_col: str = "value",
-    trend_window: int = 7,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Compute expected values and residuals per node, then return both
-    the long dataframe and the wide residual matrix.
-
-    Residuals are defined as:
-        residual = observed - expected
-
-    Expected values are computed from:
-    - a shifted rolling mean over the previous `trend_window` observations
-    - with a shifted expanding mean fallback for early periods
-    """
-    data = df[[node_col, date_col, value_col]].copy()
-    data[date_col] = pd.to_datetime(data[date_col])
-    data = data.sort_values([node_col, date_col])
-
-    min_periods = max(2, trend_window // 2)
-
-    rolling_trend = data.groupby(node_col)[value_col].transform(
-        lambda s: s.rolling(window=trend_window, min_periods=min_periods).mean().shift(1)
-    )
-
-    fallback = data.groupby(node_col)[value_col].transform(
-        lambda s: s.expanding().mean().shift(1)
-    )
-
-    data["expected"] = rolling_trend.fillna(fallback)
-    data["residual"] = data[value_col] - data["expected"]
-
-    residuals_wide = data.pivot(index=date_col, columns=node_col, values="residual")
-
-    return data, residuals_wide
-
 import numpy as np
-import pandas as pd
 
 
 def _prepare_regression_design(
     df: pd.DataFrame,
     feature_cols: list[str],
     categorical_cols: list[str] | None = None,
-    cyclical_periods: dict[str, float] | None = None,
     drop_first: bool = True,
 ) -> tuple[pd.DataFrame, list[str]]:
-    """
-    Build a regression design matrix from user-selected variables.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input dataframe.
-    feature_cols : list[str]
-        Columns to include in the regression.
-    categorical_cols : list[str] | None
-        Subset of feature_cols to one-hot encode.
-    cyclical_periods : dict[str, float] | None
-        Mapping like {"doy": 365.25, "day_of_week": 7}.
-        For each listed column, creates sin/cos features instead of using
-        the raw column directly.
-    drop_first : bool
-        Whether to drop the first dummy level.
-
-    Returns
-    -------
-    X : pd.DataFrame
-        Numeric design matrix.
-    used_feature_names : list[str]
-        Final column names used in X.
-    """
+    
     categorical_cols = categorical_cols or []
-    cyclical_periods = cyclical_periods or {}
 
     missing = [c for c in feature_cols if c not in df.columns]
     if missing:
@@ -86,16 +18,7 @@ def _prepare_regression_design(
 
     X = df[feature_cols].copy()
 
-    # Replace cyclical columns by sin/cos features
-    for col, period in cyclical_periods.items():
-        if col not in X.columns:
-            raise ValueError(f"Cyclical column '{col}' must also be in feature_cols")
-        angle = 2 * np.pi * X[col].astype(float) / float(period)
-        X[f"{col}_sin"] = np.sin(angle)
-        X[f"{col}_cos"] = np.cos(angle)
-        X = X.drop(columns=[col])
-
-    # One-hot encode chosen categorical columns, excluding those replaced by cyclical features
+    # One-hot encode chosen categorical columns
     effective_categoricals = [c for c in categorical_cols if c in X.columns]
     if effective_categoricals:
         X = pd.get_dummies(X, columns=effective_categoricals, drop_first=drop_first, dtype=float)
@@ -173,52 +96,15 @@ def _compute_regression_residuals(
     value_col: str = "value",
     feature_cols: list[str] | None = None,
     categorical_cols: list[str] | None = None,
-    cyclical_periods: dict[str, float] | None = None,
     fit_mode: str = "full_sample",   # "full_sample" or "expanding"
     min_train_size: int = 28,
     drop_first: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Compute regression-based expected values and residuals per item.
 
-    Residuals are defined as:
-        residual = observed - expected
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input dataframe.
-    node_col, date_col, value_col : str
-        Item id, date, and target columns.
-    feature_cols : list[str]
-        User-selected regressors.
-    categorical_cols : list[str] | None
-        Subset of feature_cols to dummy encode.
-    cyclical_periods : dict[str, float] | None
-        Example: {"doy": 365.25, "day_of_week": 7}
-    fit_mode : str
-        "full_sample" for one OLS per item on the whole series.
-        "expanding" for past-only predictions.
-    min_train_size : int
-        Minimum past observations for expanding OLS.
-    drop_first : bool
-        Passed to pd.get_dummies.
-
-    Returns
-    -------
-    data : pd.DataFrame
-        Long dataframe with expected and residual columns.
-    residuals_wide : pd.DataFrame
-        Wide residual matrix (index=date, columns=item_id).
-    """
     if not feature_cols:
         raise ValueError("feature_cols must contain at least one regressor")
 
     required = [node_col, date_col, value_col] + feature_cols
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns: {missing}")
-
     data = df[required].copy()
     data[date_col] = pd.to_datetime(data[date_col])
     data = data.sort_values([node_col, date_col]).reset_index(drop=True)
@@ -228,7 +114,6 @@ def _compute_regression_residuals(
         data,
         feature_cols=feature_cols,
         categorical_cols=categorical_cols,
-        cyclical_periods=cyclical_periods,
         drop_first=drop_first,
     )
 
@@ -261,3 +146,48 @@ def _compute_regression_residuals(
     )
 
     return data, residuals_wide
+def build_residual_regression_correlation_graph(
+    df: pd.DataFrame,
+    node_col: str = "item_id",
+    date_col: str = "date",
+    value_col: str = "value",
+    feature_cols: list[str] | None = None,
+    categorical_cols: list[str] | None = None,
+    fit_mode: str = "full_sample",
+    min_train_size: int = 28,
+    drop_first: bool = True,
+    min_overlap: int = 10,
+    corr_method: str = "pearson",
+    corr_threshold: float = 0.2,
+    absolute_corr: bool = True,
+):
+    """
+    Build a residual-correlation adjacency list from daily node evolution,
+    using regression residuals instead of raw values.
+
+    See `build_residual_correlation_graph` for parameter explanations.
+    """
+    data, residuals_wide = _compute_regression_residuals(
+        df=df,
+        node_col=node_col,
+        date_col=date_col,
+        value_col=value_col,
+        feature_cols=feature_cols,
+        categorical_cols=categorical_cols,
+        fit_mode=fit_mode,
+        min_train_size=min_train_size,
+        drop_first=drop_first,
+    )
+
+    corr_matrix = residuals_wide.corr(method=corr_method, min_periods=min_overlap)
+
+    if absolute_corr:
+        corr_matrix = corr_matrix.abs()
+
+    adj_list = {}
+    for node in corr_matrix.columns:
+        neighbors = corr_matrix.index[corr_matrix[node] >= corr_threshold].tolist()
+        neighbors.remove(node)  # Remove self-correlation
+        adj_list[node] = neighbors
+
+    return adj_list, corr_matrix

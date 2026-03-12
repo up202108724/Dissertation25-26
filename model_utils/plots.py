@@ -9,7 +9,7 @@ def plot_results(train, val, test, forecast,
                 train_index, val_index, test_index, 
                 train_losses, val_losses, 
                 target_col='value', title='Forecast vs Actual', save_path=None,
-                rmse=None, mae=None, bias=None, score=None, df_full=None):
+                rmse=None, mae=None, bias=None, score=None, pocid=None, df_full=None):
     
     # Calculate metrics if not provided
     if rmse is None:
@@ -22,7 +22,7 @@ def plot_results(train, val, test, forecast,
         score = r2_score(test, forecast)
         
     # Update title
-    full_title = f"{title}<br>RMSE: {rmse:.4f} | MAE: {mae:.4f} | Bias: {bias:.4f} | Score: {score:.4f}"
+    full_title = f"{title}<br>RMSE: {rmse:.4f} | MAE: {mae:.4f} | Bias: {bias:.4f} | Score: {score:.4f} | POCID: {pocid:.4f}"
 
     # Visualize results
     fig = make_subplots(rows=3, cols=1, 
