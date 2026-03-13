@@ -33,7 +33,7 @@ def build_standardscaled_distance_graph(
     )
     dist_matrix = squareform(pdist(df_scaled.T.values, metric="euclidean"))
     item_ids = df_scaled.columns.tolist()
-    G = nx.Graph()
+    G = nx.Graph(name="StandardScaled_Distance_Graph")
     G.add_nodes_from(item_ids)
     n=len(item_ids)
     for i in range(n):
@@ -91,7 +91,7 @@ def build_dtw_graph(
     n = len(item_ids)
     dist_matrix = np.zeros((n, n), dtype=float)
 
-    G = nx.Graph()
+    G = nx.Graph(name="DTW_Graph")
     G.add_nodes_from(item_ids)
 
     # 5) Pairwise DTW distances
@@ -106,7 +106,6 @@ def build_dtw_graph(
             dist_matrix[i, j] = d
             dist_matrix[j, i] = d
             #print(f"Computed DTW distance between {item_ids[i]} and {item_ids[j]}: {d:.4f}")
-            
             if d <= distance_value_threshold:
                 G.add_edge(item_ids[i], item_ids[j], weight=float(d))
                 print(f"Added edge between {item_ids[i]} and {item_ids[j]} with DTW distance: {d:.4f}")
@@ -177,7 +176,7 @@ def build_cid_graph(
 
     cid_df = pd.DataFrame(cid_matrix, index=item_ids, columns=item_ids)
 
-    G = nx.Graph()
+    G = nx.Graph(name="CID_Graph")
     G.add_nodes_from(item_ids)
 
     threshold = distance_value_threshold
