@@ -41,8 +41,7 @@ def build_standardscaled_distance_graph(
             if dist_matrix[i, j] <= distance_value_threshold:
                 G.add_edge(item_ids[i], item_ids[j], weight=float(dist_matrix[i, j]))
                 print(f"Added edge between {item_ids[i]} and {item_ids[j]} with DTW distance: {dist_matrix[i, j]:.4f}")
-    print("Number of nodes in the DTW graph:", G.number_of_nodes())
-    print("Number of edges in the DTW graph:", G.number_of_edges())
+
 
     dist_df = pd.DataFrame(dist_matrix, index=item_ids, columns=item_ids)
     
