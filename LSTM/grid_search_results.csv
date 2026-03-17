@@ -1,2 +1,2 @@
 seed,loss_type,item_id,store_id,batch_size,hidden_size,dropout,rmse,mae,train_time,inference_time,best_epoch,plot_path
-2024,MSELoss,916110,6269,32,32,0.0,8.715307725210693,6.904333591461182,8.845150232315063,0.0619969367980957,87,grid_search_plots/seed_2024/MSELoss/lstm_item916110_store6269.png
+2024,MSELoss,916110,6269,32,32,0.0,8.812651071538655,6.933314323425293,8.917827844619751,0.07900261878967285,52,grid_search_plots/seed_2024/MSELoss/lstm_item916110_store6269.png
