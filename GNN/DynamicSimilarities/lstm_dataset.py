@@ -3,122 +3,78 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 
-class TimeSeriesDataset(Dataset):
-    def __init__(self, target_data, exog_data, seq_length):
-        """
-        Dataset for time series with optional exogenous variables.
-        
-        Args:
-            target_data: Scaled target variable data
-            exog_data: Scaled exogenous variables data (can be None)
-            seq_length: Length of input sequences
-        """
-        self.target_data = target_data
-        self.exog_data = exog_data
-        self.seq_length = seq_length
-        self.has_exog = exog_data is not None
-    
-    def __len__(self):
-        return len(self.target_data) - self.seq_length
-    
-    def __getitem__(self, idx):
-        # Target sequence and label
-        target_seq = self.target_data[idx:idx+self.seq_length]
-        y = self.target_data[idx+self.seq_length]
-        
-        if self.has_exog:
-            # Combine target with exogenous variables
-            exog_seq = self.exog_data[idx+1:idx+self.seq_length+1]  # Align exog with target sequence
-            # Stack target and exog features: shape (seq_length, 1 + n_exog)
-            x = np.column_stack([target_seq.reshape(-1, 1), exog_seq])
-        else:
-            x = target_seq.reshape(-1, 1)
-        
-        return torch.FloatTensor(x), torch.FloatTensor([y])
-
-class DynamicGraphTimeSeriesDataset(Dataset):
+class GraphAwareTimeSeriesDataset(Dataset):
     def __init__(
-        self, 
-        target_data, 
-        exog_data, 
-        date_data,
-        seq_length, 
-        dynamic_graphs, 
-        dynamic_features, 
-        graph_window_info
+        self,
+        panel_df,              # pd.DataFrame shape: (T, N), index=dates, columns=global_items
+        seq_length,
+        horizon,
+        graph_window_info,
+        item_to_idx,
+        exog_df=None,          # pd.DataFrame shape: (T, F_exog), index=dates
     ):
         """
-        Dataset for time series that intelligently fetches the most recent valid graph context.
-        
-        Args:
-            target_data: Target variable data (e.g. sales)
-            exog_data: Exogenous variables data (can be None)
-            date_data: Array or series of dates corresponding to each time step
-            seq_length: Length of LSTM input sequences (e.g. 28)
-            dynamic_graphs: List of adjacency matrices/edge_indices for each graph window
-            dynamic_features: List of computed node feature tensors for each graph window
-            graph_window_info: List of dicts with 'start_date' and 'end_date' for each window
+        Retail Panel dataset that extracts temporally valid target and exogenous sequences
+        for each item, mapped natively to its dynamic graph index.
         """
-        self.target_data = target_data
-        self.exog_data = exog_data
-        self.date_data = pd.to_datetime(date_data)  # Ensure datetime format for exact comparisons
+        self.panel = panel_df.values.astype(np.float32)
+        self.dates = pd.to_datetime(panel_df.index)
+        self.items = list(panel_df.columns)
+        self.item_to_idx = item_to_idx
         self.seq_length = seq_length
-        self.has_exog = exog_data is not None
+        self.horizon = horizon
         
-        self.dynamic_graphs = dynamic_graphs
-        self.dynamic_features = dynamic_features
-        self.graph_window_info = graph_window_info
-        
-        # Pre-process window dates for rapid lookup during __getitem__
-        self.window_end_dates = pd.to_datetime([info['end_date'] for info in graph_window_info])
-        
-    def __len__(self):
-        return len(self.target_data) - self.seq_length
-    
-    def _find_latest_valid_graph_index(self, target_date):
-        """
-        Finds the index of the most recent graph that was completed on or before `target_date`.
-        """
-        # Find all windows that ended before or on the current target date
-        valid_indices = np.where(self.window_end_dates <= target_date)[0]
-        
-        if len(valid_indices) == 0:
-            # If we ask for a date so early that NO graph window has finished yet,
-            # fallback to the very first available graph (or handle as 0 padding)
-            return 0
-            
-        # Return the index of the most recently finished window
-        return valid_indices[-1]
-    
-    def __getitem__(self, idx):
-        # 1. Temporal sequence preparation (Standard LSTM logic)
-        target_seq = self.target_data[idx : idx + self.seq_length]
-        
-        # The exact day we are predicting sales for
-        forecast_horizon_idx = idx + self.seq_length
-        y = self.target_data[forecast_horizon_idx]
-        
-        # The last day the LSTM has access to (the day before the prediction)
-        last_observed_date = self.date_data.iloc[forecast_horizon_idx - 1] if isinstance(self.date_data, pd.Series) else self.date_data[forecast_horizon_idx - 1]
-        
-        # Compile temporal features X
+        self.has_exog = exog_df is not None
         if self.has_exog:
-            exog_seq = self.exog_data[idx + 1 : forecast_horizon_idx + 1] 
-            x_ts = np.column_stack([target_seq.reshape(-1, 1), exog_seq])
-        else:
-            x_ts = target_seq.reshape(-1, 1)
-            
-        # 2. Structural Dynamic Graph preparation
-        # Find which graph snapshot was structurally valid as of `last_observed_date`
-        graph_idx = self._find_latest_valid_graph_index(last_observed_date)
-        
-        # Extract the correctly synched graph matrices
-        graph_adj = self.dynamic_graphs[graph_idx]
-        graph_x = self.dynamic_features[graph_idx]
-        
-        return (
-            torch.FloatTensor(x_ts), 
-            torch.FloatTensor([y]),
-            graph_adj,  # The adjacency structure valid for this exact timestamp
-            graph_x     # The node features valid for this exact timestamp
+            self.exog = exog_df.values.astype(np.float32)
+
+        self.graph_end_dates = pd.to_datetime(
+            [w["end_date"] for w in graph_window_info]
         )
+
+        self.samples = []
+
+        if len(self.graph_end_dates) == 0:
+            return
+
+        T, N = self.panel.shape
+
+        # We construct dataset starting ONLY from points where the history is long enough for the LSTM
+        # AND enough time has passed that a valid graph is available.
+        for t in range(seq_length - 1, T - horizon):
+            last_observed_date = self.dates[t]
+
+            valid_graph_idx = np.where(self.graph_end_dates <= last_observed_date)[0]
+            if len(valid_graph_idx) == 0:
+                continue # PREVENT LEAKAGE: Wait until at least one graph exists
+
+            graph_idx = valid_graph_idx[-1]
+
+            # Append a distinct sample per item in the network!
+            for item_idx in range(N):
+                self.samples.append((t, item_idx, graph_idx))
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        # We unpack our precalculated pointer coordinates!
+        t, item_idx, graph_idx = self.samples[idx]
+
+        # Extract sequence from time t - L + 1 up to t, for the specific item
+        ts_x = self.panel[t - self.seq_length + 1 : t + 1, item_idx:item_idx+1]
+        
+        # Extract target horizons up to t + horizon, for the specific item
+        y = self.panel[t + 1 : t + 1 + self.horizon, item_idx]
+
+        # Align exogenous variables perfectly natively inside the feature block
+        if self.has_exog:
+            exog_x = self.exog[t - self.seq_length + 1 : t + 1]
+            ts_x = np.column_stack([ts_x, exog_x])
+
+        return {
+            "ts_x": torch.tensor(ts_x, dtype=torch.float32),
+            "y": torch.tensor(y, dtype=torch.float32),
+            "graph_idx": torch.tensor(graph_idx, dtype=torch.long),
+            "target_node_idx": torch.tensor(item_idx, dtype=torch.long),
+        }
