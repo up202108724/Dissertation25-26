@@ -34,8 +34,8 @@ def build_statistical_similarity_graph(
     item_ids = sim_df.columns.tolist()
 
     # 3) Build graph
-    G = nx.Graph(name=f"{similarity_method.capitalize()}_Similarity_Graph")
-    G.add_nodes_from(item_ids)
+    adj_list = {item_id: [] for item_id in item_ids}
+    num_edges = 0
 
     n = len(item_ids)
 
@@ -56,12 +56,10 @@ def build_statistical_similarity_graph(
                 edge_weight = abs(sim_value) if use_absolute_similarity else sim_value
 
                 if use_absolute_similarity or sim_value >= similarity_threshold:
-                    G.add_edge(
-                        item_ids[i],
-                        neighbor_id,
-                        weight=float(edge_weight),
-                        similarity=float(sim_value)
-                    )
+                    adj_list[item_ids[i]].append((neighbor_id, float(edge_weight), float(sim_value)))
+                    # Note: k-NN is not necessarily symmetric. Adding inverse edge if desired:
+                    # adj_list[neighbor_id].append((item_ids[i], float(edge_weight), float(sim_value)))
+                    num_edges += 1
                     print(
                         f"Added edge between {item_ids[i]} and {neighbor_id} "
                         f"with {similarity_method} similarity: {sim_value:.4f}"
@@ -85,21 +83,18 @@ def build_statistical_similarity_graph(
                 )
 
                 if condition:
-                    G.add_edge(
-                        item_ids[i],
-                        item_ids[j],
-                        weight=float(edge_weight),
-                        similarity=float(sim_value)
-                    )
+                    adj_list[item_ids[i]].append((item_ids[j], float(edge_weight), float(sim_value)))
+                    adj_list[item_ids[j]].append((item_ids[i], float(edge_weight), float(sim_value)))
+                    num_edges += 1
                     print(
                         f"Added edge between {item_ids[i]} and {item_ids[j]} "
                         f"with {similarity_method} similarity: {sim_value:.4f}"
                     )
 
-    print(f"Number of nodes in the {similarity_method} graph:", G.number_of_nodes())
-    print(f"Number of edges in the {similarity_method} graph:", G.number_of_edges())
+    print(f"Number of nodes in the {similarity_method} graph:", len(adj_list))
+    print(f"Number of edges in the {similarity_method} graph:", num_edges)
 
-    return G, sim_df, df_pivot
+    return adj_list, sim_df, df_pivot
 
 def build_dynamic_similarity_graphs(
     df: pd.DataFrame,
@@ -138,7 +133,7 @@ def build_dynamic_similarity_graphs(
         
         print(f"\nBuilding graph for window: {start_date} to {end_date}")
         
-        G, sim_df, df_pivot = build_statistical_similarity_graph(
+        adj_list, sim_df, df_pivot = build_statistical_similarity_graph(
             df=df_window,
             date_col=date_col,
             item_col=item_col,
@@ -150,10 +145,8 @@ def build_dynamic_similarity_graphs(
             use_absolute_similarity=use_absolute_similarity
         )
         
-        G.graph["start_date"] = start_date
-        G.graph["end_date"] = end_date
-        
-        graphs.append(G)
+        # We can store the window explicitly in the list or elsewhere since adj_list is a dict
+        graphs.append(adj_list)
         sim_dfs.append(sim_df)
         df_pivots.append(df_pivot)
         window_info.append({"start_date": start_date, "end_date": end_date})

@@ -29,11 +29,14 @@ def plot_results(train, val, test, forecast,
                         subplot_titles=(full_title, 'Test vs Forecast', 'Training and Validation Loss'),
                         vertical_spacing=0.1)
     
+    # Define a common hovertemplate to include date and value
+    hover_temp = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
+
     # Plot forecast vs actual - ax1
-    fig.add_trace(go.Scatter(x=train_index, y=train, name='Train', opacity=0.7, mode='lines'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=val_index, y=val, name='Validation', opacity=0.7, mode='lines', line=dict(color='orange')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=test_index, y=forecast, name='Forecast', mode='lines', line=dict(color='red', width=2, dash='dash')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=train_index, y=train, name='Train', opacity=0.7, mode='lines', hovertemplate=hover_temp), row=1, col=1)
+    fig.add_trace(go.Scatter(x=val_index, y=val, name='Validation', opacity=0.7, mode='lines', line=dict(color='orange'), hovertemplate=hover_temp), row=1, col=1)
+    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2), hovertemplate=hover_temp), row=1, col=1)
+    fig.add_trace(go.Scatter(x=test_index, y=forecast, name='Forecast', mode='lines', line=dict(color='red', width=2, dash='dash'), hovertemplate=hover_temp), row=1, col=1)
     
     # Pinpoint specific dates
     fig.add_vline(x='2022-09-24', line_dash="dot", line_color="purple", line_width=2, row=1, col=1)
@@ -89,8 +92,8 @@ def plot_results(train, val, test, forecast,
     fig.update_yaxes(title_text=target_col, row=1, col=1)
     
     # Plot forecast vs actual test only - ax2
-    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test (Zoom)', mode='lines', line=dict(color='green', width=2), showlegend=False), row=2, col=1)
-    fig.add_trace(go.Scatter(x=test_index, y=forecast, name='Forecast (Zoom)', mode='lines', line=dict(color='red', width=2, dash='dash'), showlegend=False), row=2, col=1)
+    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test (Zoom)', mode='lines', line=dict(color='green', width=2), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
+    fig.add_trace(go.Scatter(x=test_index, y=forecast, name='Forecast (Zoom)', mode='lines', line=dict(color='red', width=2, dash='dash'), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
     
     fig.update_xaxes(
         title_text='Date',
