@@ -1,91 +1,112 @@
+import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset
-import numpy as np
+from torch.utils.data import Sampler, Dataset, DataLoader
+import networkx as nx
+import time
+from collections import defaultdict
+import random
 
-class DynamicGraphTimeSeriesDataset(Dataset):
-    def __init__(
-        self, 
-        target_data, 
-        exog_data, 
-        date_data,
-        seq_length, 
-        dynamic_graphs, 
-        dynamic_features, 
-        graph_window_info
-    ):
-        """
-        Dataset for time series that intelligently fetches the most recent valid graph context.
+class GraphBatchSampler(Sampler):
+    def __init__(self, dataset, batch_size, shuffle=True):
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.shuffle = shuffle
         
-        Args:
-            target_data: Target variable data (e.g. sales)
-            exog_data: Exogenous variables data (can be None)
-            date_data: Array or series of dates corresponding to each time step
-            seq_length: Length of LSTM input sequences (e.g. 28)
-            dynamic_graphs: List of adjacency matrices/edge_indices for each graph window
-            dynamic_features: List of computed node feature tensors for each graph window
-            graph_window_info: List of dicts with 'start_date' and 'end_date' for each window
-        """
-        self.target_data = target_data
-        self.exog_data = exog_data
-        self.date_data = pd.to_datetime(date_data)  # Ensure datetime format for exact comparisons
-        self.seq_length = seq_length
-        self.has_exog = exog_data is not None
+        # 1. Agrupar os índices das amostras pelo seu graph_idx
+        self.graph_to_indices = defaultdict(list)
         
-        self.dynamic_graphs = dynamic_graphs
-        self.dynamic_features = dynamic_features
-        self.graph_window_info = graph_window_info
+        for idx in range(len(dataset)):
+            # No teu SingleItemGraphDataset as amostras estão gravadas como (t, graph_idx)
+            _, graph_idx = dataset.samples[idx] 
+            self.graph_to_indices[graph_idx].append(idx)
+            
+    def __iter__(self):
+        batches = []
         
-        # Pre-process window dates for rapid lookup during __getitem__
-        self.window_end_dates = pd.to_datetime([info['end_date'] for info in graph_window_info])
+        # 2. Para cada grafo, dividir as suas amostras em batches
+        for graph_idx, indices in self.graph_to_indices.items():
+            if self.shuffle:
+                random.shuffle(indices) # Baralhar as amostras dentro do mesmo grafo
+                
+            # Criar os blocos de tamanho "batch_size" para este graph_idx
+            for i in range(0, len(indices), self.batch_size):
+                batch = indices[i : i + self.batch_size]
+                batches.append(batch)
+                
+        # 3. Baralhar a ordem dos lotes (batches) no treino
+        # Isto garante que o modelo não treina todas as janelas de Janeiro e só depois as de Fevereiro
+        if self.shuffle:
+            random.shuffle(batches)
+            
+        return iter(batches)
         
     def __len__(self):
-        return len(self.target_data) - self.seq_length
-    
-    def _find_latest_valid_graph_index(self, target_date):
-        """
-        Finds the index of the most recent graph that was completed on or before `target_date`.
-        """
-        # Find all windows that ended before or on the current target date
-        valid_indices = np.where(self.window_end_dates <= target_date)[0]
+        # Retorna o número total de batches
+        total_batches = 0
+        for indices in self.graph_to_indices.values():
+            total_batches += (len(indices) + self.batch_size - 1) // self.batch_size
+        return total_batches
+
+class SingleItemGraphDataset(Dataset):
+    def __init__(self, data, exog_data, seq_length, dates, window_info, item_node_idx):
+        self.data = np.array(data)
+        self.exog_data = np.array(exog_data) if exog_data is not None else None
+        self.seq_length = seq_length
+        self.dates = pd.to_datetime(pd.Series(dates)).reset_index(drop=True)
+        self.item_node_idx = item_node_idx
         
-        if len(valid_indices) == 0:
-            # If we ask for a date so early that NO graph window has finished yet,
-            # fallback to the very first available graph (or handle as 0 padding)
-            return 0
+        self.graph_end_dates = pd.to_datetime([w["end_date"] for w in window_info])
+        self.samples = []
+        
+        # Start at exactly seq_length so t - seq_length is 0 for the first item
+        for t in range(seq_length, len(data) - 1): # horizon = 1
+            last_observed_date = self.dates[t-1]
+            valid_graph_idx = np.where(self.graph_end_dates <= last_observed_date)[0]
+            if len(valid_graph_idx) == 0:
+                continue
             
-        # Return the index of the most recently finished window
-        return valid_indices[-1]
-    
+            graph_idx = valid_graph_idx[-1]
+            self.samples.append((t, graph_idx))
+            
+    def __len__(self):
+        return len(self.samples)
+        
     def __getitem__(self, idx):
-        # 1. Temporal sequence preparation (Standard LSTM logic)
-        target_seq = self.target_data[idx : idx + self.seq_length]
+        t, graph_idx = self.samples[idx]
         
-        # The exact day we are predicting sales for
-        forecast_horizon_idx = idx + self.seq_length
-        y = self.target_data[forecast_horizon_idx]
+        # Now t starts at exactly seq_length. 
+        # For target history: [0 : seq_length]
+        seq_univariate = self.data[t - self.seq_length : t]
         
-        # The last day the LSTM has access to (the day before the prediction)
-        last_observed_date = self.date_data.iloc[forecast_horizon_idx - 1] if isinstance(self.date_data, pd.Series) else self.date_data[forecast_horizon_idx - 1]
-        
-        # Compile temporal features X
-        if self.has_exog:
-            exog_seq = self.exog_data[idx + 1 : forecast_horizon_idx + 1] 
-            x_ts = np.column_stack([target_seq.reshape(-1, 1), exog_seq])
+        if self.exog_data is not None:
+            # For exog history shifted 1 step forward: [1 : seq_length + 1]
+            exog_seq = self.exog_data[t - self.seq_length + 1 : t + 1]
+            seq = np.column_stack((seq_univariate, exog_seq))
         else:
-            x_ts = target_seq.reshape(-1, 1)
+            seq = seq_univariate.reshape(-1, 1)
             
-        # 2. Structural Dynamic Graph preparation
-        # Find which graph snapshot was structurally valid as of `last_observed_date`
-        graph_idx = self._find_latest_valid_graph_index(last_observed_date)
+        y = self.data[t]
         
-        # Extract the correctly synched graph matrices
-        graph_adj = self.dynamic_graphs[graph_idx]
-        graph_x = self.dynamic_features[graph_idx]
-        
-        return (
-            torch.FloatTensor(x_ts), 
-            torch.FloatTensor([y]),
-            graph_adj,  # The adjacency structure valid for this exact timestamp
-            graph_x     # The node features valid for this exact timestamp
-        )
+        return {
+            "ts_x": torch.tensor(seq, dtype=torch.float32),
+            "y": torch.tensor(y, dtype=torch.float32),
+            "graph_idx": torch.tensor(graph_idx, dtype=torch.long),
+            "target_node_idx": torch.tensor(self.item_node_idx, dtype=torch.long)
+        }
+
+def get_adj_matrix(adj_list):
+    # adj_list is dict {node_id: [(neighbor, weight, sim), ...]}
+    nodes = list(adj_list.keys())
+    n = len(nodes)
+    node_to_idx = {node: i for i, node in enumerate(nodes)}
+    adj = np.zeros((n, n), dtype=np.float32)
+    for u, edges in adj_list.items():
+        if u not in node_to_idx:
+            continue
+        u_idx = node_to_idx[u]
+        for v, weight, sim in edges:
+            if v in node_to_idx:
+                v_idx = node_to_idx[v]
+                adj[u_idx, v_idx] = weight
+    return adj
