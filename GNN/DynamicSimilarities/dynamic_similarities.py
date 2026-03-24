@@ -67,10 +67,12 @@ def build_statistical_similarity_graph(
                         weight=float(edge_weight),
                         similarity=float(sim_value)
                     )
+                    '''
                     print(
                         f"Added edge between {item_ids[i]} and {neighbor_id} "
                         f"with {similarity_method} similarity: {sim_value:.4f}"
                     )
+                    '''
 
     else:
         # Threshold graph
@@ -96,10 +98,12 @@ def build_statistical_similarity_graph(
                         weight=float(edge_weight),
                         similarity=float(sim_value)
                     )
+                    '''
                     print(
                         f"Added edge between {item_ids[i]} and {item_ids[j]} "
                         f"with {similarity_method} similarity: {sim_value:.4f}"
                     )
+                    '''
 
     print(f"Number of nodes in the {similarity_method} graph:", G.number_of_nodes())
     print(f"Number of edges in the {similarity_method} graph:", G.number_of_edges())
@@ -175,18 +179,18 @@ if __name__ == "__main__":
     
     BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
     DATA_PATH = os.path.join(BASE_DIR, 'dataset', 'independent_items.feather')
-    OUTPUT_PATH = os.path.join(os.path.dirname(__file__), 'dynamic_graphs_output.pkl')
+    
     
     DATE_COL = 'date'
     TARGET_COL = 'value'
     ITEM_COL = 'item_id'
     
-    WINDOW_SIZE = 15
-    STEP_SIZE = 7
+    WINDOW_SIZE = 7
+    STEP_SIZE = 1
     SIMILARITY_METHOD = "kendall"
-    SIMILARITY_THRESHOLD = 0.7
+    SIMILARITY_THRESHOLD = 0.8
     NUM_ITEMS = 100
-    
+    OUTPUT_PATH = os.path.join(os.path.dirname(__file__), f'dynamic_graphs_output_{SIMILARITY_METHOD}_{SIMILARITY_THRESHOLD}_Window{WINDOW_SIZE}_Step{STEP_SIZE}.pkl')
     print(f"Loading data from {DATA_PATH}...")
     df = pd.read_feather(DATA_PATH)
     
@@ -223,6 +227,8 @@ if __name__ == "__main__":
         similarity_method=SIMILARITY_METHOD,
         similarity_threshold=SIMILARITY_THRESHOLD
     )
+    
+  
     
     # 2. Computar os node features para cada janela do grafo
     def compute_window_node_features(df_pivot: pd.DataFrame):
@@ -275,3 +281,6 @@ if __name__ == "__main__":
         pickle.dump(output_data, f)
         
     print("Done! Data exported successfully.")
+    
+    from plot import save_dynamic_graph_plots
+    save_dynamic_graph_plots(graphs, SIMILARITY_METHOD, node_categories=None, window_size=WINDOW_SIZE, step_size=STEP_SIZE)
