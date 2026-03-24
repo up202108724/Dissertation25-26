@@ -105,6 +105,8 @@ class GCN_LSTM_InitState(nn.Module):
         h_last = lstm_out[:, -1, :]
         return self.fc(h_last)
 
+
+
 class GCN_LSTM_ConcatPerStep(nn.Module):
     def __init__(self, ts_input_dim, lstm_hidden_dim, graph_embed_dim, horizon=1):
         super().__init__()
