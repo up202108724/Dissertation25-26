@@ -1,7 +1,12 @@
+import sys
+import os
+import pickle
+import torch
 import pandas as pd
 import numpy as np
 import networkx as nx
-
+sys.path.append(os.path.abspath('..'))
+sys.path.append(os.path.abspath('../..'))
 
 def build_statistical_similarity_graph(
     df: pd.DataFrame,
@@ -98,7 +103,7 @@ def build_statistical_similarity_graph(
 
     print(f"Number of nodes in the {similarity_method} graph:", G.number_of_nodes())
     print(f"Number of edges in the {similarity_method} graph:", G.number_of_edges())
-
+    
     return G, sim_df, df_pivot
 
 def build_dynamic_similarity_graphs(
@@ -159,3 +164,114 @@ def build_dynamic_similarity_graphs(
         window_info.append({"start_date": start_date, "end_date": end_date})
         
     return graphs, sim_dfs, df_pivots, window_info
+
+if __name__ == "__main__":
+   
+    
+    # 1. Definir caminhos e hiperparâmetros
+    # Como o script é executado a partir de c:/Users/Andre Silva/Desktop/Dissertation25-26/ (devido ao terminal),
+    # o caminho relativo para o dataset deve ser dataset/independent_items.feather 
+    # ou podemos usar os caminhos absolutos definindo a raiz.
+    
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    DATA_PATH = os.path.join(BASE_DIR, 'dataset', 'independent_items.feather')
+    OUTPUT_PATH = os.path.join(os.path.dirname(__file__), 'dynamic_graphs_output.pkl')
+    
+    DATE_COL = 'date'
+    TARGET_COL = 'value'
+    ITEM_COL = 'item_id'
+    
+    WINDOW_SIZE = 15
+    STEP_SIZE = 7
+    SIMILARITY_METHOD = "kendall"
+    SIMILARITY_THRESHOLD = 0.7
+    NUM_ITEMS = 100
+    
+    print(f"Loading data from {DATA_PATH}...")
+    df = pd.read_feather(DATA_PATH)
+    
+    # Handle DATE_COL (ensure it is a column and not in the index)
+    if DATE_COL not in df.columns:
+        if DATE_COL in df.index.names:
+            df = df.reset_index(level=DATE_COL)
+        else:
+            # Fallback: se apenas tiver um index complexo, reset genérico
+            df = df.reset_index()
+            
+            # Se ainda assim não encontrar, é possível que a coluna se chame 'Date' em vez de 'date'
+            if DATE_COL not in df.columns and DATE_COL.capitalize() in df.columns:
+                df = df.rename(columns={DATE_COL.capitalize(): DATE_COL})
+            elif DATE_COL not in df.columns and DATE_COL.upper() in df.columns:
+                df = df.rename(columns={DATE_COL.upper(): DATE_COL})
+
+    # Filtro opcional: limitar aos primeiros N produtos, como no notebook
+    top_items = df[ITEM_COL].unique()[:NUM_ITEMS]
+    df = df[df[ITEM_COL].isin(top_items)]
+    
+    # Garantir ordenação temporal
+    df[DATE_COL] = pd.to_datetime(df[DATE_COL])
+    df = df.sort_values([DATE_COL, ITEM_COL]).reset_index(drop=True)
+    
+    print("Building dynamic similarity graphs...")
+    graphs, sim_dfs, df_pivots, window_info = build_dynamic_similarity_graphs(
+        df,
+        date_col=DATE_COL,
+        item_col=ITEM_COL,
+        target_col=TARGET_COL,
+        window_size=WINDOW_SIZE,
+        step_size=STEP_SIZE,
+        similarity_method=SIMILARITY_METHOD,
+        similarity_threshold=SIMILARITY_THRESHOLD
+    )
+    
+    # 2. Computar os node features para cada janela do grafo
+    def compute_window_node_features(df_pivot: pd.DataFrame):
+        num_items = df_pivot.shape[1]
+        window_size = df_pivot.shape[0]
+        features = []
+        
+        for j in range(num_items):
+            item_ts = df_pivot.iloc[:, j].values
+            last_demand = item_ts[-1] if window_size > 0 else 0
+            mean7 = np.mean(item_ts[-7:]) if window_size >= 7 else np.mean(item_ts)
+            mean28 = np.mean(item_ts[-28:]) if window_size >= 28 else np.mean(item_ts)
+            std28 = np.std(item_ts[-28:]) if window_size >= 28 else np.std(item_ts)
+            if window_size >= 28:
+                zero_ratio28 = np.mean(item_ts[-28:] == 0)
+                slope28 = np.polyfit(np.arange(28), item_ts[-28:], 1)[0]
+                min_28 = np.min(item_ts[-28:])
+                max_28 = np.max(item_ts[-28:])
+            elif window_size > 1:
+                zero_ratio28 = np.mean(item_ts == 0)
+                slope28 = np.polyfit(np.arange(window_size), item_ts, 1)[0]
+                min_28 = np.min(item_ts)
+                max_28 = np.max(item_ts)
+            else:
+                zero_ratio28 = np.mean(item_ts == 0)
+                slope28 = 0.0
+                min_28 = item_ts[0] if window_size > 0 else 0
+                max_28 = item_ts[0] if window_size > 0 else 0
+                
+            features.append([last_demand, mean7, mean28, std28, zero_ratio28, slope28, min_28, max_28])
+        return np.array(features)
+
+    print("Computing dynamic graph features...")
+    dynamic_graph_features = []
+    for pivot_table in df_pivots:
+        feats = compute_window_node_features(pivot_table)
+        dynamic_graph_features.append(torch.tensor(feats, dtype=torch.float32))
+
+    # 3. Empacotar tudo num dicionário e guardar
+    output_data = {
+        'graphs': graphs,
+        'sim_dfs': sim_dfs,
+        'df_pivots': df_pivots,
+        'window_info': window_info,
+        'dynamic_graph_features': dynamic_graph_features
+    }
+    
+    print(f"Exporting results to {OUTPUT_PATH}...")
+    with open(OUTPUT_PATH, 'wb') as f:
+        pickle.dump(output_data, f)
+        
+    print("Done! Data exported successfully.")

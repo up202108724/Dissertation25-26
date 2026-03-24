@@ -108,19 +108,48 @@ class GCN_LSTM_InitState(nn.Module):
 
 
 class GCN_LSTM_ConcatPerStep(nn.Module):
-    def __init__(self, ts_input_dim, lstm_hidden_dim, graph_embed_dim, horizon=1):
+    def __init__(
+        self,
+        gcn_model,
+        lstm_input_size,
+        lstm_hidden_size,
+        lstm_num_layers,
+        gcn_embed_dim,
+        horizon=1,
+        dropout=0.2
+    ):
         super().__init__()
+        
+        self.gcn = gcn_model
+        
+        # A LSTM vai receber as variáveis temporais (vendas + exógenas base)
+        # MAS vai também receber as features do grafo anexadas a CADA timestep
         self.lstm = nn.LSTM(
-            input_size=ts_input_dim + graph_embed_dim,
-            hidden_size=lstm_hidden_dim,
-            batch_first=True
+            input_size=lstm_input_size + gcn_embed_dim,
+            hidden_size=lstm_hidden_size,
+            num_layers=lstm_num_layers,
+            batch_first=True,
+            dropout=dropout if lstm_num_layers > 1 else 0.0
         )
-        self.fc = nn.Linear(lstm_hidden_dim, horizon)
+        self.fc = nn.Linear(lstm_hidden_size, horizon)
 
-    def forward(self, ts_x, z_target):
-        z_rep = z_target.unsqueeze(1).expand(-1, ts_x.size(1), -1)
+    def forward(self, ts_x, graph_x, graph_adj, target_node_idx):
+        # 1. Extrair os embeddings espaciais do Grafo para o momento/janela atual
+        h_gcn = F.relu(self.gcn.gc1(graph_x, graph_adj))
+        node_embeddings = self.gcn.gc2(h_gcn, graph_adj)   # (N, Dg)
+        # Selecionar o nó alvo do batch 
+        z_target = node_embeddings[target_node_idx]        # (B, Dg)
+        # 2. Replicar esse embedding para cada "dia" da tua sequence do passado
+        # L = ts_x.size(1) que é o teu seq_length (ex: 30)
+        # z_target passa de (B, Dg) para (B, 1, Dg) e expande para (B, 30, Dg)
+        seq_len = ts_x.size(1)
+        z_rep = z_target.unsqueeze(1).expand(-1, seq_len, -1)
+        
+        # 3. Concatenar a informação temporal (vendas e calendário) as embeddings do grafo
+        # Forma final de combined_x: (B, 30, (lstm_input_size + gcn_embed_dim))
         combined_x = torch.cat([ts_x, z_rep], dim=-1)
 
+        # 4. A LSTM processa a entrada expandida normalmente
         lstm_out, _ = self.lstm(combined_x)
         h_last = lstm_out[:, -1, :]
         return self.fc(h_last)
