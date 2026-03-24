@@ -216,9 +216,15 @@ if __name__ == "__main__":
     df[DATE_COL] = pd.to_datetime(df[DATE_COL])
     df = df.sort_values([DATE_COL, ITEM_COL]).reset_index(drop=True)
     
-    print("Building dynamic similarity graphs...")
+    # Filter dataset to exclude the test set (using your forecast horizon of 152)
+    TEST_SIZE = 152
+    unique_dates = df[DATE_COL].dropna().unique()
+    train_val_dates = unique_dates[:-TEST_SIZE]
+    df_train_val = df[df[DATE_COL].isin(train_val_dates)].copy()
+    
+    print("Building dynamic similarity graphs for train and validation...")
     graphs, sim_dfs, df_pivots, window_info = build_dynamic_similarity_graphs(
-        df,
+        df_train_val,
         date_col=DATE_COL,
         item_col=ITEM_COL,
         target_col=TARGET_COL,
