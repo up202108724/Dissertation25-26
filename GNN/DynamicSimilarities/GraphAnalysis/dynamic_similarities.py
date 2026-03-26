@@ -1,6 +1,7 @@
 import sys
 import os
 import pickle
+import time
 import torch
 import pandas as pd
 import numpy as np
@@ -234,8 +235,8 @@ if __name__ == "__main__":
     
     WINDOW_SIZE = 7
     STEP_SIZE = 1
-    SIMILARITY_METHOD = "kendall"
-    SIMILARITY_THRESHOLD = 0.8
+    SIMILARITY_METHOD = "spearman"
+    SIMILARITY_THRESHOLD = 0.95
     NUM_ITEMS = None  # Definir como None para usar todos os produtos
     COMPUTE_NODE_FEATURES = False  # Flag opcional para calcular features
     
@@ -280,6 +281,7 @@ if __name__ == "__main__":
     df_train_val = df[df[DATE_COL].isin(train_val_dates)].copy()
     
     print("Building dynamic similarity graphs for train and validation...")
+    start_time = time.time()
     graphs, sim_dfs, df_pivots, window_info = build_dynamic_similarity_graphs(
         df_train_val,
         date_col=DATE_COL,
@@ -290,6 +292,8 @@ if __name__ == "__main__":
         similarity_method=SIMILARITY_METHOD,
         similarity_threshold=SIMILARITY_THRESHOLD
     )
+    end_time = time.time()
+    print(f"Time taken to compute all graphs: {end_time - start_time:.2f} seconds")
 
     
     # 2. Computar os node features para cada janela do grafo
