@@ -7,4 +7,5 @@ best_models/
 grid_search_results.csv
 training_logs/
 product_forecasts/
+GNN/DynamicSimilarities/GraphAnalysis/DynamicGraphPkls
 

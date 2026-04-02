@@ -1,8 +1,17 @@
 import torch
 import numpy as np
-def test_model(model, df, date_col,scaler, exog_scaler, test_start_idx, seq_length, forecast_window, device, item_id, store_id, seed, loss_type, exog_cols=None, save_plot_path=None):
+import pandas as pd
+import os
+import time
+
+def test_model(
+    model, df, date_col, scaler, exog_scaler, test_start_idx, seq_length, forecast_window, 
+    device, item_id, store_id, seed, criterion, val_scaled,
+    exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None
+):
     
     model.eval()
+    start_inference_time = time.time()
     
     # Get the start date of the test set
     test_start_date = df[date_col].iloc[test_start_idx]
@@ -19,7 +28,7 @@ def test_model(model, df, date_col,scaler, exog_scaler, test_start_idx, seq_leng
     forecast = []
     
     # Setup inference log file
-    inf_log_dir = f'inference_logs/seed_{seed}/{loss_type}'
+    inf_log_dir = f'inference_logs/seed_{seed}/{criterion}/item_{item_id}_store_{store_id}'
     os.makedirs(inf_log_dir, exist_ok=True)
     inf_log_path = f'{inf_log_dir}/inference_item{item_id}_store{store_id}.csv'
     
@@ -79,7 +88,7 @@ def test_model(model, df, date_col,scaler, exog_scaler, test_start_idx, seq_leng
                     inf_log_file.write(f'{step},"{x_str}",{pred},{pred_unscaled}\n')
 
 
-                y_date = df[DATE_COL].iloc[test_start_idx + step].date()
+                y_date = df[date_col].iloc[test_start_idx + step].date()
                 if step % 10 == 0:
                     print(f"Step {step}: Predicting for Date: {y_date}")
 
@@ -90,7 +99,7 @@ def test_model(model, df, date_col,scaler, exog_scaler, test_start_idx, seq_leng
                 # Update exogenous sequence for the row being appended
                 if exog_cols and len(exog_cols) > 0 and step + 1 < forecast_window:
                     # Use raw exog for the next predicted date
-                    next_exog_raw = exog_test[step + 1].copy()
+                    next_exog_raw = exog_test_raw[step + 1].copy()
 
                     # Recompute rolling means dynamically from past values only
                     if len(rolling_features) > 0:
@@ -113,4 +122,4 @@ def test_model(model, df, date_col,scaler, exog_scaler, test_start_idx, seq_leng
     print(f"Forecasted values {forecast[:5]} ...")
     inference_time = time.time() - start_inference_time
 
-    return test, forecast, inference_time
+    return forecast, inference_time

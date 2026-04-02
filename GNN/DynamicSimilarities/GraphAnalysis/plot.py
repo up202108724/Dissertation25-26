@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import networkx as nx
 
-def save_graph_plot(G: nx.Graph, strategy_name: str, output_folder: str = "graph_plots", node_categories: dict = None):
+def save_graph_plot(G: nx.Graph, strategy_name: str, output_folder: str = "graph_plots", node_categories: dict = None, window_size: int = None, step_size: int = None):
     """
     Plots and saves a NetworkX graph to a specified folder.
     The file is named dynamically using the strategy used and the number of nodes.
@@ -13,7 +13,12 @@ def save_graph_plot(G: nx.Graph, strategy_name: str, output_folder: str = "graph
     - strategy_name (str): Name of the metric/strategy (e.g., "StandardScaled", "CID", "DTW").
     - output_folder (str): Directory where the image will be saved.
     - node_categories (dict, optional): Mapping structure of node_id -> category name.
+    - window_size (int, optional): Window size for dynamic graphs.
+    - step_size (int, optional): Step size for dynamic graphs.
     """
+    # 0. Filter nodes to keep only those with at least one edge
+    G = G.subgraph([n for n, d in G.degree() if d > 0]).copy()
+
     # 1. Ensure the output folder exists
     os.makedirs(output_folder, exist_ok=True)
     
@@ -22,7 +27,21 @@ def save_graph_plot(G: nx.Graph, strategy_name: str, output_folder: str = "graph
     
     # 3. Create the dynamic filename (e.g., standard_scaled_50_nodes.png)
     safe_strategy_name = strategy_name.lower().replace(" ", "_").replace("-", "_")
-    filename = f"{safe_strategy_name}_{num_nodes}_nodes.png"
+    
+    start_date = G.graph.get("start_date")
+    end_date = G.graph.get("end_date")
+    
+    if start_date is not None and end_date is not None:
+        sd_str = str(start_date).replace(":", "-").replace(" ", "_").split("T")[0]
+        ed_str = str(end_date).replace(":", "-").replace(" ", "_").split("T")[0]
+        filename = f"{safe_strategy_name}_{sd_str}_to_{ed_str}_{num_nodes}_nodes.png"
+        title_suffix = f"\nWindow: {start_date} to {end_date}"
+        if window_size is not None and step_size is not None:
+            title_suffix += f" | Window Size: {window_size}, Step Size: {step_size}"
+    else:
+        filename = f"{safe_strategy_name}_{num_nodes}_nodes.png"
+        title_suffix = ""
+
     output_file_path = os.path.join(output_folder, filename)
     
     # 4. Set up the matplotlib figure
@@ -67,10 +86,40 @@ def save_graph_plot(G: nx.Graph, strategy_name: str, output_folder: str = "graph
         )
     
     # Add an informative title
-    plt.title(f"Product Graph: {strategy_name} Strategy ({num_nodes} nodes)", fontsize=14)
+    plt.title(f"Product Graph: {strategy_name} Strategy ({num_nodes} nodes){title_suffix}", fontsize=14)
     
     # 6. Save the figure to the folder and close memory
     plt.savefig(output_file_path, dpi=300, bbox_inches="tight", transparent=False)
     plt.close()
     
     print(f"Graph automatically saved to: {output_file_path}")
+
+def save_dynamic_graph_plots(graphs: list, strategy_name: str, base_output_folder: str = "dynamic_graph_plots", node_categories: dict = None, window_size: int = None, step_size: int = None):
+    """
+    Saves a series of dynamic graphs into a specific subfolder.
+    
+    Parameters:
+    - graphs: A list of networkx graphs (e.g., returned from build_dynamic_similarity_graphs).
+    - strategy_name: Base strategy or metric name.
+    - base_output_folder: Root folder to save these specific dynamic runs.
+    - node_categories: Optional mapping for coloring.
+    - window_size: Optional window size for dynamic graphs.
+    - step_size: Optional step size for dynamic graphs.
+    """
+    safe_strategy_name = strategy_name.lower().replace(" ", "_").replace("-", "_")
+    output_folder = os.path.join(base_output_folder, safe_strategy_name)
+    
+    print(f"Saving {len(graphs)} dynamic graph plots into {output_folder}...")
+    
+    for i, G in enumerate(graphs):
+        # By setting the output folder here, we route all individual graphs cleanly
+        save_graph_plot(
+            G=G, 
+            strategy_name=strategy_name, 
+            output_folder=output_folder, 
+            node_categories=node_categories,
+            window_size=window_size,
+            step_size=step_size
+        )
+    
+    print("All dynamic graphs have been saved.")
