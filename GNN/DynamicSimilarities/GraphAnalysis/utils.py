@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
+import matplotlib.pyplot as plt
 
 def scale_exogenous_features(df, train_slice, categorical_cols=None, continuous_cols=None, binary_cols=None):
     df_scaled = df.copy()
@@ -115,3 +116,101 @@ def compute_metrics(y_test, y_pred):
     score = 0.5 * rmse + 0.25 * mae + 0.25 * abs(bias)
     pocid = POCID(y_test, y_pred)
     return {"rmse": rmse, "mae": mae, "bias": bias, "score": score, "pocid": pocid}
+
+def analyze_distance_distribution(df, product_id, window_size, metrics, plot_dir):
+    """
+    Computes pair-wise distances for a sample window and plots a histogram
+    to help determine percentiles and thresholds.
+    """
+    if product_id not in df.index:
+        raise ValueError(f"Product ID {product_id} not found in DataFrame index.")
+        
+    print(f"\n--- Analyzing Distance Distributions for {product_id} ---")
+    
+    # Pick a sample window with some activity
+    # Let's just use the first window that has non-zero sales for the product
+    time_steps = df.shape[1]
+    window_data = None
+    start_idx_used = 0
+    
+    for start_idx in range(0, time_steps - window_size + 1):
+        end_idx = start_idx + window_size
+        candidate_data = df.iloc[:, start_idx:end_idx]
+        target_ts = candidate_data.loc[product_id].values
+        
+        if np.sum(np.abs(target_ts)) > 0:
+            window_data = candidate_data
+            start_idx_used = start_idx
+            break
+            
+    if window_data is None:
+        print("Warning: Could not find a sample window where target product has >0 sales. Using first window.")
+        window_data = df.iloc[:, 0:window_size]
+        
+    start_date = str(window_data.columns[0]).split('T')[0]
+    end_date = str(window_data.columns[-1]).split('T')[0]
+    
+    print(f"Selected sample window: {start_date} to {end_date} (Indices {start_idx_used} to {start_idx_used+window_size})")
+
+    target_ts = window_data.loc[product_id].values
+    all_ts = window_data.values
+    item_ids = window_data.index.values
+    
+    # Filter active items exactly like in graph construction
+    active_items_mask = np.sum(np.abs(all_ts), axis=1) > 0
+    valid_mask = (item_ids != product_id) & active_items_mask
+    valid_all_ts = all_ts[valid_mask]
+    
+    os.makedirs(plot_dir, exist_ok=True)
+    
+    distributions = {}
+    
+    for metric in metrics:
+        print(f"Computing distances for {metric}...")
+        try:
+            # We use valid_all_ts instead of all_ts to only analyze items we'd actually consider
+            dists = compute_distances_1vsAll(target_ts, valid_all_ts, metric=metric)
+            # Remove entirely infinite or NaN distances if any exist
+            valid_dists = dists[np.isfinite(dists) & ~np.isnan(dists)]
+            
+            if len(valid_dists) > 0:
+                distributions[metric] = valid_dists
+                
+                # Calculate key percentiles
+                p1 = np.percentile(valid_dists, 1)
+                p5 = np.percentile(valid_dists, 5)
+                p10 = np.percentile(valid_dists, 10)
+                p25 = np.percentile(valid_dists, 25)
+                p50 = np.percentile(valid_dists, 50)
+                
+                print(f"  {metric.upper()} Percentiles:")
+                print(f"    1st : {p1:.4f}")
+                print(f"    5th : {p5:.4f}")
+                print(f"    10th: {p10:.4f}")
+                print(f"    Median: {p50:.4f}")
+                
+                # Plot Histogram
+                plt.figure(figsize=(10, 6))
+                sns.histplot(valid_dists, bins=50, kde=True)
+                
+                # Add percentile lines
+                plt.axvline(p1, color='red', linestyle='dashed', linewidth=2, label=f'1st % ({p1:.2f})')
+                plt.axvline(p5, color='orange', linestyle='dashed', linewidth=2, label=f'5th % ({p5:.2f})')
+                plt.axvline(p10, color='green', linestyle='dashed', linewidth=2, label=f'10th % ({p10:.2f})')
+                
+                plt.title(f'Distance Distribution: {metric.upper()}\nTarget {product_id} ({start_date} to {end_date})')
+                plt.xlabel('Distance')
+                plt.ylabel('Frequency (Number of Items)')
+                plt.legend()
+                
+                dist_plot_path = os.path.join(plot_dir, f'dist_histogram_{metric}.png')
+                plt.savefig(dist_plot_path)
+                plt.close()
+                print(f"  Saved histogram to {dist_plot_path}")
+            else:
+                print(f"  Warning: No valid distances returned for {metric}")
+                
+        except Exception as e:
+            print(f"  Error computing {metric}: {e}")
+            
+    return distributions

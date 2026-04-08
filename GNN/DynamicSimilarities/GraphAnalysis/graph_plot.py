@@ -47,7 +47,7 @@ def plot_networkx_plotly(G, title="Network Graph", save_path=None, target_node=N
     edge_hover_trace = go.Scatter(
         x=edge_mid_x, y=edge_mid_y,
         mode='markers',
-        marker=dict(size=0.1, color='rgba(0,0,0,0)'), # Invisible marker
+        marker=dict(size=10, color='rgba(0,0,0,0)'), # Invisible maker but large enough to hover easily
         hoverinfo='text',
         text=edge_text,
         showlegend=False
@@ -84,16 +84,20 @@ def plot_networkx_plotly(G, title="Network Graph", save_path=None, target_node=N
     traces = [edge_trace, edge_hover_trace]
     palette = pcolors.qualitative.Plotly
     
-    for i, (cat, d) in enumerate(categories.items()):
-        color = palette[i % len(palette)]
+    import hashlib
+    for cat, d in categories.items():
+        # Use a deterministic hash to ensure consistent color across different graphs and Python runs
+        color_idx = int(hashlib.md5(str(cat).encode()).hexdigest(), 16) % len(palette)
+        color = palette[color_idx]
+        
         node_trace = go.Scatter(
             x=d['x'], y=d['y'],
             mode='markers+text',
             hoverinfo='text',
             text=d['text'],
             hovertext=d['hovertext'],
-            textposition="middle center",
-            textfont=dict(size=8, color='white'),
+            textposition="top center",
+            textfont=dict(size=12, color='black'),
             marker=dict(
                 color=color,
                 size=d['sizes'],
@@ -121,53 +125,3 @@ def plot_networkx_plotly(G, title="Network Graph", save_path=None, target_node=N
     else:
         fig.show()
 
-
-if __name__ == "__main__":
-    BASE_DIR = os.path.dirname(__file__)
-    
-    # Path to one of the dynamic graph sequence pkl files (update parameters as needed)
-    METHOD = "euclidean"
-    WINDOW = 7
-    STEP = 1
-    P = 0.1
-    TARGET_PRODUCT = 907969
-    pkl_filename = f"dynamic_graphs_{METHOD}_Window{WINDOW}_Step{STEP}_p{P}.pkl"
-    if TARGET_PRODUCT is not None:
-        pkl_filename = f"{TARGET_PRODUCT}/dynamic_graphs_{METHOD}_Window{WINDOW}_Step{STEP}_p{P}.pkl"
-        
-    pkl_path = os.path.join(BASE_DIR, "DynamicGraphPkls", METHOD, pkl_filename)
-    
-    if not os.path.exists(pkl_path):
-        print(f"Graph file not found: {pkl_path}")
-        print("Please verify the GRAPH_WINDOW_SIZE, STEP_SIZE, and distance method variables.")
-    else:
-        print(f"Loading sequence from {pkl_path}...")
-        with open(pkl_path, 'rb') as f:
-            graphs = pickle.load(f)
-            
-        print(f"Loaded {len(graphs)} graphs over time.")
-        
-        # Create output directory
-        target_dir = os.path.join(BASE_DIR, "Graphplots", METHOD, f"p{P}")
-        os.makedirs(target_dir, exist_ok=True)
-        print(f"Saving plots to {target_dir}...")
-        
-        # Iterate and save all valid graphs in the sequence
-        for day_idx, G in enumerate(graphs):
-             if G is not None and len(G.nodes()) > 0:
-                start_date = G.graph.get('start_date', f'Day_{day_idx}')
-                end_date = G.graph.get('end_date', 'Unknown')
-                
-                # Clean dates for safe filename usage (e.g. replacing colons or spaces)
-                safe_start_date = str(start_date).replace(':', '-').replace(' ', '_')
-                
-                print(f"Plotting graph from {start_date} to {end_date} ({len(G.nodes())} nodes, {len(G.edges())} edges)...")
-                
-                save_filepath = os.path.join(target_dir, f"graph_{safe_start_date}.html")
-                plot_networkx_plotly(
-                    G, 
-                    title=f"Graph from {start_date} to {end_date} (Method: {METHOD})", 
-                    save_path=save_filepath,
-                    target_node=TARGET_PRODUCT
-                )
-        print("Finished saving all plots!")
