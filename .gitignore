@@ -9,3 +9,5 @@ training_logs/
 product_forecasts/
 GNN/DynamicSimilarities/GraphAnalysis/DynamicGraphPkls
 GNN/DynamicSimilarities/GraphAnalysis/GraphPlots
+GNN/FixedGraphs/GraphAnalysis/FixedGraphPkls
+GNN/FixedGraphs/GraphAnalysis/FixedGraphPlots

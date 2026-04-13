@@ -4,10 +4,11 @@ import pandas as pd
 import os
 import time
 
-def test_model(
+def graphsage_inference(
     model, df, date_col, scaler, exog_scaler, test_start_idx, seq_length, forecast_window, 
     device, item_id, store_id, seed, criterion, val_scaled,
-    exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None
+    exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None,
+    node_embeddings=None, freeze_graph=True
 ):
     
     model.eval()
@@ -24,6 +25,10 @@ def test_model(
         current_exog_seq = exog_val_scaled[-seq_length + 1:].tolist() + [exog_test_scaled[0].tolist()]
         
     current_date_seq = df[date_col].iloc[test_start_idx - seq_length : test_start_idx].dt.date.tolist()
+
+    if node_embeddings is not None:
+        # Extract the sequence of embeddings corresponding to the last seq_length days of validation
+        current_emb_seq = node_embeddings[test_start_idx - seq_length : test_start_idx].tolist()
     
     forecast = []
     
@@ -56,12 +61,19 @@ def test_model(
         with torch.no_grad():
             for step in range(forecast_window):
                 # Build model input from current history
+                current_seq_arr = np.array(current_seq).reshape(-1, 1)
+                
+                features_to_stack = [current_seq_arr]
+                
                 if exog_cols and len(exog_cols) > 0:
-                    current_seq_arr = np.array(current_seq).reshape(-1, 1)
                     current_exog_arr = np.array(current_exog_seq)
-                    x_np = np.column_stack([current_seq_arr, current_exog_arr])
-                else:
-                    x_np = np.array(current_seq).reshape(-1, 1)
+                    features_to_stack.append(current_exog_arr)
+                    
+                if node_embeddings is not None:
+                    current_emb_arr = np.array(current_emb_seq)
+                    features_to_stack.append(current_emb_arr)
+
+                x_np = np.column_stack(features_to_stack)
 
                 x = torch.FloatTensor(x_np).unsqueeze(0).to(device)
 
@@ -95,6 +107,18 @@ def test_model(
                 # Update target sequence with prediction
                 current_seq = current_seq[1:] + [pred]
                 current_date_seq = current_date_seq[1:] + [y_date]
+
+                # Update node sequences
+                if node_embeddings is not None and step + 1 < forecast_window:
+                    if freeze_graph:
+                        # Static assumption: Keep using the last securely known graph embedding 
+                        # against data leakage.
+                        next_emb = current_emb_seq[-1]
+                    else:
+                        # Only unfreeze if you generated graph embeddings without test leakage 
+                        # or test-data constraints (using predicted exog metrics to form the graph).
+                        next_emb = node_embeddings[test_start_idx + step].tolist()
+                    current_emb_seq = current_emb_seq[1:] + [next_emb]
 
                 # Update exogenous sequence for the row being appended
                 if exog_cols and len(exog_cols) > 0 and step + 1 < forecast_window:

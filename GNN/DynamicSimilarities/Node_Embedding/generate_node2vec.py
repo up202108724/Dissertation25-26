@@ -56,14 +56,26 @@ def get_node2vec_embeddings(graphs, product_id, dimensions=64, walk_length=10, n
     
     return graph_embeddings, target_node_embeddings
 
-def load_or_generate_embeddings(product_id, metric, window_size, step_size, threshold, dimensions=64, walk_length=10, num_walks=50, workers=4):
+def load_or_generate_embeddings(product_id, metric, window_size, step_size, threshold, percentile, dimensions=64, walk_length=10, num_walks=50, workers=4, use_residuals=False, model_type='ridge'):
     """
     Loads cached embeddings if they exist. If not, loads the graphs from the expected directory, 
     generates embeddings using get_node2vec_embeddings, and saves them to a pickle file.
     """
-    base_dir = f"../GraphAnalysis/DynamicGraphPkls/{metric}/{product_id}/{window_size}/{step_size}"
-    pkl_path = f"{base_dir}/dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_th{threshold}.pkl"
-    emb_pkl_path = f"{base_dir}/embeddings_{metric}_Window{window_size}_Step{step_size}_th{threshold}.pkl"
+    if use_residuals:
+        base_dir = f"../GraphAnalysis/DynamicGraphPkls/residuals_{model_type}/{metric}/{product_id}/{window_size}/{step_size}"
+    else:
+        base_dir = f"../GraphAnalysis/DynamicGraphPkls/{metric}/{product_id}/{window_size}/{step_size}"
+    pkl_path= ""
+    if threshold is not None:
+        pkl_path = f"{base_dir}/dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_th{threshold}.pkl"
+        emb_pkl_path = f"{base_dir}/embeddings_{metric}_Window{window_size}_Step{step_size}_th{threshold}.pkl"
+    if percentile is not None:
+        if use_residuals:
+            pkl_path = f"{base_dir}/dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_top{percentile}pct.pkl"
+            emb_pkl_path = f"{base_dir}/embeddings_{metric}_Window{window_size}_Step{step_size}_top{percentile}pct.pkl"
+        else:
+            pkl_path = f"{base_dir}/dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_pct{percentile}.pkl"
+            emb_pkl_path = f"{base_dir}/embeddings_{metric}_Window{window_size}_Step{step_size}_pct{percentile}.pkl"
 
     if os.path.exists(emb_pkl_path):
         print(f"Embeddings already exist. Loading from {emb_pkl_path}...")
@@ -107,3 +119,5 @@ if __name__ == "__main__":
         step_size=1,
         threshold=0.8
     )
+    
+    

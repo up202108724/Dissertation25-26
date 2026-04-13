@@ -4,27 +4,46 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-# Redefine plot_results to support saving
 def plot_results(train, val, test, forecast, 
                 train_index, val_index, test_index, 
-                train_losses, val_losses, 
+                train_losses, val_losses, metric=None, embedding_strategy=None,
+                window_size=None, step_size=None, threshold=None, percentile=None,
                 target_col='value', title='Forecast vs Actual', save_path=None,
                 rmse=None, mae=None, bias=None, score=None, pocid=None, df_full=None):
     
     # Calculate metrics if not provided
     if rmse is None:
-        rmse = np.sqrt(mean_squared_error(test, forecast))
-    if mae is None:
-        mae = mean_absolute_error(test, forecast)
-    if bias is None:
-        bias = np.mean(forecast - test)
-    if score is None:
-        score = r2_score(test, forecast)
+        valid_mask = ~np.isnan(forecast)
+        valid_test = test[valid_mask]
+        valid_forecast = forecast[valid_mask]
+        if len(valid_test) > 0:
+            rmse = np.sqrt(mean_squared_error(valid_test, valid_forecast))
+            mae = mean_absolute_error(valid_test, valid_forecast)
+            bias = np.mean(valid_forecast - valid_test)
+            score = r2_score(valid_test, valid_forecast)
+        else:
+            rmse, mae, bias, score = 0, 0, 0, 0
+            
+    pocid_str = f"{pocid:.4f}" if pocid is not None else "N/A"
         
-    # Update title
-    full_title = f"{title}<br>RMSE: {rmse:.4f} | MAE: {mae:.4f} | Bias: {bias:.4f} | Score: {score:.4f} | POCID: {pocid:.4f}"
-
-    # Visualize results
+    # Update title conditionally
+    meta_parts = []
+    if embedding_strategy is not None:
+        meta_parts.append(f"Graph Params: {embedding_strategy}")
+    if metric is not None:
+        meta_parts.append(f"Metric: {metric}")
+    if window_size is not None:
+        meta_parts.append(f"Window: {window_size}")
+    if step_size is not None:
+        meta_parts.append(f"Step: {step_size}")
+    if threshold is not None:
+        meta_parts.append(f"Threshold: {threshold}")
+    if percentile is not None:
+        meta_parts.append(f"Percentile: {percentile}")
+    metadata = " | ".join(meta_parts)
+    meta_html = f"<span style='font-size:14px;color:gray'>{metadata}</span><br>" if metadata else ""
+    
+    full_title = f"{title}<br>{meta_html}RMSE: {rmse:.4f} | MAE: {mae:.4f} | Bias: {bias:.4f} | Score: {score:.4f} | POCID: {pocid_str}"
     fig = make_subplots(rows=3, cols=1, 
                         subplot_titles=(full_title, 'Test vs Forecast', 'Training and Validation Loss'),
                         vertical_spacing=0.1)
