@@ -84,7 +84,8 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
 
 
 def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func, 
-                        threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False):
+                        threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
+                        enable_edges_within_star=True):
     """
     Constructs a graph by iterating over sliding time windows of the time series data.
     Finds items within the specified metric thresholds or percentiles to product_id.
@@ -171,7 +172,7 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
             G.add_edge(product_id, other_id, weight=float(val))
             neighbor_indices.append(orig_idx)
             
-        if len(neighbor_indices) > 1:
+        if enable_edges_within_star and len(neighbor_indices) > 1:
             all_neighbors_ts = all_ts[neighbor_indices]
             for i, idx1 in enumerate(neighbor_indices):
                 target_neighbor_ts = all_ts[idx1] 
@@ -181,10 +182,13 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
                     if i < j:
                         if metric_type == 'distance':
                             if val_sub <= current_threshold:
-                                G.add_edge(item_ids[idx1], item_ids[idx2], weight=float(val_sub))
+                                edge_weight = 1.0 / (1.0 + float(val_sub)) 
+                                #edge_weight = val_sub
+                                G.add_edge(item_ids[idx1], item_ids[idx2], weight=edge_weight)
                         else:
                             if val_sub >= current_threshold:
-                                G.add_edge(item_ids[idx1], item_ids[idx2], weight=float(val_sub))
+                                edge_weight = max(0.0, float(val_sub))
+                                G.add_edge(item_ids[idx1], item_ids[idx2], weight=edge_weight)
 
         start_date = str(window_data.columns[0]).split(' ')[0].split('T')[0]
         end_date = str(window_data.columns[-1]).split(' ')[0].split('T')[0]
@@ -197,7 +201,11 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
             if residuals:
                 current_plot_dir = os.path.join(plot_dir, "residuals")
             os.makedirs(current_plot_dir, exist_ok=True)
+            
             plot_prefix = "residual_" if residuals else ""
+            if not enable_edges_within_star:
+                plot_prefix += "star_"
+                
             plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_date}_to_{end_date}.html')
             try:
                 from graph_plot import plot_networkx_plotly
