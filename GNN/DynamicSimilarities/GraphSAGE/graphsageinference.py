@@ -1,0 +1,324 @@
+import torch
+import numpy as np
+import pandas as pd
+import os
+import time
+import networkx as nx
+from node2vec import Node2Vec
+from GNN.DynamicSimilarities.GraphAnalysis.utils import compute_similarities_1vsAll, compute_distances_1vsAll
+
+def build_dynamic_graph(target_id, target_preds, df_wide, cat_labels, date_cols, metric, threshold=None, percentile=None, enable_edges_within_star=True):
+    G = nx.Graph()
+    cat = cat_labels.get(target_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
+    G.add_node(target_id, cat_label=cat)
+    
+    # Extract data for the window
+    window_data = df_wide[date_cols]
+    all_ts = window_data.values
+    item_ids = window_data.index.values
+    
+    target_ts = np.array(target_preds)
+    distance_metrics=['euclidean', 'hamming', 'amplitude_offset', 'slope_consistency', 'phase_invariance', 'dtw', 'cid']
+    similarity_metrics=['pearson', 'spearman', 'kendall']
+   
+    is_distance = metric in distance_metrics
+
+    # Compute metric-specific scores
+    if is_distance:
+        scores = compute_distances_1vsAll(target_ts, all_ts, metric=metric)
+    else:
+        scores = compute_similarities_1vsAll(target_ts, all_ts, metric=metric)
+        
+    active_items_mask = np.sum(np.abs(all_ts), axis=1) > 0
+    valid_mask = (item_ids != target_id) & active_items_mask
+    
+    if np.sum(np.abs(target_ts)) == 0:
+        valid_mask = np.zeros_like(valid_mask, dtype=bool)
+        
+    valid_item_ids = item_ids[valid_mask]
+    valid_scores = scores[valid_mask]
+    valid_original_idxs = np.arange(len(item_ids))[valid_mask]
+    
+    if threshold is not None:
+        dynamic_threshold = threshold
+    elif percentile is not None:
+        if len(valid_scores) > 0:
+            if is_distance:
+                # Lowest distances = most similar (e.g. top 5% -> 5th percentile)
+                dynamic_threshold = np.percentile(valid_scores, percentile)
+            else:
+                # Highest similarities = most similar (e.g. top 5% -> 95th percentile)
+                dynamic_threshold = np.percentile(valid_scores, 100 - percentile)
+        else:
+            dynamic_threshold = float('inf') if is_distance else -float('inf')
+    else:
+        dynamic_threshold = float('inf') if is_distance else -float('inf')
+        
+    if is_distance:
+        mask = valid_scores <= dynamic_threshold
+    else:
+        mask = valid_scores >= dynamic_threshold
+        
+    selected_scores = valid_scores[mask]
+    selected_ids = valid_item_ids[mask]
+    selected_orig_idxs = valid_original_idxs[mask]
+    
+    neighbor_indices = []
+    for orig_idx, score_val, other_id in zip(selected_orig_idxs, selected_scores, selected_ids):
+        neighbor_indices.append((orig_idx, other_id))
+        if not G.has_node(other_id):
+            cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
+            G.add_node(other_id, cat_label=cat_other)
+        G.add_edge(target_id, other_id, weight=float(score_val))
+            
+    if enable_edges_within_star and len(neighbor_indices) > 1:
+        n_ts_array = np.array([all_ts[idx] for idx, _ in neighbor_indices])
+        n_ids = [oid for _, oid in neighbor_indices]
+        
+        for i, n_id1 in enumerate(n_ids):
+            n1_ts = n_ts_array[i]
+            
+            if is_distance:
+                n_scores = compute_distances_1vsAll(n1_ts, n_ts_array, metric=metric)
+            else:
+                n_scores = compute_similarities_1vsAll(n1_ts, n_ts_array, metric=metric)
+                
+            for j in range(i + 1, len(n_ids)):
+                condition = (n_scores[j] <= dynamic_threshold) if is_distance else (n_scores[j] >= dynamic_threshold)
+                if condition:
+                    if np.sum(np.abs(n1_ts)) > 0 and np.sum(np.abs(n_ts_array[j])) > 0:
+                        G.add_edge(n_id1, n_ids[j], weight=float(n_scores[j]))
+    return G
+
+def nx_to_graphsage(G, window_data_values):
+    """
+    Converts a NetworkX graph into adj_lists and raw_features required by GraphSAGE.
+    window_data_values: numpy array of shape (num_nodes, window_size) containing raw sales over the window.
+    """
+    # Assuming node IDs correspond to the row index in window_data_values
+    raw_features = torch.FloatTensor(window_data_values)
+    adj_lists = {node: set() for node in range(len(window_data_values))}
+    
+    for u, v in G.edges():
+        if isinstance(u, int) and isinstance(v, int):
+            adj_lists[u].add(v)
+            adj_lists[v].add(u)
+        else:
+            # If node labels are strings, you'd need a mapping back to indexes
+            # Let's assume nodes correspond correctly to indices or are directly integers
+            try:
+                adj_lists[int(u)].add(int(v))
+                adj_lists[int(v)].add(int(u))
+            except ValueError:
+                pass
+                
+    return raw_features, adj_lists
+
+def graphsage_inference(
+    metric, window_size, step_size, threshold, percentile, model, graphsage_model, df, df_wide, cat_labels, date_col, scaler, exog_scaler, test_start_idx, seq_length, forecast_window, 
+    device, item_id, store_id, seed, criterion, val_scaled,
+    exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None,
+    node_embeddings=None
+):
+    
+    model.eval()
+    if graphsage_model is not None:
+        graphsage_model.eval()
+        
+    start_inference_time = time.time()
+
+    
+    # Get the start date of the test set
+    test_start_date = df[date_col].iloc[test_start_idx]
+    print(f"Test set starts on: {test_start_date.date()}")
+
+    # Determine date columns matching the wide dataframe 
+    all_dates = df[date_col].dt.strftime('%Y-%m-%d').tolist()
+    # Ensure they match the format of df_wide columns (assuming strings or timestamp properties)
+    df_wide_cols = df_wide.columns.astype(str) if df_wide is not None else []
+
+    # Use the last seq_length points from validation data as initial input
+    current_seq = val_scaled[-seq_length:].tolist()
+    if exog_cols and len(exog_cols) > 0:
+        # Shift exog by 1 to match training dataloader
+        current_exog_seq = exog_val_scaled[-seq_length + 1:].tolist() + [exog_test_scaled[0].tolist()]
+        
+    current_date_seq = df[date_col].iloc[test_start_idx - seq_length : test_start_idx].dt.date.tolist()
+
+    if node_embeddings is not None:
+        # Extract the sequence of embeddings corresponding to the last seq_length days of validation
+        current_emb_seq = node_embeddings[test_start_idx - seq_length : test_start_idx].tolist()
+        
+        # O user pediu: The current emb_sequence should be the first the embeddings corresponding to the graph of the first window_size days
+        # Garante que durante os primeiros window_size dias de previsão (onde o código faz forecast.append(np.nan)),
+        # o embedding da base seja o da transição original.
+    else:
+        current_emb_seq = None
+    
+    forecast = []
+    warmup_preds_unscaled = []
+    total_steps = forecast_window
+    
+    # Setup inference log file
+    inf_log_dir = f'inference_logs/seed_{seed}/{criterion}/item_{item_id}_store_{store_id}'
+    os.makedirs(inf_log_dir, exist_ok=True)
+    inf_log_path = f'{inf_log_dir}/inference_item{item_id}_store{store_id}.csv'
+    
+    with open(inf_log_path, 'w') as inf_log_file:
+        
+        rolling_features = []
+        if exog_cols:
+            for idx, col in enumerate(exog_cols):
+                if col.startswith("rolling_mean_"):
+                    try:
+                        window = int(col.split("_")[-1])
+                        rolling_features.append((idx, window))
+                    except ValueError:
+                        pass
+        
+        header_str = "Step,X,Predicted_Y_Scaled,Predicted_Y_Unscaled"
+        if exog_cols and len(exog_cols) > 0:
+            exog_cols_unscaled_str = ",".join([f"{col}_Unscaled" for col in exog_cols])
+            exog_cols_scaled_str = ",".join([f"{col}_Scaled" for col in exog_cols])
+            header_str += f",{exog_cols_unscaled_str},{exog_cols_scaled_str}"
+        inf_log_file.write(header_str + "\n")
+        
+        with torch.no_grad():
+            for step in range(total_steps):
+                
+                # Build model input from current history
+                current_seq_arr = np.array(current_seq).reshape(-1, 1)
+                
+                features_to_stack = [current_seq_arr]
+                
+                if exog_cols and len(exog_cols) > 0:
+                    current_exog_arr = np.array(current_exog_seq)
+                    features_to_stack.append(current_exog_arr)
+                    
+                if node_embeddings is not None or current_emb_seq is not None:
+                    current_emb_arr = np.array(current_emb_seq)
+                    features_to_stack.append(current_emb_arr)
+
+                x_np = np.column_stack(features_to_stack)
+
+                x = torch.FloatTensor(x_np).unsqueeze(0).to(device)
+
+                # Predict next value
+                pred = model(x).cpu().numpy()[0, 0]
+                
+                pred_unscaled = scaler.inverse_transform([[pred]])[0, 0]
+                warmup_preds_unscaled.append(pred_unscaled)
+                
+                # Pad the first window_size days with NaN so the plot starts on the window_size-th day
+                if step < window_size:
+                    forecast.append(np.nan)
+                else:
+                    forecast.append(pred)
+
+                # Logging
+                x_str = str(x_np.tolist()).replace('"', "'")
+                if exog_cols and len(exog_cols) > 0:
+                    last_exog_scaled = current_exog_arr[-1]
+                    last_exog_raw = exog_scaler.inverse_transform(last_exog_scaled.reshape(1, -1))[0]
+                    last_exog_unscaled_str = ",".join([str(v) for v in last_exog_raw.tolist()])
+                    last_exog_scaled_str = ",".join([str(v) for v in last_exog_scaled.tolist()])
+                    inf_log_file.write(f'{step},"{x_str}",{pred},{pred_unscaled},{last_exog_unscaled_str},{last_exog_scaled_str}\n')
+                else:
+                    inf_log_file.write(f'{step},"{x_str}",{pred},{pred_unscaled}\n')
+
+
+                if (test_start_idx + step) < len(df):
+                    y_date = df[date_col].iloc[test_start_idx + step].date()
+                else:
+                    y_date = current_date_seq[-1] # fallback if beyond df length
+                    
+                if step % 10 == 0:
+                    print(f"Step {step}: Predicting for Date: {y_date}")
+
+                # Update target sequence with prediction
+                current_seq = current_seq[1:] + [pred]
+                current_date_seq = current_date_seq[1:] + [y_date]
+
+                # Update node sequences
+                if current_emb_seq is not None and step + 1 < total_steps:
+                    if graphsage_model is not None and step + 1 >= window_size:
+                        # Construct a graph using the past window_size predictions
+                        preds_for_window = warmup_preds_unscaled[-window_size:]
+                        
+                        # Find the correct date range in df_wide to pass to build_dynamic_graph
+                        next_date_idx = min(test_start_idx + step, len(df) - 1)
+                        target_col_idxs = list(range(max(0, next_date_idx - window_size + 1), next_date_idx + 1))
+                        
+                        if len(target_col_idxs) < window_size:
+                            target_col_idxs = list(range(max(0, len(df) - window_size), len(df)))
+                            
+                        window_date_cols = [df[date_col].iloc[idx].strftime('%Y-%m-%d') for idx in target_col_idxs]
+                        
+                        # In case the df_wide doesn't contain these date columns, filter them
+                        valid_cols = [col for col in window_date_cols if col in df_wide_cols]
+                        if len(valid_cols) == window_size:
+                            try:
+                                # 1. Build the dynamic graph based on the recent window predictions
+                                G = build_dynamic_graph(item_id, preds_for_window, df_wide, cat_labels, valid_cols, metric, threshold, percentile, enable_edges_within_star=True)
+                                
+                                # 2. Extract feature matrix: df_wide gives raw rows, but target should be replaced with preds
+                                window_data = df_wide[valid_cols].copy()
+                                if item_id in window_data.index:
+                                    window_data.loc[item_id] = preds_for_window[:len(valid_cols)] # match length just in case
+                                    
+                                raw_feats = torch.FloatTensor(window_data.values).to(device)
+                                
+                                # Create adj_lists mapped by row index
+                                item_list = list(window_data.index)
+                                name_to_idx = {name: i for i, name in enumerate(item_list)}
+                                adj_lists = {i: set() for i in range(len(item_list))}
+                                
+                                for u, v in G.edges():
+                                    if u in name_to_idx and v in name_to_idx:
+                                        adj_lists[name_to_idx[u]].add(name_to_idx[v])
+                                        adj_lists[name_to_idx[v]].add(name_to_idx[u])
+                                        
+                                # Update model structures
+                                graphsage_model.raw_features = raw_feats
+                                graphsage_model.adj_lists = adj_lists
+                                
+                                target_internal_idx = name_to_idx.get(item_id, 0)
+                                
+                                with torch.no_grad():
+                                    emb = graphsage_model([target_internal_idx])
+                                next_emb = emb.cpu().numpy().flatten().tolist()
+                                
+                            except Exception as e:
+                                print(f"Warning: Failed to dynamically infer GraphSAGE embedding at step {step}: {e}")
+                                next_emb = current_emb_seq[-1] # fallback
+                        else:
+                            next_emb = current_emb_seq[-1]
+                    else:
+                        next_emb = current_emb_seq[-1] # default keep same (frozen mode or pending update)
+                        
+                    current_emb_seq = current_emb_seq[1:] + [next_emb]
+
+                # Update exogenous sequence
+                if exog_cols and len(exog_cols) > 0 and step + 1 < total_steps:
+                    if (step + 1) < len(exog_test_raw):
+                        next_exog_raw = exog_test_raw[step + 1].copy()
+                    else:
+                        next_exog_raw = exog_test_raw[-1].copy() # fallback if beyond length
+
+                    if len(rolling_features) > 0:
+                        max_w = max([w for _, w in rolling_features])
+                        hist_unscaled = scaler.inverse_transform(np.array(current_seq[-max_w:]).reshape(-1, 1)).flatten()
+                        
+                        for idx, w in rolling_features:
+                            window_values = hist_unscaled[-w:]
+                            next_exog_raw[idx] = np.mean(window_values) if len(window_values) > 0 else 0.0
+
+                    next_exog_scaled = exog_scaler.transform(next_exog_raw.reshape(1, -1))[0]
+                    current_exog_seq = current_exog_seq[1:] + [next_exog_scaled.tolist()]
+                    
+    # Inverse transform predictions
+    forecast = scaler.inverse_transform(np.array(forecast).reshape(-1, 1)).flatten()
+    print(f"Forecasted values {forecast[:5]} ...")
+    inference_time = time.time() - start_inference_time
+
+    return forecast, inference_time

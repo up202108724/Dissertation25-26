@@ -1,11 +1,4 @@
-item_id,store_id,tested_m,lookback_rmse,lookback_mae,lookback_order,lookback_seasonal_order,full_rmse,full_mae,full_order,full_seasonal_order,plot_path
-26008,6269,1,64.77679029174267,43.555284978723066,"(2, 0, 1)","(0, 0, 0, 0)",64.41319480706078,43.20975102398161,"(2, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item26008_store6269_m1.png
-921558,6269,1,6.005533907204653,4.711223694947465,"(5, 0, 1)","(0, 0, 0, 0)",6.118025100360458,5.048575135755343,"(5, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item921558_store6269_m1.png
-213626,6269,1,24.59123818817088,18.426096764597787,"(4, 0, 1)","(0, 0, 0, 0)",24.784588339057322,18.541056088279042,"(4, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item213626_store6269_m1.png
-213625,6269,1,9.769734146858944,7.350536585287251,"(5, 0, 1)","(0, 0, 0, 0)",9.832276483961513,7.422535440380941,"(5, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item213625_store6269_m1.png
-213624,6269,1,10.960147906144902,8.327177861277399,"(1, 0, 3)","(0, 0, 0, 0)",11.089074056236361,8.427446114074417,"(1, 0, 3)","(0, 0, 0, 0)",grid_search_plots/comparison_item213624_store6269_m1.png
-213628,6269,1,16.864976265941127,13.417317763671324,"(1, 0, 2)","(0, 0, 0, 0)",17.328971758808766,13.741492380269927,"(1, 0, 2)","(0, 0, 0, 0)",grid_search_plots/comparison_item213628_store6269_m1.png
-213629,6269,1,19.19971743974886,14.900597078827957,"(5, 0, 1)","(0, 0, 0, 0)",19.3890892139752,15.016777705197432,"(5, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item213629_store6269_m1.png
-213630,6269,1,17.367983386303923,13.365449267818436,"(1, 0, 1)","(0, 0, 0, 0)",17.411035065156774,13.412221407171874,"(1, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item213630_store6269_m1.png
-213631,6269,1,15.062956954042741,11.776489891255167,"(4, 0, 1)","(0, 0, 0, 0)",15.08235692302087,11.792450806466489,"(4, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item213631_store6269_m1.png
-514230,6269,1,4.932492857195569,3.9627118089110183,"(1, 0, 1)","(0, 0, 0, 0)",4.883163677387232,3.906114775254625,"(1, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item514230_store6269_m1.png
+item_id,store_id,tested_m,lookback_rmse,lookback_mae,lookback_order,lookback_seasonal_order,full_rmse,full_mae,full_order,full_seasonal_order,lookback_plot_path,full_plot_path
+26008,6269,1,61.09016987231038,38.72291971242156,"(2, 0, 2)","(0, 0, 0, 0)",59.53674405480821,37.539760553682015,"(1, 0, 2)","(0, 0, 0, 0)",grid_search_plots/comparison_item26008_store6269_m1_lookback.png,grid_search_plots/comparison_item26008_store6269_m1_full.png
+907969,6269,1,65.29170804460097,48.22552519789082,"(1, 0, 2)","(0, 0, 0, 0)",65.29170804460098,48.225525197890825,"(1, 0, 2)","(0, 0, 0, 0)",grid_search_plots/comparison_item907969_store6269_m1_lookback.png,grid_search_plots/comparison_item907969_store6269_m1_full.png
+907967,6269,1,20.085641340044727,14.13290227230791,"(1, 0, 1)","(0, 0, 0, 0)",20.085641340044727,14.13290227230791,"(1, 0, 1)","(0, 0, 0, 0)",grid_search_plots/comparison_item907967_store6269_m1_lookback.png,grid_search_plots/comparison_item907967_store6269_m1_full.png
