@@ -45,12 +45,14 @@ if __name__ == "__main__":
     similarity_metrics = ['pearson', 'spearman', 'kendall']
     window_size = 15 
     step_size = 1
-    create_plots = True  # Set to True to enable HTML graph generation
+    create_plots = False  # Set to True to enable HTML graph generation
+    enable_edges_within_star = True
+    prefix = "" if enable_edges_within_star else "star_"
     
     grid_configs = [
-        {'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
-        {'metric': 'spearman', 'thresholds': [0.7,0.8, 0.9]},
-        {'metric': 'kendall', 'thresholds': [0.7, 0.80]}
+        #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
+        {'metric': 'spearman', 'percentiles': [0.5, 1, 2]},
+        #{'metric': 'kendall', 'thresholds': [0.7, 0.80]}
     ]
     
     for item_id in item_ids:
@@ -60,16 +62,34 @@ if __name__ == "__main__":
         
         for config in grid_configs:
             metric = config['metric']
-            for th in config['thresholds']:
-                print(f"\n--- Running grid: Metric={metric}, Threshold={th} ---")
-                
-                # Make safe directory string
-                dir_label = f"th{th}"
-                
-                if create_plots:
-                    plot_output_dir = os.path.join(BASE_DIR, 'GraphPlots', str(item_id), str(window_size), str(step_size), metric, dir_label)
+            thresholds = config.get('thresholds', [None])
+            percentiles = config.get('percentiles', [None])
+            
+            for th in thresholds:
+                for pct in percentiles:
+                    if th is None and pct is None:
+                        continue
+                        
+                    print(f"\n--- Running grid: Metric={metric}, Threshold={th}, Percentile={pct} ---")
                     
-                    if os.path.exists(plot_output_dir):
+                    # Make safe directory string
+                    dir_label = f"pct{pct}" if pct is not None else f"th{th}"
+                    
+                    if create_plots:
+                        plot_output_dir = os.path.join(BASE_DIR, 'GraphPlots', str(item_id), metric, str(window_size), dir_label)
+                    else:
+                        plot_output_dir = None
+                    
+                    # Setup PKL path early to check if we can skip
+                    pkl_dir = os.path.join(BASE_DIR, "DynamicGraphPkls", metric, str(window_size), str(step_size), str(item_id))
+                    os.makedirs(pkl_dir, exist_ok=True)
+                    pkl_path = os.path.join(pkl_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_{dir_label}.pkl")
+                    
+                    if os.path.exists(pkl_path) and (not create_plots or os.path.exists(plot_output_dir)):
+                        print(f"Skipping {metric} with {dir_label} - Output PKL and plot directory already exist/skipped!")
+                        continue
+                    
+                    if create_plots and os.path.exists(plot_output_dir):
                         import shutil
                         import time
                         import stat
@@ -91,29 +111,26 @@ if __name__ == "__main__":
                         
                         if os.path.exists(plot_output_dir):
                             os.system(f'rmdir /S /Q "{plot_output_dir}"')
-                else:
-                    plot_output_dir = None
-                        
-                graphs = neighbourhood_graph(
-                    product_id=item_id,
+                            
+                    graphs = neighbourhood_graph(
+                        product_id=item_id,
                         metric_type="similarity",
                         compute_func=compute_similarities_1vsAll, 
-                    df=df_wide, 
-                    metric=metric, 
-                    window_size=window_size, 
-                    threshold=th, 
-                    step_size=step_size, 
-                    cat_labels=cat_labels_dict,
-                    plot_dir=plot_output_dir
-                )
-                
-                valid_graphs = [g for g in graphs if len(g.nodes) > 1]
-                print(f"Finished {metric} th={th} for item {item_id}! Out of {len(graphs)} windows, {len(valid_graphs)} had valid neighbors.")
-                            
-                pkl_dir = os.path.join(BASE_DIR, "DynamicGraphPkls", metric, str(item_id), str(window_size), str(step_size))
-                os.makedirs(pkl_dir, exist_ok=True)
-                pkl_path = os.path.join(pkl_dir, f"dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_{dir_label}.pkl")
-                            
-                with open(pkl_path, 'wb') as f:
-                    pickle.dump(graphs, f)
+                        df=df_wide, 
+                        metric=metric, 
+                        window_size=window_size, 
+                        threshold=th,
+                        percentile=pct,
+                        step_size=step_size, 
+                        cat_labels=cat_labels_dict,
+                        plot_dir=plot_output_dir,
+                        residuals=False,
+                        enable_edges_within_star=enable_edges_within_star
+                    )
+                        
+                    valid_graphs = [g for g in graphs if len(g.nodes) > 1]
+                    print(f"Finished! Out of {len(graphs)} windows, {len(valid_graphs)} had valid neighbors.")
+                    
+                    with open(pkl_path, 'wb') as f:
+                        pickle.dump(graphs, f)
                     print(f"Successfully saved PKL to {pkl_path}")

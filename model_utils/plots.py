@@ -4,10 +4,12 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
+
 def plot_results(train, val, test, forecast, 
                 train_index, val_index, test_index, 
                 train_losses, val_losses, metric=None, embedding_strategy=None,
                 window_size=None, step_size=None, threshold=None, percentile=None,
+                enable_edges_within_star=None,
                 target_col='value', title='Forecast vs Actual', save_path=None,
                 rmse=None, mae=None, bias=None, score=None, pocid=None, df_full=None):
     
@@ -40,6 +42,8 @@ def plot_results(train, val, test, forecast,
         meta_parts.append(f"Threshold: {threshold}")
     if percentile is not None:
         meta_parts.append(f"Percentile: {percentile}")
+    if enable_edges_within_star is not None:
+        meta_parts.append(f"Edges in Star: {enable_edges_within_star}")
     metadata = " | ".join(meta_parts)
     meta_html = f"<span style='font-size:14px;color:gray'>{metadata}</span><br>" if metadata else ""
     

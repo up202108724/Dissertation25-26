@@ -165,6 +165,12 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
         selected_ids = valid_item_ids[mask]
         selected_orig_idxs = valid_original_idxs[mask]
 
+        # Garantir ordem determinística (fixar matriz de adjacências independentemente da query ou extração)
+        sort_idx = np.argsort(selected_ids)
+        selected_vals = selected_vals[sort_idx]
+        selected_ids = selected_ids[sort_idx]
+        selected_orig_idxs = selected_orig_idxs[sort_idx]
+
         neighbor_indices = []
         for orig_idx, val, other_id in zip(selected_orig_idxs, selected_vals, selected_ids):
             cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"

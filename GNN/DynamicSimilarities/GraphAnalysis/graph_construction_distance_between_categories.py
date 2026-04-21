@@ -15,7 +15,6 @@ from tslearn.metrics import dtw
 from utils import neighbourhood_graph, compute_distances_1vsAll
 
 if __name__ == "__main__":
-    item_ids = [907969]  # Add your list of product ids here
     # Use absolute path to ensure it finds the dataset regardless of where the script is executed from
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_PATH = os.path.join(BASE_DIR, '..', '..', '..', 'dataset', 'data_andre.feather')
@@ -24,21 +23,41 @@ if __name__ == "__main__":
     df = pd.read_feather(DATA_PATH)
     
     # --- 1. Extract category dictionary automatically ---
-    # We can just extract it directly from the dataset without external files!
-    cat_labels_dict = df.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
+    # Since we are aggregating by category, the nodes ARE the categories.
+    cat_labels_list = df['cat_label'].unique().tolist()
+    # Let's map each category to itself just to keep the interface compatible
+    cat_labels_dict = {cat: cat for cat in cat_labels_list}
 
-    # --- 2. Pivot the data to wide format (rows=items, cols=time steps) ---
-    df_wide = df.pivot_table(index='item_id', columns='date', values='value', aggfunc='sum').fillna(0)
+    # --- 2. Pivot the data to wide format (rows=categories, cols=time steps) ---
+    # We aggregate by taking the mean of the time series of all products in each category
+    df_wide = df.pivot_table(index='cat_label', columns='date', values='value', aggfunc='mean').fillna(0)
     
     # Use only train and val sets for building graphs
     train_size = 455
     val_size = 154
     df_wide = df_wide.iloc[:, :train_size + val_size]
     
-    distance_metrics = ['cid']
+    # Categories to generate graphs for (target nodes)
+    '''
+    [ 'refrigerated drnks', 'carbonated sft drnks',
+    'juices drnks shelf stbl', 'dairy chs',
+    'sprd btr mrgrn', 'yogurt',
+    'rte cereal', 'sour cream',
+    'milknplant based bevs', 'bottled water',
+    'dy non dy crm', 'eggs egg substitutes',
+    'sparkling seltzer mixer', 'dairy cream',
+    'refrig dsrts', 'refrigerated baked gds',
+    'new age bevs', 'hot cereal',
+    'itln chs', 'sprt drnk',
+    'cottage chs', 'cream chs',
+    'dips refrigerated', 'aseptic']
+    '''
+    
+    item_ids = ['refrigerated drnks']  # Processing only one category for now
+    
+    distance_metrics = ['spearman']
     window_size = 15 
     step_size = 1
-    create_plots = False  # Set to True to enable HTML graph generation
     enable_edges_within_star = False
     prefix = "" if enable_edges_within_star else "star_"
     
@@ -50,7 +69,7 @@ if __name__ == "__main__":
         #{'metric': 'hamming', 'percentiles': [0.5, 1, 2]},
         #{'metric': 'amplitude_offset', 'percentiles': [0.5, 1, 2]},
         #{'metric': 'slope_consistency', 'percentiles': [0.5, 1, 2]},
-        {'metric': 'cid', 'percentiles': [0.5, 1, 2]},
+        {'metric': 'cid', 'percentiles': [5, 10, 20]},
         #{'metric': 'dtw', 'percentiles': [0.5, 1, 2]},
         #{'metric': 'phase_invariance', 'percentiles': [0.5, 1, 2]}
     ]
@@ -74,22 +93,18 @@ if __name__ == "__main__":
                     
                     # Make safe directory string
                     dir_label = f"pct{pct}" if pct is not None else f"th{th}"
-                    
-                    if create_plots:
-                        plot_output_dir = os.path.join(BASE_DIR, 'GraphPlots', str(item_id), metric, str(window_size), dir_label)
-                    else:
-                        plot_output_dir = None
+                    plot_output_dir = os.path.join(BASE_DIR, 'GraphPlots', str(item_id), metric, str(window_size), dir_label)
                     
                     # Setup PKL path early to check if we can skip
                     pkl_dir = os.path.join(BASE_DIR, "DynamicGraphPkls", metric, str(window_size), str(step_size), str(item_id))
                     os.makedirs(pkl_dir, exist_ok=True)
                     pkl_path = os.path.join(pkl_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_{dir_label}.pkl")
                     
-                    if os.path.exists(pkl_path) and (not create_plots or os.path.exists(plot_output_dir)):
-                        print(f"Skipping {metric} with {dir_label} - Output PKL and plot directory already exist/skipped!")
+                    if os.path.exists(pkl_path) and os.path.exists(plot_output_dir):
+                        print(f"Skipping {metric} with {dir_label} - Output PKL and plot directory already exist!")
                         continue
                     
-                    if create_plots and os.path.exists(plot_output_dir):
+                    if os.path.exists(plot_output_dir):
                         import shutil
                         import time
                         import stat
