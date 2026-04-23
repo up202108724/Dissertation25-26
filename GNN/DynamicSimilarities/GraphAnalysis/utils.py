@@ -85,7 +85,7 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
 
 def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func, 
                         threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
-                        enable_edges_within_star=True):
+                        enable_edges_within_star=True, enable_second_degree=False, num_plots=None):
     """
     Constructs a graph by iterating over sliding time windows of the time series data.
     Finds items within the specified metric thresholds or percentiles to product_id.
@@ -196,13 +196,52 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
                                 edge_weight = max(0.0, float(val_sub))
                                 G.add_edge(item_ids[idx1], item_ids[idx2], weight=edge_weight)
 
+        if enable_second_degree and len(neighbor_indices) > 0:
+            for idx1 in neighbor_indices:
+                target_neighbor_ts = all_ts[idx1] 
+                vals_sub = compute_func(target_neighbor_ts, all_ts, metric=metric)
+                
+                for valid_idx, is_valid in enumerate(valid_mask):
+                    if is_valid and valid_idx != idx1:  # Must be active and not itself nor the central product
+                        val_sub = vals_sub[valid_idx]
+                        other_id = item_ids[valid_idx]
+                        
+                        add_edge = False
+                        if metric_type == 'distance':
+                            if val_sub <= current_threshold:
+                                add_edge = True
+                                edge_weight = 1.0 / (1.0 + float(val_sub)) 
+                        else:
+                            if val_sub >= current_threshold:
+                                add_edge = True
+                                edge_weight = max(0.0, float(val_sub))
+                                
+                        if add_edge:
+                            if not G.has_node(other_id):
+                                cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
+                                G.add_node(other_id, cat_label=cat_other)
+                            if not G.has_edge(item_ids[idx1], other_id):
+                                G.add_edge(item_ids[idx1], other_id, weight=edge_weight)
+
         start_date = str(window_data.columns[0]).split(' ')[0].split('T')[0]
         end_date = str(window_data.columns[-1]).split(' ')[0].split('T')[0]
         
         G.graph['start_date'] = start_date
         G.graph['end_date'] = end_date
 
-        if plot_dir is not None and len(G.nodes) > 1:
+        graphs.append(G)
+
+    if plot_dir is not None:
+        import random
+        # Filter valid graphs first
+        valid_graphs = [g for g in graphs if len(g.nodes) > 1]
+        
+        # Decide which ones to plot
+        plots_to_draw = valid_graphs
+        if num_plots is not None and num_plots < len(valid_graphs):
+            plots_to_draw = random.sample(valid_graphs, num_plots)
+            
+        for G_to_plot in plots_to_draw:    
             current_plot_dir = plot_dir
             if residuals:
                 current_plot_dir = os.path.join(plot_dir, "residuals")
@@ -211,21 +250,24 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
             plot_prefix = "residual_" if residuals else ""
             if not enable_edges_within_star:
                 plot_prefix += "star_"
+            if enable_second_degree:
+                plot_prefix += "2nd_degree_"
                 
-            plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_date}_to_{end_date}.html')
+            start_d = G_to_plot.graph['start_date']
+            end_d = G_to_plot.graph['end_date']
+                
+            plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_d}_to_{end_d}.html')
             try:
                 from graph_plot import plot_networkx_plotly
-                print(f"Saving plot to {plot_path} with {len(G.nodes)} nodes and {len(G.edges)} edges...")
+                print(f"Saving plot to {plot_path} with {len(G_to_plot.nodes)} nodes and {len(G_to_plot.edges)} edges...")
                 plot_networkx_plotly(
-                    G, 
-                    title=f"Neighbors of Product {product_id} ({metric})<br>Date: {start_date} to {end_date}",
+                    G_to_plot, 
+                    title=f"Neighbors of Product {product_id} ({metric})<br>Date: {start_d} to {end_d}",
                     save_path=plot_path
                 )
             except Exception as e:
                 print(f"Plotting skipped due to error: {e}")
                 
-        graphs.append(G)
-                    
     return graphs
 def compute_distances_1vsAll(target_ts, all_ts, metric='euclidean', eps=1e-12):
     """

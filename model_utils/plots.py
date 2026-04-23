@@ -9,24 +9,43 @@ def plot_results(train, val, test, forecast,
                 train_index, val_index, test_index, 
                 train_losses, val_losses, metric=None, embedding_strategy=None,
                 window_size=None, step_size=None, threshold=None, percentile=None,
-                enable_edges_within_star=None,
+                enable_edges_within_star=None, seed=None,
                 target_col='value', title='Forecast vs Actual', save_path=None,
                 rmse=None, mae=None, bias=None, score=None, pocid=None, df_full=None):
     
+    # Check if forecast is a dictionary; if not, wrap it in a dictionary for uniformity
+    if not isinstance(forecast, dict):
+        forecast = {'Forecast': forecast}
+        rmse = {'Forecast': rmse}
+        mae = {'Forecast': mae}
+        bias = {'Forecast': bias}
+        score = {'Forecast': score}
+        pocid = {'Forecast': pocid}
+        train_losses = {'Forecast': train_losses}
+        val_losses = {'Forecast': val_losses}
+        
     # Calculate metrics if not provided
-    if rmse is None:
-        valid_mask = ~np.isnan(forecast)
-        valid_test = test[valid_mask]
-        valid_forecast = forecast[valid_mask]
-        if len(valid_test) > 0:
-            rmse = np.sqrt(mean_squared_error(valid_test, valid_forecast))
-            mae = mean_absolute_error(valid_test, valid_forecast)
-            bias = np.mean(valid_forecast - valid_test)
-            score = r2_score(valid_test, valid_forecast)
-        else:
-            rmse, mae, bias, score = 0, 0, 0, 0
+    for label, fcast in forecast.items():
+        if fcast is None:
+            rmse[label], mae[label], bias[label], score[label] = 0, 0, 0, 0
+            continue
             
-    pocid_str = f"{pocid:.4f}" if pocid is not None else "N/A"
+        if rmse.get(label) is None:
+            fcast_array = np.array(fcast, dtype=float)
+            valid_mask = ~np.isnan(fcast_array)
+            valid_test = test[valid_mask]
+            valid_forecast = fcast_array[valid_mask]
+            if len(valid_test) > 0:
+                rmse[label] = np.sqrt(mean_squared_error(valid_test, valid_forecast))
+                mae[label] = mean_absolute_error(valid_test, valid_forecast)
+                bias[label] = np.mean(valid_forecast - valid_test)
+                score[label] = r2_score(valid_test, valid_forecast)
+                # pocid would need to be calculated here ideally, but logic isn't provided here yet
+            else:
+                rmse[label], mae[label], bias[label], score[label] = 0, 0, 0, 0
+            
+    # Remove large individual metrics from title - instead we'll place them in the legend or skip them if multiple
+    is_multi = len(forecast) > 1
         
     # Update title conditionally
     meta_parts = []
@@ -44,10 +63,17 @@ def plot_results(train, val, test, forecast,
         meta_parts.append(f"Percentile: {percentile}")
     if enable_edges_within_star is not None:
         meta_parts.append(f"Edges in Star: {enable_edges_within_star}")
+    if seed is not None:
+        meta_parts.append(f"Seed: {seed}")
     metadata = " | ".join(meta_parts)
     meta_html = f"<span style='font-size:14px;color:gray'>{metadata}</span><br>" if metadata else ""
     
-    full_title = f"{title}<br>{meta_html}RMSE: {rmse:.4f} | MAE: {mae:.4f} | Bias: {bias:.4f} | Score: {score:.4f} | POCID: {pocid_str}"
+    full_title = f"{title}<br>{meta_html}"
+    if not is_multi:
+        label = list(forecast.keys())[0]
+        pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
+        full_title += f"RMSE: {rmse[label]:.4f} | MAE: {mae[label]:.4f} | Bias: {bias[label]:.4f} | Score: {score[label]:.4f} | POCID: {pocid_str}"
+        
     fig = make_subplots(rows=3, cols=1, 
                         subplot_titles=(full_title, 'Test vs Forecast', 'Training and Validation Loss'),
                         vertical_spacing=0.1)
@@ -59,7 +85,23 @@ def plot_results(train, val, test, forecast,
     fig.add_trace(go.Scatter(x=train_index, y=train, name='Train', opacity=0.7, mode='lines', hovertemplate=hover_temp), row=1, col=1)
     fig.add_trace(go.Scatter(x=val_index, y=val, name='Validation', opacity=0.7, mode='lines', line=dict(color='orange'), hovertemplate=hover_temp), row=1, col=1)
     fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2), hovertemplate=hover_temp), row=1, col=1)
-    fig.add_trace(go.Scatter(x=test_index, y=forecast, name='Forecast', mode='lines', line=dict(color='red', width=2, dash='dash'), hovertemplate=hover_temp), row=1, col=1)
+    
+    import plotly.express as px
+    colors = px.colors.qualitative.Plotly
+    
+    for idx, (label, fcast) in enumerate(forecast.items()):
+        if fcast is None: continue
+        color = colors[idx % len(colors)]
+        if not is_multi:
+            color = 'red'
+        
+        legend_name = label
+        if is_multi:
+             pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
+             legend_name = f"{label} (RMSE: {rmse[label]:.2f}, MAE: {mae[label]:.2f})"
+             
+        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2, dash='dash'), hovertemplate=hover_temp), row=1, col=1)
+    
     
     # Pinpoint specific dates
     fig.add_vline(x='2022-09-24', line_dash="dot", line_color="purple", line_width=2, row=1, col=1)
@@ -116,7 +158,13 @@ def plot_results(train, val, test, forecast,
     
     # Plot forecast vs actual test only - ax2
     fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test (Zoom)', mode='lines', line=dict(color='green', width=2), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
-    fig.add_trace(go.Scatter(x=test_index, y=forecast, name='Forecast (Zoom)', mode='lines', line=dict(color='red', width=2, dash='dash'), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
+    
+    for idx, (label, fcast) in enumerate(forecast.items()):
+        if fcast is None: continue
+        color = colors[idx % len(colors)]
+        if not is_multi:
+            color = 'red'
+        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=label + ' (Zoom)', legendgroup=label, mode='lines', line=dict(color=color, width=2, dash='dash'), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
     
     fig.update_xaxes(
         title_text='Date',
@@ -127,9 +175,20 @@ def plot_results(train, val, test, forecast,
     fig.update_yaxes(title_text=target_col, row=2, col=1)
 
     # Plot training loss - ax3
-    epochs = list(range(1, len(train_losses) + 1))
-    fig.add_trace(go.Scatter(x=epochs, y=train_losses, name='Train Loss', mode='lines'), row=3, col=1)
-    fig.add_trace(go.Scatter(x=epochs, y=val_losses, name='Validation Loss', mode='lines'), row=3, col=1)
+    if not isinstance(train_losses, dict):
+        train_losses = {'Forecast': train_losses}
+        val_losses = {'Forecast': val_losses}
+        
+    for idx, (label, t_loss) in enumerate(train_losses.items()):
+        v_loss = val_losses.get(label, [])
+        color = colors[idx % len(colors)]
+        epochs = list(range(1, len(t_loss) + 1))
+        
+        name_t = 'Train Loss' if not is_multi else f'Train Loss ({label})'
+        name_v = 'Validation Loss' if not is_multi else f'Val Loss ({label})'
+        
+        fig.add_trace(go.Scatter(x=epochs, y=t_loss, name=name_t, legendgroup=label, mode='lines', line=dict(color=color, dash='solid')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=epochs, y=v_loss, name=name_v, legendgroup=label, mode='lines', line=dict(color=color, dash='dot')), row=3, col=1)
     
     fig.update_yaxes(title_text='Loss', row=3, col=1)
     fig.update_xaxes(title_text='Epoch', row=3, col=1)

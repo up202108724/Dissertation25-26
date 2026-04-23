@@ -46,12 +46,14 @@ if __name__ == "__main__":
     window_size = 15 
     step_size = 1
     create_plots = False  # Set to True to enable HTML graph generation
-    enable_edges_within_star = True
+    enable_edges_within_star = False
     prefix = "" if enable_edges_within_star else "star_"
     
     grid_configs = [
         #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
-        {'metric': 'spearman', 'percentiles': [0.5, 1, 2]},
+        {'metric': 'pearson', 'percentiles':  [0.5, 1, 2]},
+        #{'metric': 'spearman', 'percentiles': [0.5, 1, 2]},
+        #{'metric': 'kendall', 'percentiles': [0.5, 1, 2]}
         #{'metric': 'kendall', 'thresholds': [0.7, 0.80]}
     ]
     

@@ -90,43 +90,23 @@ def build_dynamic_graph(target_id, target_preds, df_wide, cat_labels, date_cols,
                         G.add_edge(n_id1, n_ids[j], weight=float(n_scores[j]))
     return G
 
-def nx_to_graphsage(G, window_data_values):
-    """
-    Converts a NetworkX graph into adj_lists and raw_features required by GraphSAGE.
-    window_data_values: numpy array of shape (num_nodes, window_size) containing raw sales over the window.
-    """
-    # Assuming node IDs correspond to the row index in window_data_values
-    raw_features = torch.FloatTensor(window_data_values)
-    adj_lists = {node: set() for node in range(len(window_data_values))}
+def get_dynamic_embedding(G, graph2vec_model, dimensions=64):
+    if G.number_of_nodes() == 0:
+        return np.zeros(dimensions)
+    if graph2vec_model is not None:
+        emb = graph2vec_model.infer([G])
+        return emb[0]
+    return np.zeros(dimensions)
     
-    for u, v in G.edges():
-        if isinstance(u, int) and isinstance(v, int):
-            adj_lists[u].add(v)
-            adj_lists[v].add(u)
-        else:
-            # If node labels are strings, you'd need a mapping back to indexes
-            # Let's assume nodes correspond correctly to indices or are directly integers
-            try:
-                adj_lists[int(u)].add(int(v))
-                adj_lists[int(v)].add(int(u))
-            except ValueError:
-                pass
-                
-    return raw_features, adj_lists
-
-def graphsage_inference(
-    metric, window_size, step_size, threshold, percentile, model, graphsage_model, df, df_wide, cat_labels, date_col, scaler, exog_scaler, test_start_idx, seq_length, forecast_window, 
-    device, item_id, store_id, seed, criterion, val_scaled,
+def graph2vec_inference(
+    metric, window_size, step_size, threshold, percentile, model, df, df_wide, cat_labels, date_col, scaler, exog_scaler, test_start_idx, seq_length, forecast_window, 
+    device, item_id, store_id, seed, criterion, val_scaled, test_scaled=None,
     exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None,
-    node_embeddings=None
+    node_embeddings=None, graph2vec_model=None, enable_edges_within_star=True
 ):
     
     model.eval()
-    if graphsage_model is not None:
-        graphsage_model.eval()
-        
     start_inference_time = time.time()
-
     
     # Get the start date of the test set
     test_start_date = df[date_col].iloc[test_start_idx]
@@ -147,11 +127,15 @@ def graphsage_inference(
 
     if node_embeddings is not None:
         # Extract the sequence of embeddings corresponding to the last seq_length days of validation
-        current_emb_seq = node_embeddings[test_start_idx - seq_length : test_start_idx].tolist()
+        # Aligned correctly with target slicing without the +1 shift
+        emb_slice = node_embeddings[test_start_idx - seq_length : test_start_idx].tolist()
         
-        # O user pediu: The current emb_sequence should be the first the embeddings corresponding to the graph of the first window_size days
-        # Garante que durante os primeiros window_size dias de previsão (onde o código faz forecast.append(np.nan)),
-        # o embedding da base seja o da transição original.
+        # If node_embeddings is missing the inference steps, pad with the last known embedding
+        while len(emb_slice) < seq_length:
+            emb_slice.append(emb_slice[-1])
+        
+        current_emb_seq = emb_slice
+        emb_dim = len(current_emb_seq[0]) if current_emb_seq else 64
     else:
         current_emb_seq = None
     
@@ -181,6 +165,11 @@ def graphsage_inference(
             exog_cols_unscaled_str = ",".join([f"{col}_Unscaled" for col in exog_cols])
             exog_cols_scaled_str = ",".join([f"{col}_Scaled" for col in exog_cols])
             header_str += f",{exog_cols_unscaled_str},{exog_cols_scaled_str}"
+            
+        if node_embeddings is not None or current_emb_seq is not None:
+            emb_cols_str = ",".join([f"Emb_{i}" for i in range(emb_dim)])
+            header_str += f",{emb_cols_str}"
+            
         inf_log_file.write(header_str + "\n")
         
         with torch.no_grad():
@@ -206,6 +195,10 @@ def graphsage_inference(
                 # Predict next value
                 pred = model(x).cpu().numpy()[0, 0]
                 
+                # If we are in the warmup period and have actual test data, use the ground truth
+                if step < window_size and test_scaled is not None and step < len(test_scaled):
+                    pred = test_scaled[step].item() if hasattr(test_scaled[step], 'item') else test_scaled[step]
+                
                 pred_unscaled = scaler.inverse_transform([[pred]])[0, 0]
                 warmup_preds_unscaled.append(pred_unscaled)
                 
@@ -217,14 +210,21 @@ def graphsage_inference(
 
                 # Logging
                 x_str = str(x_np.tolist()).replace('"', "'")
+                row_str = f'{step},"{x_str}",{pred},{pred_unscaled}'
+                
                 if exog_cols and len(exog_cols) > 0:
                     last_exog_scaled = current_exog_arr[-1]
                     last_exog_raw = exog_scaler.inverse_transform(last_exog_scaled.reshape(1, -1))[0]
                     last_exog_unscaled_str = ",".join([str(v) for v in last_exog_raw.tolist()])
                     last_exog_scaled_str = ",".join([str(v) for v in last_exog_scaled.tolist()])
-                    inf_log_file.write(f'{step},"{x_str}",{pred},{pred_unscaled},{last_exog_unscaled_str},{last_exog_scaled_str}\n')
-                else:
-                    inf_log_file.write(f'{step},"{x_str}",{pred},{pred_unscaled}\n')
+                    row_str += f',{last_exog_unscaled_str},{last_exog_scaled_str}'
+                    
+                if node_embeddings is not None or current_emb_seq is not None:
+                    last_emb = current_emb_arr[-1]
+                    last_emb_str = ",".join([str(v) for v in last_emb.tolist()])
+                    row_str += f',{last_emb_str}'
+                    
+                inf_log_file.write(row_str + '\n')
 
 
                 if (test_start_idx + step) < len(df):
@@ -241,62 +241,38 @@ def graphsage_inference(
 
                 # Update node sequences
                 if current_emb_seq is not None and step + 1 < total_steps:
-                    if graphsage_model is not None and step + 1 >= window_size:
-                        # Construct a graph using the past window_size predictions
-                        preds_for_window = warmup_preds_unscaled[-window_size:]
+                    end_date_idx = test_start_idx + step + 1
+                    start_date_idx = end_date_idx - window_size
+                    
+                    if start_date_idx >= 0 and end_date_idx <= len(df_wide_cols):
+                        date_cols_window = df_wide_cols[start_date_idx : end_date_idx]
                         
-                        # Find the correct date range in df_wide to pass to build_dynamic_graph
-                        next_date_idx = min(test_start_idx + step, len(df) - 1)
-                        target_col_idxs = list(range(max(0, next_date_idx - window_size + 1), next_date_idx + 1))
-                        
-                        if len(target_col_idxs) < window_size:
-                            target_col_idxs = list(range(max(0, len(df) - window_size), len(df)))
-                            
-                        window_date_cols = [df[date_col].iloc[idx].strftime('%Y-%m-%d') for idx in target_col_idxs]
-                        
-                        # In case the df_wide doesn't contain these date columns, filter them
-                        valid_cols = [col for col in window_date_cols if col in df_wide_cols]
-                        if len(valid_cols) == window_size:
-                            try:
-                                # 1. Build the dynamic graph based on the recent window predictions
-                                G = build_dynamic_graph(item_id, preds_for_window, df_wide, cat_labels, valid_cols, metric, threshold, percentile, enable_edges_within_star=True)
-                                
-                                # 2. Extract feature matrix: df_wide gives raw rows, but target should be replaced with preds
-                                window_data = df_wide[valid_cols].copy()
-                                if item_id in window_data.index:
-                                    window_data.loc[item_id] = preds_for_window[:len(valid_cols)] # match length just in case
-                                    
-                                raw_feats = torch.FloatTensor(window_data.values).to(device)
-                                
-                                # Create adj_lists mapped by row index
-                                item_list = list(window_data.index)
-                                name_to_idx = {name: i for i, name in enumerate(item_list)}
-                                adj_lists = {i: set() for i in range(len(item_list))}
-                                
-                                for u, v in G.edges():
-                                    if u in name_to_idx and v in name_to_idx:
-                                        adj_lists[name_to_idx[u]].add(name_to_idx[v])
-                                        adj_lists[name_to_idx[v]].add(name_to_idx[u])
-                                        
-                                # Update model structures
-                                graphsage_model.raw_features = raw_feats
-                                graphsage_model.adj_lists = adj_lists
-                                
-                                target_internal_idx = name_to_idx.get(item_id, 0)
-                                
-                                with torch.no_grad():
-                                    emb = graphsage_model([target_internal_idx])
-                                next_emb = emb.cpu().numpy().flatten().tolist()
-                                
-                            except Exception as e:
-                                print(f"Warning: Failed to dynamically infer GraphSAGE embedding at step {step}: {e}")
-                                next_emb = current_emb_seq[-1] # fallback
+                        actual_history_needed = window_size - len(warmup_preds_unscaled)
+                        if actual_history_needed > 0:
+                            # We need some history from before the test_start_idx
+                            history_dates = df_wide_cols[start_date_idx : test_start_idx]
+                            history_unscaled = df_wide.loc[item_id, history_dates].tolist()
+                            target_preds_window = history_unscaled + warmup_preds_unscaled
                         else:
-                            next_emb = current_emb_seq[-1]
+                            target_preds_window = warmup_preds_unscaled[-window_size:]
+
+                        new_G = build_dynamic_graph(
+                            target_id=item_id,
+                            target_preds=target_preds_window, 
+                            df_wide=df_wide, 
+                            cat_labels=cat_labels,
+                            date_cols=date_cols_window,
+                            metric=metric,
+                            threshold=threshold,
+                            percentile=percentile,
+                            enable_edges_within_star=enable_edges_within_star
+                        )
+
+                        new_emb = get_dynamic_embedding(new_G, graph2vec_model, dimensions=emb_dim)
+                        current_emb_seq = current_emb_seq[1:] + [new_emb.tolist()]
                     else:
-                        next_emb = current_emb_seq[-1] # default keep same (frozen mode or pending update)
-                        
-                    current_emb_seq = current_emb_seq[1:] + [next_emb]
+                        next_emb = current_emb_seq[-1]
+                        current_emb_seq = current_emb_seq[1:] + [next_emb]
 
                 # Update exogenous sequence
                 if exog_cols and len(exog_cols) > 0 and step + 1 < total_steps:

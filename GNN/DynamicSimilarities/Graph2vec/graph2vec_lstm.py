@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 import time
 import pickle
@@ -29,15 +30,18 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
+SEEDS = [42, 2024, 12345, 99999, 10000000, 100000000000]  # Add more seeds as needed
 
 # Add the products and stores you want to iterate over
 PRODUCTS_TO_TEST = [
     (907969, 6269),
     (26008, 6269),
-    (907967, 6270)
+    (907967, 6269)
 ]
 
 # EXOG_COLS definition
+#EXOG_COLS = []
+
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
     "month", "quarter", "is_weekend",
@@ -125,182 +129,246 @@ def main():
             exog_test_scaled = None
             exog_scaler = None
 
-        # Grid Search Parameters Setup
-        metrics = ['cid', 'spearman']
-        percentiles = [0.5,1,2]
-        window_sizes = [15]     
-        step_sizes = [1]        
-        enable_edges_opts = [True, False]
+        for seed in SEEDS:
+            # Set all seeds here
+            os.environ['PYTHONHASHSEED'] = str(seed)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
+                torch.cuda.manual_seed_all(seed)
 
-        USE_EMBEDDINGS = True
-        USE_RESIDUALS = False
-        MODEL_TYPE = 'ridge'
-        seed = 2024
-        EPOCHS = 1000
-        PATIENCE = 100
-        LEARNING_RATE = 0.001
-        HIDDEN_SIZE = 32
-        NUM_LAYERS = 1
-        DROPOUT = 0.0
+            print(f"\n--- RUNNING WITH SEED {seed} ---\n")
 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        os.makedirs('grid_search_plots', exist_ok=True)
-        os.makedirs('best_models', exist_ok=True)
+            # Grid Search Parameters Setup
+            metrics = ['spearman']
+            percentiles = [0.5,1,2,3,5,10]
+            window_sizes = [15]     
+            step_sizes = [1]        
+            enable_edges_opts = [False, True]
+            enable_second_degree_opts = [False, True]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
+            USE_RESIDUALS = False
+            MODEL_TYPE = 'ridge'
+            EPOCHS = 1000
+            PATIENCE = 100
+            LEARNING_RATE = 0.001
+            HIDDEN_SIZE = 32
+            NUM_LAYERS = 1
+            DROPOUT = 0.0
 
-        # Grid Search Loop for current product
-        for metric, percentile, window_size, step_size, enable_edges in itertools.product(
-            metrics, percentiles, window_sizes, step_sizes, enable_edges_opts
-        ):
-            print(f"\n{'='*60}")
-            print(f"Running Experiment: metric={metric}, percentile={percentile}, window_size={window_size}, enable_edges={enable_edges}")
-            print(f"{'='*60}")
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            
+            # Get the directory where `graph2vec_lstm.py` is located to anchor our save paths
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            grid_search_plots_dir = os.path.join(script_dir, 'grid_search_plots')
+            best_models_dir = os.path.join(script_dir, 'best_models')
+            
+            os.makedirs(grid_search_plots_dir, exist_ok=True)
+            os.makedirs(best_models_dir, exist_ok=True)
 
-            if USE_EMBEDDINGS:
-                graph_embeddings, graph2vec_model, csv_path = load_or_generate_embeddings(
-                    product_id=product_id,
-                    metric=metric,
-                    window_size=window_size,
-                    step_size=step_size,
-                    threshold=None,
-                    enable_edges_within_star=enable_edges,
-                    percentile=percentile,
-                    use_residuals=USE_RESIDUALS,
-                    model_type=MODEL_TYPE
-                )
-                embedding_dim = graph_embeddings.shape[1] if len(graph_embeddings.shape) > 1 else 1
+            all_metrics = ['no_emb'] + metrics
+            base_forecast, base_train_losses, base_val_losses = None, None, None
+            base_rmse, base_mae, base_bias, base_score, base_pocid = None, None, None, None, None
 
-                padding = np.zeros((window_size - 1, embedding_dim))
-                aligned_embeddings = np.vstack([padding, graph_embeddings])
-
-                emb_train = aligned_embeddings[train_slice]
-                emb_val = aligned_embeddings[val_slice]
-            else:
-                graph_embeddings = None
-                graph2vec_model = None
-                aligned_embeddings = None
-                emb_train = None
-                emb_val = None
-                embedding_dim = 0
-                
-            input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0) + embedding_dim
-
-            # Combine features
-            if EXOG_COLS and len(EXOG_COLS) > 0:
-                if USE_EMBEDDINGS:
-                    exog_train_combined = np.hstack([exog_train_scaled, emb_train])
-                    exog_val_combined = np.hstack([exog_val_scaled, emb_val])
+            # Grid Search Loop for current product
+            for metric in all_metrics:
+                if metric == 'no_emb':
+                    forecasts_dict = {}
+                    train_losses_dict = {}
+                    val_losses_dict = {}
+                    rmse_dict = {}
+                    mae_dict = {}
+                    bias_dict = {}
+                    score_dict = {}
+                    pocid_dict = {}
                 else:
-                    exog_train_combined = exog_train_scaled
-                    exog_val_combined = exog_val_scaled
-            else:
+                    forecasts_dict = {'LSTM Baseline': base_forecast}
+                    train_losses_dict = {'LSTM Baseline': base_train_losses}
+                    val_losses_dict = {'LSTM Baseline': base_val_losses}
+                    rmse_dict = {'LSTM Baseline': base_rmse}
+                    mae_dict = {'LSTM Baseline': base_mae}
+                    bias_dict = {'LSTM Baseline': base_bias}
+                    score_dict = {'LSTM Baseline': base_score}
+                    pocid_dict = {'LSTM Baseline': base_pocid}
+                
+                    USE_EMBEDDINGS = (metric != 'no_emb')
+                
+                    if USE_EMBEDDINGS:
+                        iterator = itertools.product(percentiles, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
+                    else:
+                        iterator = [(percentiles[0], window_sizes[0], step_sizes[0], enable_edges_opts[0], enable_second_degree_opts[0])]
+                
+                    for percentile, window_size, step_size, enable_edges, enable_second_degree in iterator:
+                        print(f"\n{'='*60}")
+                        print(f"Running Experiment: metric={metric}, percentile={percentile}, window_size={window_size}, enable_edges={enable_edges}")
+                        print(f"{'='*60}")
+
+                    if USE_EMBEDDINGS:
+                        graph_embeddings, graph2vec_model, csv_path = load_or_generate_embeddings(
+                            product_id=product_id,
+                            metric=metric,
+                            window_size=window_size,
+                            step_size=step_size,
+                            threshold=None,
+                            enable_edges_within_star=enable_edges,
+                            enable_second_degree=enable_second_degree,
+                            percentile=percentile,
+                            use_residuals=USE_RESIDUALS,
+                            model_type=MODEL_TYPE,
+                            seed=seed
+                        )
+                        embedding_dim = graph_embeddings.shape[1] if len(graph_embeddings.shape) > 1 else 1
+
+                        padding = np.zeros((window_size - 1, embedding_dim))
+                        aligned_embeddings = np.vstack([padding, graph_embeddings])
+
+                        emb_train = aligned_embeddings[train_slice]
+                        emb_val = aligned_embeddings[val_slice]
+                    else:
+                        graph_embeddings = None
+                        graph2vec_model = None
+                        aligned_embeddings = None
+                        emb_train = None
+                        emb_val = None
+                        embedding_dim = 0
+                    
+                    input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0) + embedding_dim
+
+                    train_dataset = TimeSeriesDataset(
+                        target_data=train_scaled, 
+                        exog_data=exog_train_scaled if EXOG_COLS and len(EXOG_COLS) > 0 else None, 
+                        seq_length=seq_length,
+                        embeddings=emb_train,
+                        graph_window_size=window_size
+                    )
+                    use_pin_memory = torch.cuda.is_available()
+                    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=use_pin_memory)
+                    
+                    val_dataset = TimeSeriesDataset(
+                        target_data=val_scaled, 
+                        exog_data=exog_val_scaled if EXOG_COLS and len(EXOG_COLS) > 0 else None, 
+                        seq_length=seq_length,
+                        embeddings=emb_val,
+                        graph_window_size=window_size
+                    )
+                    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=use_pin_memory)
+
+                    # Initialize Model
+                    model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
+                    criterion = nn.MSELoss()
+                    criterion2 = nn.MSELoss()  
+                    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+                    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=PATIENCE//3)
+
+                    if USE_EMBEDDINGS:
+                        prefix_star = "" if enable_edges else "star_"
+                        if enable_second_degree:
+                            prefix_star = "2nddegree_" + prefix_star
+                        prefix = f"best_lstm_{prefix_star}{product_id}_{metric}_res_{MODEL_TYPE}" if USE_RESIDUALS else f"best_lstm_{prefix_star}{product_id}_{metric}"
+                        best_model_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_percentile_{percentile}_seed_{seed}.pth')
+                        history_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_percentile_{percentile}_seed_{seed}_history.pkl')
+                    else:
+                        best_model_path = os.path.join(best_models_dir, f'best_lstm_{product_id}_no_emb_seed_{seed}.pth')
+                        history_path = os.path.join(best_models_dir, f'best_lstm_{product_id}_no_emb_seed_{seed}_history.pkl')
+
+                    if os.path.exists(best_model_path) and os.path.exists(history_path):
+                        print(f"Loading existing model from {best_model_path}...")
+                        model.load_state_dict(torch.load(best_model_path))
+                        with open(history_path, 'rb') as f:
+                            history = pickle.load(f)
+                            train_losses = history['train_losses']
+                            val_losses = history['val_losses']
+                    else:
+                        print("Training new model...")
+                        model, train_losses, val_losses, best_epoch, train_time = train_model(
+                            seed=seed, epochs=EPOCHS, model=model, 
+                            train_loader=train_loader, val_loader=val_loader, 
+                            exog_cols=EXOG_COLS, criterion=criterion, criterion2=criterion2, 
+                            optimizer=optimizer, device=device, 
+                            best_model_path=best_model_path, scheduler=scheduler, patience=PATIENCE
+                        )
+                        with open(history_path, 'wb') as f:
+                            pickle.dump({
+                                'train_losses': train_losses, 'val_losses': val_losses,
+                                'best_epoch': best_epoch, 'train_time': train_time
+                            }, f)
+
+                    # Explicitly load the best saved model before inference to guarantee clean pipeline state
+                    print(f"Loading best weights from {best_model_path} for inference...")
+                    model.load_state_dict(torch.load(best_model_path))
+
+                    exog_test_data = df[EXOG_COLS][test_slice].values
+
+                    print("Running Inference...")
+                    forecast, inference_time = graph2vec_inference(
+                        metric=metric, window_size=window_size, step_size=step_size,
+                        threshold=None, percentile=percentile, model=model,
+                        df=df, df_wide=None, cat_labels=None, date_col=DATE_COL,
+                        scaler=scaler, exog_scaler=exog_scaler,
+                        test_start_idx=test_start_idx, seq_length=seq_length,
+                        forecast_window=forecast_horizon, device=device,
+                        item_id=product_id, store_id=store_id, seed=seed,
+                        criterion="MSELoss", val_scaled=val_scaled, test_scaled=test_scaled,
+                        exog_val_scaled=exog_val_scaled, exog_test_scaled=exog_test_scaled,
+                        exog_test_raw=exog_test_data, exog_cols=EXOG_COLS,
+                        save_plot_path=None,
+                        node_embeddings=aligned_embeddings if USE_EMBEDDINGS else None,
+                        graph2vec_model=graph2vec_model if USE_EMBEDDINGS else None,
+                        enable_edges_within_star=enable_edges
+                    )
+
+                    valid_mask = ~np.isnan(forecast)
+                    valid_test = test[valid_mask]
+                    valid_forecast = np.array(forecast)[valid_mask]
+
+                    rmse, mae, bias, score, pocid = None, None, None, None, None
+                    try:
+                        rmse, mae, bias, score, pocid = compute_metrics(valid_test, valid_forecast)
+                    except Exception as e:
+                        if len(valid_test) > 0:
+                            rmse = np.sqrt(mean_squared_error(valid_test, valid_forecast))
+                            mae = mean_absolute_error(valid_test, valid_forecast)
+                            bias = np.mean(valid_forecast - valid_test)
+                            score = r2_score(valid_test, valid_forecast)
+                
+                    label_name = f"pct:{percentile}|w:{window_size}|st:{step_size}|edge:{enable_edges}|2nd:{enable_second_degree}" if USE_EMBEDDINGS else "No Embeddings"
+                
+                    if metric == 'no_emb':
+                        base_forecast, base_train_losses, base_val_losses = forecast, train_losses, val_losses
+                        base_rmse, base_mae, base_bias = rmse, mae, bias
+                        base_score, base_pocid = score, pocid
+
+                    forecasts_dict[label_name] = forecast
+                    train_losses_dict[label_name] = train_losses
+                    val_losses_dict[label_name] = val_losses
+                    rmse_dict[label_name] = rmse
+                    mae_dict[label_name] = mae
+                    bias_dict[label_name] = bias
+                    score_dict[label_name] = score
+                    pocid_dict[label_name] = pocid
+                
+                    print(f"Finished {metric} @ {percentile} -> RMSE: {rmse:.4f}\n")
+
+                if metric == 'no_emb':
+                    continue
+
+                train_index = df[DATE_COL][train_slice].values
+                val_index = df[DATE_COL][val_slice].values
+                test_index = df[DATE_COL][test_slice].values
+            
                 if USE_EMBEDDINGS:
-                    exog_train_combined = emb_train
-                    exog_val_combined = emb_val
+                    save_plot_path = os.path.join(grid_search_plots_dir, f"item_{product_id}_store_{store_id}_{metric}_all_params_seed_{seed}.html")
+                    emb_title = f'Graph2Vec Forecasts ({metric} | Seed={seed})'
                 else:
-                    exog_train_combined = None
-                    exog_val_combined = None
+                    save_plot_path = os.path.join(grid_search_plots_dir, f"item_{product_id}_store_{store_id}_no_emb_seed_{seed}.html")
+                    emb_title = f'Baseline LSTM Forecast (No Embeddings | Seed={seed})'
 
-            train_dataset = TimeSeriesDataset(train_scaled, exog_train_combined, seq_length)
-            use_pin_memory = torch.cuda.is_available()
-            train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=use_pin_memory)
-                
-            val_dataset = TimeSeriesDataset(val_scaled, exog_val_combined, seq_length)
-            val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=use_pin_memory)
-
-            # Initialize Model
-            model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
-            criterion = nn.MSELoss()
-            criterion2 = nn.MSELoss()  
-            optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=PATIENCE//3)
-
-            if USE_EMBEDDINGS:
-                prefix_star = "" if enable_edges else "star_"
-                prefix = f"best_lstm_{prefix_star}{product_id}_{metric}_res_{MODEL_TYPE}" if USE_RESIDUALS else f"best_lstm_{prefix_star}{product_id}_{metric}"
-                best_model_path = f'best_models/{prefix}_{window_size}_{step_size}_percentile_{percentile}.pth'      
-                history_path = f'best_models/{prefix}_{window_size}_{step_size}_percentile_{percentile}_history.pkl'
-            else:
-                best_model_path = f'best_models/best_lstm_{product_id}_no_emb.pth'
-                history_path = f'best_models/best_lstm_{product_id}_no_emb_history.pkl'
-
-            if os.path.exists(best_model_path) and os.path.exists(history_path):
-                print(f"Loading existing model from {best_model_path}...")
-                model.load_state_dict(torch.load(best_model_path))
-                with open(history_path, 'rb') as f:
-                    history = pickle.load(f)
-                    train_losses = history['train_losses']
-                    val_losses = history['val_losses']
-            else:
-                print("Training new model...")
-                model, train_losses, val_losses, best_epoch, train_time = train_model(
-                    seed=seed, epochs=EPOCHS, model=model, 
-                    train_loader=train_loader, val_loader=val_loader, 
-                    exog_cols=EXOG_COLS, criterion=criterion, criterion2=criterion2, 
-                    optimizer=optimizer, device=device, 
-                    best_model_path=best_model_path, scheduler=scheduler, patience=PATIENCE
-                )
-                with open(history_path, 'wb') as f:
-                    pickle.dump({
-                        'train_losses': train_losses, 'val_losses': val_losses,
-                        'best_epoch': best_epoch, 'train_time': train_time
-                    }, f)
-
-            # Explicitly load the best saved model before inference to guarantee clean pipeline state
-            print(f"Loading best weights from {best_model_path} for inference...")
-            model.load_state_dict(torch.load(best_model_path))
-
-            exog_test_data = df[EXOG_COLS][test_slice].values
-
-            print("Running Inference...")
-            forecast, inference_time = graph2vec_inference(
-                metric=metric, window_size=window_size, step_size=step_size,
-                threshold=None, percentile=percentile, model=model,
-                df=df, df_wide=None, cat_labels=None, date_col=DATE_COL,
-                scaler=scaler, exog_scaler=exog_scaler,
-                test_start_idx=test_start_idx, seq_length=seq_length,
-                forecast_window=forecast_horizon, device=device,
-                item_id=product_id, store_id=store_id, seed=seed,
-                criterion="MSELoss", val_scaled=val_scaled, test_scaled=test_scaled,
-                exog_val_scaled=exog_val_scaled, exog_test_scaled=exog_test_scaled,
-                exog_test_raw=exog_test_data, exog_cols=EXOG_COLS,
-                save_plot_path=None,
-                node_embeddings=aligned_embeddings if USE_EMBEDDINGS else None,
-                graph2vec_model=graph2vec_model if USE_EMBEDDINGS else None,
-                enable_edges_within_star=enable_edges
-            )
-
-            if USE_EMBEDDINGS:
-                save_plot_path = f"grid_search_plots/item_{product_id}_store_{store_id}_{prefix}_window_{window_size}_step_{step_size}_percentile_{percentile}.png"
-            else:
-                save_plot_path = f"grid_search_plots/item_{product_id}_store_{store_id}_no_emb.png"
-
-            valid_mask = ~np.isnan(forecast)
-            valid_test = test[valid_mask]
-            valid_forecast = np.array(forecast)[valid_mask]
-
-            rmse, mae, bias, score, pocid = None, None, None, None, None
-            try:
-                rmse, mae, bias, score, pocid = compute_metrics(valid_test, valid_forecast)
-            except Exception as e:
-                if len(valid_test) > 0:
-                    rmse = np.sqrt(mean_squared_error(valid_test, valid_forecast))
-                    mae = mean_absolute_error(valid_test, valid_forecast)
-                    bias = np.mean(valid_forecast - valid_test)
-                    score = r2_score(valid_test, valid_forecast)
-
-            train_index = df[DATE_COL][train_slice].values
-            val_index = df[DATE_COL][val_slice].values
-            test_index = df[DATE_COL][test_slice].values
-                
-            emb_title = f'Graph2Vec ({metric} | pct: {percentile} | star: {enable_edges})'
-            plot_results(train, val, test, forecast, train_index, val_index, test_index,
-                         train_losses, val_losses, metric=metric, embedding_strategy='graph2vec',
-                         window_size=window_size, step_size=step_size, threshold=None, percentile=percentile,
-                         enable_edges_within_star=enable_edges, target_col=TARGET_COL, 
-                         title=f'LSTM Forecast {emb_title} (Item={product_id})',
-                         save_path=save_plot_path, rmse=rmse, mae=mae, bias=bias, score=score, pocid=pocid)
-
-            print(f"Finished {metric} @ {percentile} -> RMSE: {rmse:.4f}\n")
+                print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
+                plot_results(train, val, test, forecasts_dict, train_index, val_index, test_index,
+                             train_losses_dict, val_losses_dict, metric=metric, embedding_strategy='graph2vec',
+                             target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
+                             save_path=save_plot_path, rmse=rmse_dict, mae=mae_dict, bias=bias_dict, score=score_dict, pocid=pocid_dict)
 
 if __name__ == '__main__':
     main()

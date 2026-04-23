@@ -56,7 +56,7 @@ class TimeSeriesDataset(Dataset):
         if self.has_embeddings:
             # Fetch embeddings corresponding to the sequence days
             # Because of the padding in __init__, emb_seq[i] is the graph of the graph_window_size days before day (idx + 1 + i)
-            emb_seq = self.embeddings[idx+1:idx+self.seq_length+1] 
+            emb_seq = self.embeddings[idx:idx+self.seq_length] 
             # Stack the target/exog features with the embeddings: shape (seq_length, 1 + n_exog? + emb_dim)
             x = np.column_stack([x, emb_seq])
             

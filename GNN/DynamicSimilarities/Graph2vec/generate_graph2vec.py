@@ -42,27 +42,31 @@ def get_graph2vec_embeddings(graphs, dimensions=20, workers=1, epochs=100, min_c
     
     return graph_embeddings, model # Graph2Vec does not produce node-level embeddings
 
-def load_or_generate_embeddings(product_id, metric, window_size, step_size, threshold, percentile, dimensions=20, walk_length=10, num_walks=50, workers=1, epochs=100, min_count=1, window=0, seed=42, use_residuals=False, model_type='ridge', enable_edges_within_star=True, run_id=None, overwrite_embeddings=False):
+def load_or_generate_embeddings(product_id, metric, window_size, step_size, threshold, percentile, dimensions=20, walk_length=10, num_walks=50, workers=1, epochs=100, min_count=1, window=0, seed=42, use_residuals=False, model_type='ridge', enable_edges_within_star=True, enable_second_degree=False, run_id=None, overwrite_embeddings=False):
     prefix = "" if enable_edges_within_star else "star_"
+    if enable_second_degree:
+        prefix = "2nddegree_" + prefix
     run_suffix = f"_run{run_id}" if run_id is not None else ""
     
     curr_dir = os.path.dirname(os.path.abspath(__file__))
     if use_residuals:
         base_dir = os.path.join(curr_dir, '..', 'GraphAnalysis', 'DynamicGraphPkls', f'residuals_{model_type}', metric, str(window_size), str(step_size), str(product_id))
+        emb_base_dir = os.path.join(curr_dir, 'embeddings', f'residuals_{model_type}', metric, str(window_size), str(step_size), str(product_id))
     else:
         base_dir = os.path.join(curr_dir, '..', 'GraphAnalysis', 'DynamicGraphPkls', metric, str(window_size), str(step_size), str(product_id))
+        emb_base_dir = os.path.join(curr_dir, 'embeddings', metric, str(window_size), str(step_size), str(product_id))
         
     pkl_path = ""
     if threshold is not None:
         pkl_path = os.path.join(base_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_th{threshold}.pkl")
-        emb_pkl_path = os.path.join(base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_th{threshold}{run_suffix}.pkl")
+        emb_pkl_path = os.path.join(emb_base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_th{threshold}_seed{seed}{run_suffix}.pkl")
     if percentile is not None:
         if use_residuals:
             pkl_path = os.path.join(base_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_top{percentile}pct.pkl")
-            emb_pkl_path = os.path.join(base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_top{percentile}pct{run_suffix}.pkl")
+            emb_pkl_path = os.path.join(emb_base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_top{percentile}pct_seed{seed}{run_suffix}.pkl")
         else:
             pkl_path = os.path.join(base_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_pct{percentile}.pkl")
-            emb_pkl_path = os.path.join(base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_pct{percentile}{run_suffix}.pkl")
+            emb_pkl_path = os.path.join(emb_base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_pct{percentile}_seed{seed}{run_suffix}.pkl")
 
     model_pkl_path = emb_pkl_path.replace('embeddings_', 'graph2vec_model_')
 

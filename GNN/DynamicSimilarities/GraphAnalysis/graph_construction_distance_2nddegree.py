@@ -39,7 +39,7 @@ if __name__ == "__main__":
     window_size = 15 
     step_size = 1
     create_plots = False  # Set to True to enable HTML graph generation
-    enable_edges_within_star = False
+    enable_edges_within_star = True
     prefix = "" if enable_edges_within_star else "star_"
     
     grid_configs = [
