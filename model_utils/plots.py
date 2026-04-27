@@ -100,7 +100,7 @@ def plot_results(train, val, test, forecast,
              pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
              legend_name = f"{label} (RMSE: {rmse[label]:.2f}, MAE: {mae[label]:.2f})"
              
-        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2, dash='dash'), hovertemplate=hover_temp), row=1, col=1)
+        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), hovertemplate=hover_temp), row=1, col=1)
     
     
     # Pinpoint specific dates
@@ -164,7 +164,7 @@ def plot_results(train, val, test, forecast,
         color = colors[idx % len(colors)]
         if not is_multi:
             color = 'red'
-        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=label + ' (Zoom)', legendgroup=label, mode='lines', line=dict(color=color, width=2, dash='dash'), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
+        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=label + ' (Zoom)', legendgroup=label, mode='lines', line=dict(color=color, width=2), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
     
     fig.update_xaxes(
         title_text='Date',
@@ -180,6 +180,8 @@ def plot_results(train, val, test, forecast,
         val_losses = {'Forecast': val_losses}
         
     for idx, (label, t_loss) in enumerate(train_losses.items()):
+        if t_loss is None:
+            continue
         v_loss = val_losses.get(label, [])
         color = colors[idx % len(colors)]
         epochs = list(range(1, len(t_loss) + 1))

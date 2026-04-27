@@ -83,6 +83,61 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
         raise ValueError(f"Metric {metric} not supported")
 
 
+def plot_dynamic_graphs(graphs, product_id, metric, plot_dir, residuals=False, enable_edges_within_star=True, enable_second_degree=False, num_plots=None, window_size=None, step_size=None, threshold=None, percentile=None):
+    if plot_dir is None:
+        return
+        
+    import random
+    import os
+    # Filter valid graphs first
+    valid_graphs = [g for g in graphs if len(g.nodes) > 1]
+    
+    # Decide which ones to plot
+    plots_to_draw = valid_graphs
+    if num_plots is not None and num_plots < len(valid_graphs):
+        plots_to_draw = random.sample(valid_graphs, num_plots)
+        
+    for G_to_plot in plots_to_draw:    
+        current_plot_dir = plot_dir
+        if residuals:
+            current_plot_dir = os.path.join(plot_dir, "residuals")
+        os.makedirs(current_plot_dir, exist_ok=True)
+        
+        plot_prefix = "residual_" if residuals else ""
+        if not enable_edges_within_star:
+            plot_prefix += "star_"
+        if enable_second_degree:
+            plot_prefix += "2nd_degree_"
+            
+        start_d = G_to_plot.graph.get('start_date', 'Unknown')
+        end_d = G_to_plot.graph.get('end_date', 'Unknown')
+            
+        plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_d}_to_{end_d}.html')
+        try:
+            from graph_plot import plot_networkx_plotly
+            print(f"Saving plot to {plot_path} with {len(G_to_plot.nodes)} nodes and {len(G_to_plot.edges)} edges...")
+            
+            # Construct comprehensive title
+            details = []
+            details.append(f"Metric: {metric}")
+            if window_size is not None: details.append(f"Window: {window_size}")
+            if step_size is not None: details.append(f"Step: {step_size}")
+            if threshold is not None: details.append(f"Thresh: {threshold}")
+            if percentile is not None: details.append(f"Pct: {percentile}")
+            details.append(f"Edges inside Star: {enable_edges_within_star}")
+            details.append(f"2nd Degree: {enable_second_degree}")
+            
+            title_str = f"Neighbors of Product {product_id}<br>{' | '.join(details)}<br>Date: {start_d} to {end_d}"
+            
+            plot_networkx_plotly(
+                G_to_plot, 
+                title=title_str,
+                save_path=plot_path,
+                target_node=product_id
+            )
+        except Exception as e:
+            print(f"Plotting skipped due to error: {e}")
+
 def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func, 
                         threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
                         enable_edges_within_star=True, enable_second_degree=False, num_plots=None):
@@ -232,41 +287,20 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
         graphs.append(G)
 
     if plot_dir is not None:
-        import random
-        # Filter valid graphs first
-        valid_graphs = [g for g in graphs if len(g.nodes) > 1]
-        
-        # Decide which ones to plot
-        plots_to_draw = valid_graphs
-        if num_plots is not None and num_plots < len(valid_graphs):
-            plots_to_draw = random.sample(valid_graphs, num_plots)
-            
-        for G_to_plot in plots_to_draw:    
-            current_plot_dir = plot_dir
-            if residuals:
-                current_plot_dir = os.path.join(plot_dir, "residuals")
-            os.makedirs(current_plot_dir, exist_ok=True)
-            
-            plot_prefix = "residual_" if residuals else ""
-            if not enable_edges_within_star:
-                plot_prefix += "star_"
-            if enable_second_degree:
-                plot_prefix += "2nd_degree_"
-                
-            start_d = G_to_plot.graph['start_date']
-            end_d = G_to_plot.graph['end_date']
-                
-            plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_d}_to_{end_d}.html')
-            try:
-                from graph_plot import plot_networkx_plotly
-                print(f"Saving plot to {plot_path} with {len(G_to_plot.nodes)} nodes and {len(G_to_plot.edges)} edges...")
-                plot_networkx_plotly(
-                    G_to_plot, 
-                    title=f"Neighbors of Product {product_id} ({metric})<br>Date: {start_d} to {end_d}",
-                    save_path=plot_path
-                )
-            except Exception as e:
-                print(f"Plotting skipped due to error: {e}")
+        plot_dynamic_graphs(
+            graphs=graphs,
+            product_id=product_id,
+            metric=metric,
+            plot_dir=plot_dir,
+            residuals=residuals,
+            enable_edges_within_star=enable_edges_within_star,
+            enable_second_degree=enable_second_degree,
+            num_plots=num_plots,
+            window_size=window_size,
+            step_size=step_size,
+            threshold=threshold,
+            percentile=percentile
+        )
                 
     return graphs
 def compute_distances_1vsAll(target_ts, all_ts, metric='euclidean', eps=1e-12):
@@ -570,3 +604,25 @@ def analyze_distance_distribution(df, product_id, window_size, metrics, plot_dir
             print(f"  Warning: No valid distances returned for {metric} across all windows.")
             
     return distributions
+
+def calculate_thresholds(weights, metric_type, k_std=2.0, p_cutoff=95):
+    mean_w = np.mean(weights)
+    std_w = np.std(weights)
+    median_w = np.median(weights)
+    # Approximate MAD
+    mad_w = np.median(np.abs(weights - median_w))
+    
+    thresholds = {}
+    if metric_type == "distance":
+        # For distances, worst is high. So we cutoff everything ABOVE threshold
+        thresholds['Mean + k*Std'] = mean_w + k_std * std_w
+        thresholds['Median + k*MAD'] = median_w + (k_std * 1.4826) * mad_w # 1.4826 scales MAD to match std for normal dist
+        thresholds[f'Percentile {p_cutoff}'] = np.percentile(weights, p_cutoff)
+    else:
+        # For similarities, worst is low. So we cutoff everything BELOW threshold
+        thresholds['Mean - k*Std'] = mean_w - k_std * std_w
+        thresholds['Median - k*MAD'] = median_w - (k_std * 1.4826) * mad_w
+        thresholds[f'Percentile {100-p_cutoff}'] = np.percentile(weights, 100 - p_cutoff)
+        
+    return thresholds
+

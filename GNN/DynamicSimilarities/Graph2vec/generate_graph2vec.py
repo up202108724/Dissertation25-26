@@ -5,7 +5,7 @@ import time
 from tqdm.auto import tqdm
 from graph2vec import CustomGraph2Vec as Graph2Vec
 
-def get_graph2vec_embeddings(graphs, dimensions=20, workers=1, epochs=100, min_count=1, window=0, seed=42):
+def get_graph2vec_embeddings(graphs, dimensions=20, wl_iterations=2, workers=1, epochs=100, min_count=1, window=0, seed=42):
     """
     Generates Graph2Vec embeddings for a sequence of graphs.
     Returns the graph embeddings.
@@ -24,7 +24,7 @@ def get_graph2vec_embeddings(graphs, dimensions=20, workers=1, epochs=100, min_c
     print(f"Generating Graph2Vec embeddings for {len(valid_graphs)} valid graphs out of {len(graphs)}...")
             
     # Initialize and fit Graph2Vec
-    model = Graph2Vec(dimensions=dimensions, workers=workers, epochs=epochs, min_count=min_count, seed=seed)
+    model = Graph2Vec(dimensions=dimensions, wl_iterations=wl_iterations, workers=workers, epochs=epochs, min_count=min_count, seed=seed)
     model.fit(valid_graphs)
     
     # Get embeddings
@@ -42,36 +42,47 @@ def get_graph2vec_embeddings(graphs, dimensions=20, workers=1, epochs=100, min_c
     
     return graph_embeddings, model # Graph2Vec does not produce node-level embeddings
 
-def load_or_generate_embeddings(product_id, metric, window_size, step_size, threshold, percentile, dimensions=20, walk_length=10, num_walks=50, workers=1, epochs=100, min_count=1, window=0, seed=42, use_residuals=False, model_type='ridge', enable_edges_within_star=True, enable_second_degree=False, run_id=None, overwrite_embeddings=False):
+def load_or_generate_embeddings(product_id, metric, window_size, step_size, threshold, percentile, dimensions=20, wl_iterations=2, walk_length=10, num_walks=50, workers=1, epochs=100, min_count=1, window=0, seed=42, use_residuals=False, model_type='ridge', enable_edges_within_star=True, enable_second_degree=False, run_id=None, overwrite_embeddings=False):
     prefix = "" if enable_edges_within_star else "star_"
     if enable_second_degree:
         prefix = "2nddegree_" + prefix
     run_suffix = f"_run{run_id}" if run_id is not None else ""
     
     curr_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    dir_label = f"pct{percentile}" if percentile is not None else f"th{threshold}"
+    if use_residuals and percentile is not None:
+        dir_label = f"top{percentile}pct"
+        
+    plot_dir_name = f"{prefix}{dir_label}" if prefix else dir_label
+
+    
     if use_residuals:
-        base_dir = os.path.join(curr_dir, '..', 'GraphAnalysis', 'DynamicGraphPkls', f'residuals_{model_type}', metric, str(window_size), str(step_size), str(product_id))
-        emb_base_dir = os.path.join(curr_dir, 'embeddings', f'residuals_{model_type}', metric, str(window_size), str(step_size), str(product_id))
+        base_dir = os.path.join(curr_dir, '..', 'GraphAnalysis', 'DynamicGraphPkls', f'residuals_{model_type}', str(product_id), metric, str(window_size), str(step_size), plot_dir_name)
+        emb_base_dir = os.path.join(curr_dir, 'embeddings', f'residuals_{model_type}', str(product_id), metric, str(window_size), str(step_size), plot_dir_name)
     else:
-        base_dir = os.path.join(curr_dir, '..', 'GraphAnalysis', 'DynamicGraphPkls', metric, str(window_size), str(step_size), str(product_id))
-        emb_base_dir = os.path.join(curr_dir, 'embeddings', metric, str(window_size), str(step_size), str(product_id))
+        base_dir = os.path.join(curr_dir, '..', 'GraphAnalysis', 'DynamicGraphPkls', str(product_id), metric, str(window_size), str(step_size), plot_dir_name)
+        emb_base_dir = os.path.join(curr_dir, 'embeddings', str(product_id), metric, str(window_size), str(step_size), plot_dir_name)
         
     pkl_path = ""
+    # Assuming the PKL name is the same as before if adaptive_strategy is passed. 
+    # Actually, in graph_construction, the PKL name is kept the exact same as original, just placed inside the strat folder!
     if threshold is not None:
-        pkl_path = os.path.join(base_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_th{threshold}.pkl")
-        emb_pkl_path = os.path.join(emb_base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_th{threshold}_seed{seed}{run_suffix}.pkl")
+        pkl_filename = f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_th{threshold}.pkl"
     if percentile is not None:
         if use_residuals:
-            pkl_path = os.path.join(base_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_top{percentile}pct.pkl")
-            emb_pkl_path = os.path.join(emb_base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_top{percentile}pct_seed{seed}{run_suffix}.pkl")
+            pkl_filename = f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_top{percentile}pct.pkl"
         else:
-            pkl_path = os.path.join(base_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_pct{percentile}.pkl")
-            emb_pkl_path = os.path.join(emb_base_dir, f"{prefix}embeddings_{metric}_Window{window_size}_Step{step_size}_pct{percentile}_seed{seed}{run_suffix}.pkl")
+            pkl_filename = f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_pct{percentile}.pkl"
+            
+    pkl_path = os.path.join(base_dir, pkl_filename)
+    emb_pkl_path = os.path.join(emb_base_dir, pkl_filename.replace('dynamic_graphs_', 'embeddings_').replace('.pkl', f'_dim{dimensions}_ep{epochs}_wl{wl_iterations}_seed{seed}{run_suffix}.pkl'))
 
     model_pkl_path = emb_pkl_path.replace('embeddings_', 'graph2vec_model_')
+    lock_path = emb_pkl_path + ".lock"
 
     if os.path.exists(emb_pkl_path) and os.path.exists(model_pkl_path) and not overwrite_embeddings:
-        print(f"Embeddings and model already exist. Loading from {emb_pkl_path}...")
+        print(f"SKIPPING: Embeddings found at {emb_pkl_path}")
         with open(emb_pkl_path, 'rb') as f:
             embeddings_data = pickle.load(f)
         graph_embeddings = embeddings_data['graph_embeddings']
@@ -81,7 +92,26 @@ def load_or_generate_embeddings(product_id, metric, window_size, step_size, thre
             graph2vec_model = pickle.load(f)
             
         print("Successfully loaded embeddings and model!")
-    else:
+        
+        csv_path = emb_pkl_path.replace('.pkl', '.csv')
+        if not os.path.exists(csv_path):
+            import pandas as pd
+            print(f"Saving graph embeddings to {csv_path}...")
+            df_embs = pd.DataFrame(graph_embeddings)
+            df_embs.to_csv(csv_path, index=False)
+            
+        print(f"Graph Embeddings Shape: {graph_embeddings.shape}")
+        return graph_embeddings, graph2vec_model, csv_path
+
+    if os.path.exists(lock_path):
+        print(f"WORK IN PROGRESS: Another process is already generating {emb_pkl_path}. Exiting.")
+        return None, None, None
+
+    try:
+        # Create a lock file to claim this configuration
+        os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+        with open(lock_path, 'w') as f: f.write(str(time.time()))
+
         print(f"Loading graphs from {pkl_path}...")
         with open(pkl_path, 'rb') as f:
             graphs = pickle.load(f)
@@ -91,7 +121,7 @@ def load_or_generate_embeddings(product_id, metric, window_size, step_size, thre
         use_weights = False
         
         graph_embeddings, graph2vec_model = get_graph2vec_embeddings(
-            graphs, dimensions=dimensions, workers=workers, epochs=epochs, min_count=min_count, window=window, seed=seed
+            graphs, dimensions=dimensions, wl_iterations=wl_iterations, workers=workers, epochs=epochs, min_count=min_count, window=window, seed=seed
         )
         
         # Save the embeddings to a pickle file
@@ -109,15 +139,22 @@ def load_or_generate_embeddings(product_id, metric, window_size, step_size, thre
             
         print("Embeddings and model saved successfully.")
 
-    csv_path = emb_pkl_path.replace('.pkl', '.csv')
-    if not os.path.exists(csv_path):
-        import pandas as pd
-        print(f"Saving graph embeddings to {csv_path}...")
-        df_embs = pd.DataFrame(graph_embeddings)
-        df_embs.to_csv(csv_path, index=False)
+        csv_path = emb_pkl_path.replace('.pkl', '.csv')
+        if not os.path.exists(csv_path):
+            import pandas as pd
+            print(f"Saving graph embeddings to {csv_path}...")
+            df_embs = pd.DataFrame(graph_embeddings)
+            df_embs.to_csv(csv_path, index=False)
 
-    print(f"Graph Embeddings Shape: {graph_embeddings.shape}")
-    
+        print(f"Graph Embeddings Shape: {graph_embeddings.shape}")
+        
+    finally:
+        # Always remove the lock file when done or if it crashes
+        if os.path.exists(lock_path):
+            try:
+                os.remove(lock_path)
+            except Exception as e:
+                print(f"Notice: Could not remove lock file {lock_path}: {e}")
     
     return graph_embeddings, graph2vec_model, csv_path
 
@@ -194,14 +231,14 @@ if __name__ == "__main__":
     # Example usage / Test block
     embs, model, csv_path = load_or_generate_embeddings(
         product_id=907969,
-        metric='spearman',
+        metric='cid',
         window_size=15,
         step_size=1,
         threshold=None,
         percentile=0.5,
         dimensions=20,
-        enable_edges_within_star=True,
-        overwrite_embeddings=True,
+        enable_edges_within_star=False,
+        overwrite_embeddings=False,
     )
     
     analyze_embeddings(embs, output_csv_path=csv_path.replace('.csv', '_analysis.csv'))
