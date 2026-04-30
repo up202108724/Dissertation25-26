@@ -365,8 +365,7 @@ def main():
                         node_embeddings=aligned_embeddings if use_embeddings else None,
                         graph2vec_model=graph2vec_model if use_embeddings else None,
                         enable_edges_within_star=enable_edges,
-                        enable_second_degree=enable_second_degree,
-                        percentile=percentile
+                        enable_second_degree=enable_second_degree
                     )
 
                     valid_mask = ~np.isnan(forecast)
@@ -383,8 +382,7 @@ def main():
                             bias = np.mean(valid_forecast - valid_test)
                             score = r2_score(valid_test, valid_forecast)
                 
-                    th_str = f"{inf_threshold:.4f}" if inf_threshold is not None else "N/A"
-                    label_name = f"pct:{percentile}|th:{th_str}|w:{window_size}|st:{step_size}|e:{enable_edges}|2nd:{enable_second_degree}" if use_embeddings else "No Embeddings"
+                    label_name = f"pct:{percentile}|w:{window_size}|st:{step_size}|e:{enable_edges}|2nd:{enable_second_degree}" if use_embeddings else "No Embeddings"
                 
                     if metric == 'no_emb':
                         base_forecast, base_train_losses, base_val_losses = forecast, train_losses, val_losses
@@ -421,37 +419,16 @@ def main():
                                  bias=results_by_w_s[(None, 15, 1)]['bias'], score=results_by_w_s[(None, 15, 1)]['score'], pocid=results_by_w_s[(None, 15, 1)]['pocid'])
                 else:
                     metric_type = infer_metric_type(metric)
-                    
-                    # Group by window and step to combine all percentiles in a single plot
-                    grouped_results = {}
                     for (p, w, s), res_dicts in results_by_w_s.items():
-                        key = (w, s)
-                        if key not in grouped_results:
-                            grouped_results[key] = {
-                                'forecasts': {}, 'train_losses': {}, 'val_losses': {},
-                                'rmse': {}, 'mae': {}, 'bias': {}, 'score': {}, 'pocid': {}
-                            }
-                        grouped_results[key]['forecasts'].update(res_dicts['forecasts'])
-                        grouped_results[key]['train_losses'].update(res_dicts['train_losses'])
-                        grouped_results[key]['val_losses'].update(res_dicts['val_losses'])
-                        grouped_results[key]['rmse'].update(res_dicts['rmse'])
-                        grouped_results[key]['mae'].update(res_dicts['mae'])
-                        grouped_results[key]['bias'].update(res_dicts['bias'])
-                        grouped_results[key]['score'].update(res_dicts['score'])
-                        grouped_results[key]['pocid'].update(res_dicts['pocid'])
-
-                    for (w, s), res_dicts in grouped_results.items():
-                        sub_dir = os.path.join(grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}', f'item_{product_id}')
+                        sub_dir = os.path.join(grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}', f'pct_{p}', f'item_{product_id}')
                         os.makedirs(sub_dir, exist_ok=True)
-                        
-                        # Shorten the filename to avoid Windows MAX_PATH (260 chars) limitation
-                        save_plot_path = os.path.join(sub_dir, f"item_{product_id}_{metric}_seed_{seed}_all_configs.html")
-                        emb_title = f'Graph2Vec Forecasts ({metric} | Seed={seed} | W={w} | S={s})'
+                        save_plot_path = os.path.join(sub_dir, f"item_{product_id}_store_{store_id}_{metric}_seed_{seed}_pct_{p}.html")
+                        emb_title = f'Graph2Vec Forecasts ({metric} | Seed={seed} | W={w} | S={s} | Pct={p})'
 
                         print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
                         plot_results(train, val, test, res_dicts['forecasts'], train_index, val_index, test_index,
                                      res_dicts['train_losses'], res_dicts['val_losses'], metric=metric, embedding_strategy='graph2vec',
-                                     window_size=w, step_size=s, threshold=None, percentile=None,
+                                     window_size=w, step_size=s, threshold=round(res_dicts['threshold'], 4) if res_dicts['threshold'] is not None else None, percentile=p,
                                      target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
                                      save_path=save_plot_path, rmse=res_dicts['rmse'], mae=res_dicts['mae'], 
                                      bias=res_dicts['bias'], score=res_dicts['score'], pocid=res_dicts['pocid'])

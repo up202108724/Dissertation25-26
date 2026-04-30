@@ -17,10 +17,10 @@ except ImportError:
 
 import torch
 from tslearn.metrics import dtw
-from utils import neighbourhood_graph, compute_similarities_1vsAll
+from utils import neighbourhood_graph, compute_similarities_1vsAll, plot_dynamic_graphs
 
 if __name__ == "__main__":
-    item_ids = [ 26008 ,921558 ,213626 ,213625 ,213624 ,213628 ,213629 ,213630 ,213631 ,514230]  # Add your list of product ids here
+    item_ids = [ 26008,907969,907967,213626]  # Add your list of product ids here
     # Use absolute path to ensure it finds the dataset regardless of where the script is executed from
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_PATH = os.path.join(BASE_DIR, '..', '..', '..', 'dataset', 'data_andre.feather')
@@ -43,9 +43,9 @@ if __name__ == "__main__":
     similarity_metrics = ['spearman']
     window_size = 15 
     step_size = 1
-    create_plots = False  # Set to True to enable HTML graph generation
-    enable_edges_within_star_opts = [False, True]  # Grid over excluding vs including edges between neighbors in the star graph
-    enable_second_degree_opts = [False, True]  # Grid over 1st and 2nd degree
+    create_plots = True  # Set to True to enable HTML graph generation
+    enable_edges_within_star_opts = [True]  # Grid over excluding vs including edges between neighbors in the star graph
+    enable_second_degree_opts = [False]  # Grid over 1st and 2nd degree
     
     grid_configs = [
         #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         #{'metric': 'kendall', 'percentiles': [0.5, 1, 2]}
         #{'metric': 'kendall', 'thresholds': [0.7, 0.80]}
     ]
-    num_plots_to_draw = 100 if create_plots else None  # Specify number of random plots here
+    num_plots_to_draw = None  # Don't limit the number of plots to draw
     for item_id in item_ids:
         print(f"\n========================================")
         print(f"Processing product ID: {item_id}")
@@ -86,27 +86,11 @@ if __name__ == "__main__":
                         
                             if create_plots:
                                 plot_output_dir = os.path.join(BASE_DIR, 'GraphPlots', str(item_id), metric, str(window_size), plot_dir_name)
+                                os.makedirs(plot_output_dir, exist_ok=True)
                             else:
                                 plot_output_dir = None
-                        
-                            # Setup PKL path early to check if we can skip
-                            pkl_dir = os.path.join(BASE_DIR, "DynamicGraphPkls", str(item_id), metric, str(window_size), str(step_size), plot_dir_name)
-                            os.makedirs(pkl_dir, exist_ok=True)
-                            pkl_path = os.path.join(pkl_dir, f"{prefix}dynamic_graphs_{metric}_Window{window_size}_Step{step_size}_{dir_label}.pkl")
-                                
-                            csv_path_check = pkl_path.replace('.pkl', '_worst_similarities.csv')
-                            if os.path.exists(pkl_path) and os.path.exists(csv_path_check):
-                                if not create_plots:
-                                    print(f"Skipping {metric} with {dir_label} - Output PKL and CSV already exist!")
-                                    continue
-                                else:
-                                    if os.path.exists(plot_output_dir) and any(f.endswith('.html') for f in os.listdir(plot_output_dir)):
-                                        print(f"Skipping {metric} with {dir_label} - Output PKL and plots already exist!")
-                                        continue
-                                    else:
-                                        print(f"PKL exists for {metric} with {dir_label}, but plots are missing. Re-evaluating via neighbourhood_graph...")
                                         
-                            graphs = neighbourhood_graph(
+                            graphs, global_thresh = neighbourhood_graph(
                                 product_id=item_id,
                                 metric_type="similarity",
                                 compute_func=compute_similarities_1vsAll, 
@@ -125,33 +109,21 @@ if __name__ == "__main__":
                             )
                             
                             valid_graphs = [g for g in graphs if len(g.nodes) > 1]
-                            print(f"Finished! Out of {len(graphs)} windows, {len(valid_graphs)} had valid neighbors.")
-                        
-                            # -- Analysis: Distribution of lowest similarities --
-                            worst_edges = []
-                            for i, g in enumerate(graphs):
-                                if len(g.edges) > 0:
-                                    min_sim = min([data['weight'] for u, v, data in g.edges(data=True)])
-                                else:
-                                    min_sim = np.nan
-                                worst_edges.append(min_sim)
-                                
-                            df_worst = pd.DataFrame({'window_idx': range(len(graphs)), 'worst_similarity': worst_edges})
-                            csv_path = pkl_path.replace('.pkl', '_worst_similarities.csv')
-                            df_worst.to_csv(csv_path, index=False)
-                            print(f"Saved worst similarities distribution to {csv_path}")
+                            print(f"Finished! Out of {len(graphs)} windows, {len(valid_graphs)} had valid neighbors. Plots saved in {plot_output_dir}")
                             
-                            plt.figure(figsize=(10, 5))
-                            plt.hist(df_worst['worst_similarity'].dropna(), bins=30, alpha=0.7, color='blue')
-                            plt.title(f'Distribution of Minimum Graph Similarities\nMetric: {metric}, Pct: {pct}')
-                            plt.xlabel('Minimum Similarity in Graph')
-                            plt.ylabel('Frequency')
-                            plt.grid(True, alpha=0.3)
-                            plot_path = pkl_path.replace('.pkl', '_worst_similarities_hist.png')
-                            plt.savefig(plot_path)
-                            plt.close()
-
-                            with open(pkl_path, 'wb') as f:
-                                pickle.dump(graphs, f)
-                            print(f"Successfully saved PKL to {pkl_path}")
+                            if create_plots and plot_output_dir is not None:
+                                plot_dynamic_graphs(
+                                    graphs=valid_graphs,
+                                    product_id=item_id,
+                                    metric=metric,
+                                    plot_dir=plot_output_dir,
+                                    residuals=False,
+                                    enable_edges_within_star=enable_edges_within_star,
+                                    enable_second_degree=enable_second_degree,
+                                    num_plots=num_plots_to_draw,
+                                    window_size=window_size,
+                                    step_size=step_size,
+                                    threshold=th,
+                                    percentile=pct
+                                )
                             

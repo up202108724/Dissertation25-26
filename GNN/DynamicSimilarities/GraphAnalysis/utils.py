@@ -114,7 +114,10 @@ def plot_dynamic_graphs(graphs, product_id, metric, plot_dir, residuals=False, e
             
         plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_d}_to_{end_d}.html')
         try:
-            from graph_plot import plot_networkx_plotly
+            try:
+                from graph_plot import plot_networkx_plotly
+            except ImportError:
+                from GNN.DynamicSimilarities.GraphAnalysis.graph_plot import plot_networkx_plotly
             print(f"Saving plot to {plot_path} with {len(G_to_plot.nodes)} nodes and {len(G_to_plot.edges)} edges...")
             
             # Construct comprehensive title
@@ -140,7 +143,7 @@ def plot_dynamic_graphs(graphs, product_id, metric, plot_dir, residuals=False, e
 
 def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func, 
                         threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
-                        enable_edges_within_star=True, enable_second_degree=False, num_plots=None):
+                        enable_edges_within_star=True, enable_second_degree=False, num_plots=None, train_end_idx=None):
     """
     Constructs a graph by iterating over sliding time windows of the time series data.
     Finds items within the specified metric thresholds or percentiles to product_id.
@@ -159,13 +162,58 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
         plot_dir: Save HTML plots in this directory
     """
     if threshold is None and percentile is None:
-        raise ValueError("Must provide either a threshold or a percentile.")
+        raise ValueError("Must provide a threshold or percentile.")
         
     if product_id not in df.index:
         raise ValueError(f"Product ID {product_id} not found in DataFrame index.")
         
     time_steps = df.shape[1]
     
+    # --- PHASE 1: Pre-calculate a global threshold across ALL windows ---
+    global_threshold = threshold
+    if threshold is None:
+        all_valid_vals = []
+        scan_end_limit = time_steps
+        if train_end_idx is not None:
+            scan_end_limit = min(scan_end_limit, train_end_idx)
+            
+        for start_idx in range(0, scan_end_limit - window_size + 1, step_size):
+            end_idx = start_idx + window_size
+            window_data = df.iloc[:, start_idx:end_idx]
+            
+            target_ts = window_data.loc[product_id].values
+            if np.sum(np.abs(target_ts)) == 0:
+                continue
+                
+            all_ts = window_data.values
+            item_ids = window_data.index.values
+            
+            vals = compute_func(target_ts, all_ts, metric=metric)
+            
+            active_items_mask = np.sum(np.abs(all_ts), axis=1) > 0
+            valid_mask = (item_ids != product_id) & active_items_mask
+            all_valid_vals.extend(vals[valid_mask])
+            
+        all_valid_vals = np.array(all_valid_vals)
+        all_valid_vals = all_valid_vals[np.isfinite(all_valid_vals)]
+        
+        if len(all_valid_vals) > 0:
+            if percentile is not None:
+                # Calculate exactly how many items correspond to the top-k%
+                k = max(1, int(len(all_valid_vals) * (percentile / 100.0)))
+                
+                if metric_type == 'distance':
+                    # Sort distances ascending (smaller is better). Slice top k, take the max.
+                    top_k_vals = np.sort(all_valid_vals)[:k]
+                    global_threshold = top_k_vals[-1]
+                else: # similarity
+                    # Sort similarities descending (larger is better). Slice top k, take the min.
+                    top_k_vals = np.sort(all_valid_vals)[::-1][:k]
+                    global_threshold = top_k_vals[-1]
+        else:
+            global_threshold = 0.0
+            
+    # --- PHASE 2: Build Graphs using the single global_threshold ---
     graphs = []
     
     for start_idx in range(0, time_steps - window_size + 1, step_size):
@@ -198,23 +246,11 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
             current_threshold = 0
         else:
             if metric_type == 'distance':
-                if percentile is not None:
-                    k = max(1, int(len(valid_vals) * (percentile / 100.0)))
-                    threshold_val = np.partition(valid_vals, k - 1)[k - 1]
-                    mask = valid_vals <= threshold_val
-                    current_threshold = threshold_val
-                else:
-                    mask = valid_vals <= threshold
-                    current_threshold = threshold
+                mask = valid_vals <= global_threshold
+                current_threshold = global_threshold
             else: # similarity
-                if percentile is not None:
-                    k = max(1, int(len(valid_vals) * (percentile / 100.0)))
-                    threshold_val = np.partition(valid_vals, -k)[-k]
-                    mask = valid_vals >= threshold_val
-                    current_threshold = threshold_val
-                else:
-                    mask = valid_vals >= threshold
-                    current_threshold = threshold
+                mask = valid_vals >= global_threshold
+                current_threshold = global_threshold
 
         selected_vals = valid_vals[mask]
         selected_ids = valid_item_ids[mask]
@@ -285,24 +321,8 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
         G.graph['end_date'] = end_date
 
         graphs.append(G)
-
-    if plot_dir is not None:
-        plot_dynamic_graphs(
-            graphs=graphs,
-            product_id=product_id,
-            metric=metric,
-            plot_dir=plot_dir,
-            residuals=residuals,
-            enable_edges_within_star=enable_edges_within_star,
-            enable_second_degree=enable_second_degree,
-            num_plots=num_plots,
-            window_size=window_size,
-            step_size=step_size,
-            threshold=threshold,
-            percentile=percentile
-        )
                 
-    return graphs
+    return graphs, global_threshold
 def compute_distances_1vsAll(target_ts, all_ts, metric='euclidean', eps=1e-12):
     """
     Computes distances between target_ts (1D) and all_ts (2D) using PyTorch.

@@ -4,8 +4,7 @@ import pandas as pd
 import os
 import time
 import networkx as nx
-
-from GNN.DynamicSimilarities.GraphAnalysis.utils import compute_similarities_1vsAll, compute_distances_1vsAll, plot_dynamic_graphs
+from GNN.DynamicSimilarities.GraphAnalysis.utils import compute_similarities_1vsAll, compute_distances_1vsAll
 
 def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wide, cat_labels, date_cols, metric, fixed_threshold, enable_edges_within_star=True, enable_second_degree=False):
     G = nx.Graph()
@@ -127,7 +126,7 @@ def graph2vec_inference(
     metric, window_size, step_size, threshold, model, df, df_wide, cat_labels, date_col, scaler, exog_scaler, test_start_idx, seq_length, forecast_window, 
     device, item_id, store_id, seed, criterion, val_scaled, test_scaled=None,
     exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None,
-    node_embeddings=None, graph2vec_model=None, enable_edges_within_star=True, enable_second_degree=False, percentile=None
+    node_embeddings=None, graph2vec_model=None, enable_edges_within_star=True, enable_second_degree=False
 ):
     
     model.eval()
@@ -295,39 +294,6 @@ def graph2vec_inference(
                         
                         new_emb = get_dynamic_embedding(new_G, graph2vec_model, dimensions=emb_dim)
                         current_emb_seq = current_emb_seq[1:] + [new_emb.tolist()]
-                        
-                        # Save the generated graph plot for this inference step
-                        plot_dir_name = f"InferredGraphs_{metric}"
-                        curr_dir = os.path.dirname(os.path.abspath(__file__))
-                        
-                        # Use percentile folder to avoid overwriting between runs
-                        pct_folder = f"pct_{percentile}" if percentile is not None else "no_pct"
-                        inf_plot_output_dir = os.path.join(curr_dir, 'GraphPlots', str(item_id), metric, str(window_size), pct_folder, plot_dir_name)
-                        os.makedirs(inf_plot_output_dir, exist_ok=True)
-                        
-                        start_date_str = str(date_cols_window[0])
-                        end_date_str = str(date_cols_window[-1])
-                        new_G.graph['start_date'] = start_date_str
-                        new_G.graph['end_date'] = end_date_str
-                        
-                        try:
-                            plot_dynamic_graphs(
-                                graphs=[new_G],
-                                product_id=item_id,
-                                metric=metric,
-                                plot_dir=inf_plot_output_dir,
-                                residuals=False,
-                                enable_edges_within_star=enable_edges_within_star,
-                                enable_second_degree=enable_second_degree,
-                                num_plots=None,
-                                window_size=window_size,
-                                step_size=step_size,
-                                threshold=threshold,
-                                percentile=None
-                            )
-                        except Exception as e:
-                            print(f"Failed to plot inference graph for date {end_date_str}: {e}")
-
                     else:
                         next_emb = current_emb_seq[-1]
                         current_emb_seq = current_emb_seq[1:] + [next_emb]
