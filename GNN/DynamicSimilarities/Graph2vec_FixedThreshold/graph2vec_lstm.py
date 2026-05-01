@@ -150,8 +150,11 @@ def main():
             print(f"\n--- RUNNING WITH SEED {seed} ---\n")
 
             # Grid Search Parameters Setup
-            metrics = ['spearman']
-            percentiles = [0.1, 0.5, 1, 2, 5, 10]
+            metrics = ['kendall']
+            thresholds = None  # Change to a list of thresholds if you want to provide them directly instead of percentiles
+            #thresholds = [0.5, 1, 1.5, 2, 3]  
+            percentiles=[0.5,1,1.5,2,3]
+            #percentiles = None # Change percentiles here. Provide thresholds directly.
             window_sizes = [15]     
             step_sizes = [1]
             enable_edges_opts = [True]
@@ -186,12 +189,20 @@ def main():
                 if metric == 'no_emb':
                     iterator = [(None, 15, 1, False, False)]
                 else:
-                    iterator = itertools.product(percentiles, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
+                    if thresholds is not None and len(thresholds) > 0 and percentiles is None :
+                        # Use provided thresholds directly
+                        iterator = itertools.product(thresholds, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
+                    else:
+                        iterator = itertools.product(percentiles, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
             
-                for percentile, window_size, step_size, enable_edges, enable_second_degree in iterator:
+                for param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
                     use_embeddings = (metric != 'no_emb')
+                    
+                    is_threshold_mode = thresholds is not None and len(thresholds) > 0 and percentiles is None
+                    current_threshold = param_val if is_threshold_mode else None
+                    current_percentile = param_val if not is_threshold_mode else None
 
-                    key = (percentile, window_size, step_size)
+                    key = (param_val, window_size, step_size)
                     if key not in results_by_w_s:
                         results_by_w_s[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -210,7 +221,8 @@ def main():
 
                     print(f"\n{'='*60}")
                     if use_embeddings:
-                        print(f"Running Experiment: metric={metric}, percentile={percentile}, window_size={window_size}, enable_edges={enable_edges}, 2nd_degree={enable_second_degree}")
+                        param_str = f"threshold={current_threshold}" if is_threshold_mode else f"percentile={current_percentile}"
+                        print(f"Running Experiment: metric={metric}, {param_str}, window_size={window_size}, enable_edges={enable_edges}, 2nd_degree={enable_second_degree}")
                     else:
                         print("Running Experiment: BASELINE (no graph embeddings)")
                     print(f"{'='*60}")
@@ -224,10 +236,10 @@ def main():
                             metric_type=metric_type,
                             window_size=window_size,
                             step_size=step_size,
-                            threshold=None,
+                            threshold=current_threshold if is_threshold_mode else None,
                             enable_edges_within_star=enable_edges,
                             enable_second_degree=enable_second_degree,
-                            percentile=percentile,
+                            percentile=current_percentile if not is_threshold_mode else None,
                             use_residuals=USE_RESIDUALS,
                             model_type=MODEL_TYPE,
                             seed=seed,
@@ -235,7 +247,7 @@ def main():
                             df=df_wide_global,
                             cat_labels=cat_labels_dict
                         )
-                        print(f"Resolved graph threshold for percentile={percentile}: {fixed_threshold}")
+                        print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         print(f"Embedding file: {csv_path}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
                         
@@ -283,7 +295,11 @@ def main():
                     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
                     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=PATIENCE//3)
 
-                    model_dir_label = f"pct{percentile}" if percentile is not None else "no_emb"
+                    if not use_embeddings:
+                        model_dir_label = "no_emb"
+                    else:
+                        model_dir_label = f"th{current_threshold}" if is_threshold_mode else f"pct{current_percentile}"
+
                     best_models_dir = os.path.join(best_models_seed_dir, str(window_size), str(step_size), metric, model_dir_label)
                     os.makedirs(best_models_dir, exist_ok=True)
 
@@ -308,8 +324,9 @@ def main():
                                 prefix_star = "2nddegree_" + prefix_star
                             
                             prefix = f"best_lstm_{prefix_star}{product_id}_{metric}_res_{MODEL_TYPE}" if USE_RESIDUALS else f"best_lstm_{prefix_star}{product_id}_{metric}"
-                            best_model_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_pct_{percentile}_seed_{seed}.pth')
-                            history_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_pct_{percentile}_seed_{seed}_history.pkl')
+                            param_label = f"th_{current_threshold}" if is_threshold_mode else f"pct_{current_percentile}"
+                            best_model_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_{param_label}_seed_{seed}.pth')
+                            history_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_{param_label}_seed_{seed}_history.pkl')
                     else:
                         best_model_path = os.path.join(best_models_dir, f'best_lstm_{product_id}_no_emb_seed_{seed}.pth')
                         history_path = os.path.join(best_models_dir, f'best_lstm_{product_id}_no_emb_seed_{seed}_history.pkl')
@@ -366,7 +383,9 @@ def main():
                         graph2vec_model=graph2vec_model if use_embeddings else None,
                         enable_edges_within_star=enable_edges,
                         enable_second_degree=enable_second_degree,
-                        percentile=percentile
+                        percentile=current_percentile if not is_threshold_mode else None,  # Passes percentile mode if used (otherwise None)
+                        threshold=inf_threshold if is_threshold_mode else None,  # Passes threshold if used (otherwise None)
+                        create_plots=False  # We will create combined plots later, so disable individual plotting here
                     )
 
                     valid_mask = ~np.isnan(forecast)
@@ -384,7 +403,12 @@ def main():
                             score = r2_score(valid_test, valid_forecast)
                 
                     th_str = f"{inf_threshold:.4f}" if inf_threshold is not None else "N/A"
-                    label_name = f"pct:{percentile}|th:{th_str}|w:{window_size}|st:{step_size}|e:{enable_edges}|2nd:{enable_second_degree}" if use_embeddings else "No Embeddings"
+                    
+                    if use_embeddings:
+                        param_str_label = f"th:{current_threshold}" if is_threshold_mode else f"pct:{current_percentile} (val:{th_str})"
+                        label_name = f"{param_str_label}|w:{window_size}|st:{step_size}|e:{enable_edges}|2nd:{enable_second_degree}"
+                    else:
+                        label_name = "No Embeddings"
                 
                     if metric == 'no_emb':
                         base_forecast, base_train_losses, base_val_losses = forecast, train_losses, val_losses
@@ -400,7 +424,7 @@ def main():
                     results_by_w_s[key]['score'][label_name] = score
                     results_by_w_s[key]['pocid'][label_name] = pocid
                 
-                    print(f"Finished {metric} @ {percentile} -> RMSE: {rmse:.4f}\n")
+                    print(f"Finished {metric} @ {param_val} -> RMSE: {rmse:.4f}\n")
 
                 train_index = df[DATE_COL][train_slice].values
                 val_index = df[DATE_COL][val_slice].values
@@ -422,7 +446,7 @@ def main():
                 else:
                     metric_type = infer_metric_type(metric)
                     
-                    # Group by window and step to combine all percentiles in a single plot
+                    # Group by window and step to combine all thresholds in a single plot
                     grouped_results = {}
                     for (p, w, s), res_dicts in results_by_w_s.items():
                         key = (w, s)

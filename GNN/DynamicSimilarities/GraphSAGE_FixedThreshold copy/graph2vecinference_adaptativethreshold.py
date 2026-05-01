@@ -4,10 +4,10 @@ import pandas as pd
 import os
 import time
 import networkx as nx
-from node2vec import Node2Vec
-from GNN.DynamicSimilarities.GraphAnalysis.utils import compute_similarities_1vsAll, compute_distances_1vsAll
 
-def build_dynamic_graph(target_id, target_preds, df_wide, cat_labels, date_cols, metric, threshold=None, percentile=None, enable_edges_within_star=True):
+from GNN.DynamicSimilarities.GraphAnalysis.utils import compute_similarities_1vsAll, compute_distances_1vsAll, plot_dynamic_graphs
+
+def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wide, cat_labels, date_cols, metric, fixed_threshold, enable_edges_within_star=True, enable_second_degree=False):
     G = nx.Graph()
     cat = cat_labels.get(target_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
     G.add_node(target_id, cat_label=cat)
@@ -39,29 +39,22 @@ def build_dynamic_graph(target_id, target_preds, df_wide, cat_labels, date_cols,
     valid_scores = scores[valid_mask]
     valid_original_idxs = np.arange(len(item_ids))[valid_mask]
     
-    if threshold is not None:
-        dynamic_threshold = threshold
-    elif percentile is not None:
-        if len(valid_scores) > 0:
-            if is_distance:
-                # Lowest distances = most similar (e.g. top 5% -> 5th percentile)
-                dynamic_threshold = np.percentile(valid_scores, percentile)
-            else:
-                # Highest similarities = most similar (e.g. top 5% -> 95th percentile)
-                dynamic_threshold = np.percentile(valid_scores, 100 - percentile)
-        else:
-            dynamic_threshold = float('inf') if is_distance else -float('inf')
-    else:
+    # We strictly use the provided fixed_threshold from the pre-computed training metrics
+    # Safe fallback if metrics are missing: allow all items depending on metric direction
+    if fixed_threshold is None:
+        print("WARNING: 'fixed_threshold' is None. Defaulting to fully connected subgraph.")
         dynamic_threshold = float('inf') if is_distance else -float('inf')
-        
-    if is_distance:
-        mask = valid_scores <= dynamic_threshold
     else:
-        mask = valid_scores >= dynamic_threshold
+        dynamic_threshold = fixed_threshold
+    
+    if is_distance:
+        final_mask = valid_scores <= dynamic_threshold
+    else:
+        final_mask = valid_scores >= dynamic_threshold
         
-    selected_scores = valid_scores[mask]
-    selected_ids = valid_item_ids[mask]
-    selected_orig_idxs = valid_original_idxs[mask]
+    selected_scores = valid_scores[final_mask]
+    selected_ids = valid_item_ids[final_mask]
+    selected_orig_idxs = valid_original_idxs[final_mask]
     
     neighbor_indices = []
     for orig_idx, score_val, other_id in zip(selected_orig_idxs, selected_scores, selected_ids):
@@ -84,11 +77,43 @@ def build_dynamic_graph(target_id, target_preds, df_wide, cat_labels, date_cols,
                 n_scores = compute_similarities_1vsAll(n1_ts, n_ts_array, metric=metric)
                 
             for j in range(i + 1, len(n_ids)):
+                    # Here we apply the same calculated global threshold
                 condition = (n_scores[j] <= dynamic_threshold) if is_distance else (n_scores[j] >= dynamic_threshold)
                 if condition:
                     if np.sum(np.abs(n1_ts)) > 0 and np.sum(np.abs(n_ts_array[j])) > 0:
                         G.add_edge(n_id1, n_ids[j], weight=float(n_scores[j]))
+                        
+    if enable_second_degree and len(neighbor_indices) > 0:
+        for orig_idx, _ in neighbor_indices:
+            target_neighbor_ts = all_ts[orig_idx]
+            
+            if is_distance:
+                n_scores = compute_distances_1vsAll(target_neighbor_ts, all_ts, metric=metric)
+            else:
+                n_scores = compute_similarities_1vsAll(target_neighbor_ts, all_ts, metric=metric)
+                
+            for valid_idx, is_valid in enumerate(valid_mask):
+                if is_valid and valid_idx != orig_idx:  
+                    val_sub = n_scores[valid_idx]
+                    other_id = item_ids[valid_idx]
+                    
+                    add_edge = False
+                    if is_distance:
+                        if val_sub <= dynamic_threshold:
+                            add_edge = True
+                    else:
+                        if val_sub >= dynamic_threshold:
+                            add_edge = True
+                            
+                    if add_edge:
+                        if not G.has_node(other_id):
+                            cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
+                            G.add_node(other_id, cat_label=cat_other)
+                        if not G.has_edge(item_ids[orig_idx], other_id):
+                            G.add_edge(item_ids[orig_idx], other_id, weight=float(val_sub))
+                            
     return G
+
 
 def get_dynamic_embedding(G, graph2vec_model, dimensions=64):
     if G.number_of_nodes() == 0:
@@ -99,10 +124,10 @@ def get_dynamic_embedding(G, graph2vec_model, dimensions=64):
     return np.zeros(dimensions)
     
 def graph2vec_inference(
-    metric, window_size, step_size, threshold, percentile, model, df, df_wide, cat_labels, date_col, scaler, exog_scaler, test_start_idx, seq_length, forecast_window, 
+    metric, window_size, step_size, threshold, model, df, df_wide, cat_labels, date_col, scaler, exog_scaler, test_start_idx, seq_length, forecast_window, 
     device, item_id, store_id, seed, criterion, val_scaled, test_scaled=None,
     exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None,
-    node_embeddings=None, graph2vec_model=None, enable_edges_within_star=True
+    node_embeddings=None, graph2vec_model=None, enable_edges_within_star=True, enable_second_degree=False, percentile=None
 ):
     
     model.eval()
@@ -256,20 +281,59 @@ def graph2vec_inference(
                         else:
                             target_preds_window = warmup_preds_unscaled[-window_size:]
 
-                        new_G = build_dynamic_graph(
+                        new_G = build_dynamic_graph_with_calculated_threshold(
                             target_id=item_id,
                             target_preds=target_preds_window, 
                             df_wide=df_wide, 
                             cat_labels=cat_labels,
                             date_cols=date_cols_window,
                             metric=metric,
-                            threshold=threshold,
-                            percentile=percentile,
-                            enable_edges_within_star=enable_edges_within_star
+                            fixed_threshold=threshold,
+                            enable_edges_within_star=enable_edges_within_star,
+                            enable_second_degree=enable_second_degree
                         )
-
+                        
                         new_emb = get_dynamic_embedding(new_G, graph2vec_model, dimensions=emb_dim)
                         current_emb_seq = current_emb_seq[1:] + [new_emb.tolist()]
+                        
+                        # Save the generated graph plot for this inference step
+                        curr_dir = os.path.dirname(os.path.abspath(__file__))
+                        
+                        # Incorporate seed and itertools parameters into the folder path
+                        label_params = f"pct_{percentile}_w_{window_size}_s_{step_size}_e_{enable_edges_within_star}_2nd_{enable_second_degree}"
+                        inf_plot_output_dir = os.path.join(curr_dir, 'grid_search_plots', f'seed_{seed}', 'InferredGraphs', str(item_id), metric, label_params)
+                        os.makedirs(inf_plot_output_dir, exist_ok=True)
+                        
+                        start_date_str = str(date_cols_window[0])
+                        end_date_str = str(date_cols_window[-1])
+                        new_G.graph['start_date'] = start_date_str
+                        
+                        # Identify the target day being inferred using this graph
+                        if (test_start_idx + step + 1) < len(df):
+                            next_y_date = df[date_col].iloc[test_start_idx + step + 1].date()
+                        else:
+                            next_y_date = (pd.to_datetime(y_date) + pd.Timedelta(days=1)).date()
+                            
+                        new_G.graph['end_date'] = f"{end_date_str}_inferring_{next_y_date}"
+                        
+                        try:
+                            plot_dynamic_graphs(
+                                graphs=[new_G],
+                                product_id=item_id,
+                                metric=metric,
+                                plot_dir=inf_plot_output_dir,
+                                residuals=False,
+                                enable_edges_within_star=enable_edges_within_star,
+                                enable_second_degree=enable_second_degree,
+                                num_plots=None,
+                                window_size=window_size,
+                                step_size=step_size,
+                                threshold=threshold,
+                                percentile=None
+                            )
+                        except Exception as e:
+                            print(f"Failed to plot inference graph for date {end_date_str}: {e}")
+
                     else:
                         next_emb = current_emb_seq[-1]
                         current_emb_seq = current_emb_seq[1:] + [next_emb]
