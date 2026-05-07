@@ -32,7 +32,8 @@ DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_and
 DATE_COL = 'date'
 TARGET_COL = 'value'
 SEEDS = [42]  # Add more seeds as needed
-
+#SEEDS = [1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
+ 
 # Add the products and stores you want to iterate over
 PRODUCTS_TO_TEST = [
   (26008, 6269),
