@@ -61,7 +61,10 @@ def train_model(seed, epochs, model, train_loader, val_loader, exog_cols, criter
             best_val_loss = val_loss
             best_epoch = epoch + 1
             patience_counter = 0  # Reset patience counter on improvement
-            torch.save(model.state_dict(), best_model_path)
+            if best_model_path:
+                torch.save(model.state_dict(), best_model_path)
+            else:
+                model.best_state_dict = {k: v.cpu().clone() for k, v in model.state_dict().items()}
 
         if patience_counter >= patience:
             print(f"Early stopping at epoch {epoch+1} due to no improvement in validation loss for {patience} epochs.")
@@ -72,5 +75,8 @@ def train_model(seed, epochs, model, train_loader, val_loader, exog_cols, criter
             print(f"Epoch {epoch+1}/{epochs} | Train Loss: {avg_train_loss:.6f} | Val Loss: {val_loss:.6f}")
 
     train_time = time.time() - start_train_time
+    
+    if not best_model_path and hasattr(model, 'best_state_dict'):
+        model.load_state_dict(model.best_state_dict)
 
     return model, train_losses, val_losses, best_epoch, train_time

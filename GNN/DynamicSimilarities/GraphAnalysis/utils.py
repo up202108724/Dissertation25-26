@@ -83,64 +83,6 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
         raise ValueError(f"Metric {metric} not supported")
 
 
-def plot_dynamic_graphs(graphs, product_id, metric, plot_dir, residuals=False, enable_edges_within_star=True, enable_second_degree=False, num_plots=None, window_size=None, step_size=None, threshold=None, percentile=None):
-    if plot_dir is None:
-        return
-        
-    import random
-    import os
-    # Filter valid graphs first
-    valid_graphs = [g for g in graphs if len(g.nodes) > 1]
-    
-    # Decide which ones to plot
-    plots_to_draw = valid_graphs
-    if num_plots is not None and num_plots < len(valid_graphs):
-        plots_to_draw = random.sample(valid_graphs, num_plots)
-        
-    for G_to_plot in plots_to_draw:    
-        current_plot_dir = plot_dir
-        if residuals:
-            current_plot_dir = os.path.join(plot_dir, "residuals")
-        os.makedirs(current_plot_dir, exist_ok=True)
-        
-        plot_prefix = "residual_" if residuals else ""
-        if not enable_edges_within_star:
-            plot_prefix += "star_"
-        if enable_second_degree:
-            plot_prefix += "2nd_degree_"
-            
-        start_d = G_to_plot.graph.get('start_date', 'Unknown')
-        end_d = G_to_plot.graph.get('end_date', 'Unknown')
-            
-        plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_d}_to_{end_d}.html')
-        try:
-            try:
-                from graph_plot import plot_networkx_plotly
-            except ImportError:
-                from GNN.DynamicSimilarities.GraphAnalysis.graph_plot import plot_networkx_plotly
-            print(f"Saving plot to {plot_path} with {len(G_to_plot.nodes)} nodes and {len(G_to_plot.edges)} edges...")
-            
-            # Construct comprehensive title
-            details = []
-            details.append(f"Metric: {metric}")
-            if window_size is not None: details.append(f"Window: {window_size}")
-            if step_size is not None: details.append(f"Step: {step_size}")
-            if threshold is not None: details.append(f"Thresh: {threshold}")
-            if percentile is not None: details.append(f"Pct: {percentile}")
-            details.append(f"Edges inside Star: {enable_edges_within_star}")
-            details.append(f"2nd Degree: {enable_second_degree}")
-            
-            title_str = f"Neighbors of Product {product_id}<br>{' | '.join(details)}<br>Date: {start_d} to {end_d}"
-            
-            plot_networkx_plotly(
-                G_to_plot, 
-                title=title_str,
-                save_path=plot_path,
-                target_node=product_id
-            )
-        except Exception as e:
-            print(f"Plotting skipped due to error: {e}")
-
 def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func, 
                         threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
                         enable_edges_within_star=True, enable_second_degree=False, num_plots=None, train_end_idx=None):
@@ -216,7 +158,14 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
     # --- PHASE 2: Build Graphs using the single global_threshold ---
     graphs = []
     
-    for start_idx in range(0, time_steps - window_size + 1, step_size):
+    windows_range = list(range(0, time_steps - window_size + 1, step_size))
+    total_graphs = len(windows_range)
+    print(f"Building {total_graphs} sliding window graphs...")
+    
+    for i, start_idx in enumerate(windows_range):
+        if (i + 1) % 50 == 0 or (i + 1) == total_graphs:
+            print(f"  Built {i + 1}/{total_graphs} graphs...", end='\r' if (i + 1) < total_graphs else '\n')
+            
         G = nx.Graph()
         
         cat = cat_labels.get(product_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
@@ -323,7 +272,7 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
         graphs.append(G)
                 
     return graphs, global_threshold
-def compute_distances_1vsAll(target_ts, all_ts, metric='euclidean', eps=1e-12):
+def compute_distances_1vsAll(target_ts, all_ts, metric='amplitude_offset', eps=1e-12, normalize_inputs=False):
     """
     Computes distances between target_ts (1D) and all_ts (2D) using PyTorch.
     Optimized for 1-vs-all.
@@ -331,18 +280,28 @@ def compute_distances_1vsAll(target_ts, all_ts, metric='euclidean', eps=1e-12):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     target = torch.tensor(target_ts, dtype=torch.float32, device=device).unsqueeze(0)
     X = torch.tensor(all_ts, dtype=torch.float32, device=device)
-    
-    if metric == 'euclidean':
-        dist = torch.cdist(target, X, p=2).squeeze(0)
-        return dist.cpu().numpy()
+    '''
+    if normalize_inputs and metric in ['cid', 'dtw']:
+        target_mean = torch.mean(target, dim=1, keepdim=True)
+        target_std = torch.std(target, dim=1, keepdim=True) + eps
+        target = (target - target_mean) / target_std
         
+        X_mean = torch.mean(X, dim=1, keepdim=True)
+        X_std = torch.std(X, dim=1, keepdim=True) + eps
+        X = (X - X_mean) / X_std
+    '''
+    if metric == 'manhattan':
+        # sum(|x - y|)
+        dist = torch.sum(torch.abs(X - target), dim=1)
+        return dist.cpu().numpy()
+    
     elif metric == 'hamming':
         target_bin = (target > 0).float()
         X_bin = (X > 0).float()
         diffs = torch.abs(X_bin - target_bin)
         dist = torch.mean(diffs, dim=1)
         return dist.cpu().numpy()
-        
+    
     elif metric == 'amplitude_offset':
         target_mean = torch.mean(target, dim=1, keepdim=True)
         target_std = torch.std(target, dim=1, keepdim=True) + eps
@@ -387,8 +346,8 @@ def compute_distances_1vsAll(target_ts, all_ts, metric='euclidean', eps=1e-12):
         
     elif metric == 'dtw':
         # Use tslearn's optimized cdist_dtw for 1-vs-all vectorization 
-        X_np = all_ts if isinstance(all_ts, np.ndarray) else all_ts.cpu().numpy()
-        target_np = target_ts if isinstance(target_ts, np.ndarray) else target_ts.cpu().numpy()
+        X_np = X.cpu().numpy()
+        target_np = target.cpu().numpy()
         
         # For a 15-point window, a Sakoe-Chiba radius of 2 or 3 (roughly ~10-20% of length) is optimal.
         # This constrains the pathological warping and drastically speeds up the calculation.
@@ -406,8 +365,8 @@ def compute_distances_1vsAll(target_ts, all_ts, metric='euclidean', eps=1e-12):
     elif metric == 'phase_invariance':
         # Phase Invariance (Circular Shift) Euclidean Match
         # Find the minimum Euclidean distance across all possible circular shifts of the sequences
-        X_np = all_ts if isinstance(all_ts, np.ndarray) else all_ts.cpu().numpy()
-        target_np = target_ts if isinstance(target_ts, np.ndarray) else target_ts.cpu().numpy()
+        X_np = X.cpu().numpy()
+        target_np = target.cpu().numpy()
         
         n_X = X_np.shape[0]
         seq_len = X_np.shape[1]
@@ -421,6 +380,115 @@ def compute_distances_1vsAll(target_ts, all_ts, metric='euclidean', eps=1e-12):
             min_dists = np.minimum(min_dists, current_dists)
             
         return min_dists
+        
+    elif metric == 'lorentzian':
+        # Lorentzian distance: sum(ln(1 + |x - y|))
+        # Robust against outliers and noise
+        diffs = torch.abs(X - target)
+        dist = torch.sum(torch.log1p(diffs), dim=1)
+        return dist.cpu().numpy()
+    
+    elif metric == 'twed':
+        try:
+            from sktime.distances import twe_distance
+            X_np = X.cpu().numpy()
+            target_np = target.cpu().numpy().flatten()
+            # nu: stiffness, lmbda: penalty for deletion/insertion
+            return np.array([twe_distance(target_np, x, nu=0.001, lmbda=1.0) for x in X_np])
+        except ImportError as e:
+            raise ValueError(f"metric='twed' failed to import: {e}")
+        
+    elif metric == 'erp':
+        try:
+            from sktime.distances import erp_distance
+            X_np = X.cpu().numpy()
+            target_np = target.cpu().numpy().flatten()
+            # g is the gap value (usually 0.0 for Z-normalized data)
+            return np.array([erp_distance(target_np, x, g=0.0) for x in X_np])
+        except ImportError:
+            raise ValueError("metric='erp' requires 'sktime'.")
+        
+    elif metric == 'stid':
+        # Simplified STID: find min Euclidean distance across shifts after local scaling
+        X_np = X.cpu().numpy()
+        target_np = target.cpu().numpy()
+        n_X, seq_len = X_np.shape
+        min_dists = np.full(n_X, np.inf)
+        
+        # Search across possible shifts (w)
+        for shift in range(-2, 3): # Local search window
+            shifted_X = np.roll(X_np, shift, axis=1)
+            # Optimal scaling alpha for each pair (simplified)
+            # alpha = (X.T @ Y) / ||Y||^2
+            dot_product = np.sum(shifted_X * target_np, axis=1)
+            target_norm_sq = np.sum(target_np**2) + eps
+            alpha = dot_product / target_norm_sq
+            
+            current_dists = np.linalg.norm(shifted_X - (alpha[:, None] * target_np), axis=1)
+            min_dists = np.minimum(min_dists, current_dists)
+            
+        return min_dists
+    
+    elif metric == 'sbd':
+        # Shape-Based Distance (SBD) using cross-correlation via FFT
+        # SBD = 1 - max(NCC)
+        X_np = X.cpu().numpy()
+        target_np = target.cpu().numpy().flatten()
+        
+        n_X, seq_len = X_np.shape
+        dists = np.zeros(n_X)
+        
+        target_norm = np.linalg.norm(target_np)
+        target_norm = max(target_norm, eps)
+        
+        for i in range(n_X):
+            x = X_np[i]
+            x_norm = np.linalg.norm(x)
+            x_norm = max(x_norm, eps)
+            
+            # Cross-correlation using scipy/numpy
+            pad_len = 2 * seq_len - 1
+            fft_x = np.fft.fft(x, n=pad_len)
+            fft_y = np.fft.fft(target_np[::-1], n=pad_len)
+            cc = np.real(np.fft.ifft(fft_x * fft_y))
+            
+            ncc = np.max(cc) / (target_norm * x_norm)
+            # SBD falls in [0, 2]
+            dists[i] = 1 - ncc
+            
+        return dists
+        
+    elif metric == 'msm':
+        # Move-Split-Merge (MSM) is a metric elastic distance.
+        try:
+            from sktime.distances import msm_distance
+            X_np = X.cpu().numpy()
+            target_np = target.cpu().numpy().flatten()
+            return np.array([msm_distance(target_np, x) for x in X_np])
+        except ImportError:
+            raise ValueError("metric='msm' requires 'sktime' to be installed. Run `pip install sktime`.")
+            
+    elif metric == 'edr' or metric == 'lcss':
+        # Edit Distance on Real sequence (EDR) / Longest Common Subsequence (LCSS)
+        X_np = X.cpu().numpy()
+        target_np = target.cpu().numpy().flatten()
+        
+        if metric == 'lcss':
+            try:
+                from tslearn.metrics import lcss
+                # Note: LCSS returns similarity ([0, 1]), so distance is 1 - similarity
+                epsilon = 0.5 # A common threshold relative to scale; can be tuned
+                return np.array([1 - lcss(target_np, x, eps=epsilon) for x in X_np])
+            except ImportError:
+                raise ValueError("metric='lcss' requires 'tslearn' to be installed.")
+        else:
+            try:
+                from sktime.distances import edr_distance
+                # EDR requires an epsilon threshold for what counts as a match
+                epsilon = 0.5 
+                return np.array([edr_distance(target_np, x, epsilon=epsilon) for x in X_np])
+            except ImportError:
+                raise ValueError("metric='edr' requires 'sktime' to be installed. Run `pip install sktime`.")
         
     else:
         raise ValueError(f"Metric {metric} not supported")
@@ -519,7 +587,63 @@ def transform_exog_row(row_df, categorical_cols=None, continuous_cols=None, bina
     return out
 
 
-
+def plot_dynamic_graphs(graphs, product_id, metric, plot_dir, residuals=False, enable_edges_within_star=True, enable_second_degree=False, num_plots=None, window_size=None, step_size=None, threshold=None, percentile=None):
+    if plot_dir is None:
+        return
+        
+    import random
+    import os
+    # Filter valid graphs first
+    valid_graphs = [g for g in graphs if len(g.nodes) > 1]
+    
+    # Decide which ones to plot
+    plots_to_draw = valid_graphs
+    if num_plots is not None and num_plots < len(valid_graphs):
+        plots_to_draw = random.sample(valid_graphs, num_plots)
+        
+    for G_to_plot in plots_to_draw:    
+        current_plot_dir = plot_dir
+        if residuals:
+            current_plot_dir = os.path.join(plot_dir, "residuals")
+        os.makedirs(current_plot_dir, exist_ok=True)
+        
+        plot_prefix = "residual_" if residuals else ""
+        if not enable_edges_within_star:
+            plot_prefix += "star_"
+        if enable_second_degree:
+            plot_prefix += "2nd_degree_"
+            
+        start_d = G_to_plot.graph.get('start_date', 'Unknown')
+        end_d = G_to_plot.graph.get('end_date', 'Unknown')
+            
+        plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_d}_to_{end_d}.html')
+        try:
+            try:
+                from graph_plot import plot_networkx_plotly
+            except ImportError:
+                from GNN.DynamicSimilarities.GraphAnalysis.graph_plot import plot_networkx_plotly
+            print(f"Saving plot to {plot_path} with {len(G_to_plot.nodes)} nodes and {len(G_to_plot.edges)} edges...")
+            
+            # Construct comprehensive title
+            details = []
+            details.append(f"Metric: {metric}")
+            if window_size is not None: details.append(f"Window: {window_size}")
+            if step_size is not None: details.append(f"Step: {step_size}")
+            if threshold is not None: details.append(f"Thresh: {threshold}")
+            if percentile is not None: details.append(f"Pct: {percentile}")
+            details.append(f"Edges inside Star: {enable_edges_within_star}")
+            details.append(f"2nd Degree: {enable_second_degree}")
+            
+            title_str = f"Neighbors of Product {product_id}<br>{' | '.join(details)}<br>Date: {start_d} to {end_d}"
+            
+            plot_networkx_plotly(
+                G_to_plot, 
+                title=title_str,
+                save_path=plot_path,
+                target_node=product_id
+            )
+        except Exception as e:
+            print(f"Plotting skipped due to error: {e}")
 
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import numpy as np

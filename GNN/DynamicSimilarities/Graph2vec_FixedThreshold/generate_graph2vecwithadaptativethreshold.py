@@ -7,7 +7,7 @@ from graph2vec import CustomGraph2Vec as Graph2Vec
 
 DISTANCE_METRICS = {
     'euclidean', 'hamming', 'amplitude_offset', 'slope_consistency',
-    'phase_invariance', 'dtw', 'cid'
+    'phase_invariance', 'dtw', 'cid', 'lorentzian', 'sbd', 'msm', 'edr', 'lcss', 'manhattan', 'twed', 'erp', 'stid'
 }
 SIMILARITY_METRICS = {'pearson', 'spearman', 'kendall'}
 
@@ -67,7 +67,7 @@ def get_graph2vec_embeddings(graphs, dimensions=20, wl_iterations=2, workers=1, 
 def load_or_generate_embeddings(product_id, metric, window_size, step_size, threshold, percentile, 
             dimensions=20, wl_iterations=2, walk_length=10, num_walks=50, workers=1, epochs=100, min_count=1, window=0, seed=42, 
             use_residuals=False, model_type='ridge', enable_edges_within_star=True, enable_second_degree=False, run_id=None, 
-        overwrite_embeddings=False, graphs=None, df=None, metric_type=None, cat_labels=None, train_end_idx=None
+        overwrite_embeddings=False, graphs=None, df=None, metric_type=None, cat_labels=None, train_end_idx=None, save_embeddings=True
             ):
 
     metric_type = infer_metric_type(metric, metric_type)
@@ -163,12 +163,27 @@ def load_or_generate_embeddings(product_id, metric, window_size, step_size, thre
         if graphs is None:
             if os.path.exists(pkl_path):
                 print(f"Loading graphs from {pkl_path}...")
-                with open(pkl_path, 'rb') as f:
-                    graphs = pickle.load(f)
-                fixed_global_threshold = threshold # default if loaded from PKL
-                print(f"Successfully loaded {len(graphs)} graphs from pickle.")
-            elif df is not None:
-                print(f"Graph file {pkl_path} not found. Generating graphs dynamically using neighbourhood_graph...")
+                try:
+                    with open(pkl_path, 'rb') as f:
+                        graphs = pickle.load(f)
+                    
+                    # Recover our fixed training threshold, deducing from pickled graphs
+                    if threshold is None:
+                        all_w = [d.get('weight', 0) for g in (graphs[:train_end_idx] if train_end_idx else graphs) for _,_,d in g.edges(data=True)]
+                        if all_w:
+                            fixed_global_threshold = np.max(all_w) if metric_type == 'distance' else np.min(all_w)
+                        else:
+                            fixed_global_threshold = float('inf') if metric_type == 'distance' else -float('inf')
+                    else:
+                        fixed_global_threshold = threshold
+                    
+                    print(f"Successfully loaded {len(graphs)} graphs from pickle. Inferred threshold: {fixed_global_threshold}")
+                except (EOFError, pickle.UnpicklingError) as e:
+                    print(f"Warning: Corrupted pickle file at {pkl_path} ({e}). It will be regenerated.")
+                    graphs = None  # Force regeneration
+
+            if graphs is None and df is not None:
+                print(f"Generating graphs dynamically using neighbourhood_graph...")
                 import sys
                 utils_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'GraphAnalysis'))
                 if utils_path not in sys.path:
@@ -195,7 +210,7 @@ def load_or_generate_embeddings(product_id, metric, window_size, step_size, thre
                     train_end_idx=train_end_idx
                 )
                 print(f"Successfully constructed {len(graphs)} graphs dynamically. Fixed computed threshold: {fixed_global_threshold}")
-            else:
+            elif graphs is None:
                 raise FileNotFoundError(f"Cannot find graphs at {pkl_path} and no dataset (df) was provided to build them dynamically.")
         else:
             print(f"Using {len(graphs)} graphs provided in memory.")
@@ -211,28 +226,32 @@ def load_or_generate_embeddings(product_id, metric, window_size, step_size, thre
         )
         get_embedding_time = time.time() - get_emb_start
         
-        # Save the embeddings to a pickle file
-        print(f"Saving embeddings to {emb_pkl_path}...")
-        os.makedirs(os.path.dirname(emb_pkl_path), exist_ok=True)
-        with open(emb_pkl_path, 'wb') as f:
-            pickle.dump({
-                'graph_embeddings': graph_embeddings,
-                'fixed_global_threshold': fixed_global_threshold
-            }, f)
-            
-        # Save the trained model to a pickle file
-        print(f"Saving model to {model_pkl_path}...")
-        with open(model_pkl_path, 'wb') as f:
-            pickle.dump(graph2vec_model, f)
-            
-        print("Embeddings and model saved successfully.")
+        if save_embeddings:
+            # Save the embeddings to a pickle file
+            print(f"Saving embeddings to {emb_pkl_path}...")
+            os.makedirs(os.path.dirname(emb_pkl_path), exist_ok=True)
+            with open(emb_pkl_path, 'wb') as f:
+                pickle.dump({
+                    'graph_embeddings': graph_embeddings,
+                    'fixed_global_threshold': fixed_global_threshold
+                }, f)
+                
+            # Save the trained model to a pickle file
+            print(f"Saving model to {model_pkl_path}...")
+            with open(model_pkl_path, 'wb') as f:
+                pickle.dump(graph2vec_model, f)
+                
+            print("Embeddings and model saved successfully.")
 
-        csv_path = emb_pkl_path.replace('.pkl', '.csv')
-        if not os.path.exists(csv_path):
-            import pandas as pd
-            print(f"Saving graph embeddings to {csv_path}...")
-            df_embs = pd.DataFrame(graph_embeddings)
-            df_embs.to_csv(csv_path, index=False)
+            csv_path = emb_pkl_path.replace('.pkl', '.csv')
+            if not os.path.exists(csv_path):
+                import pandas as pd
+                print(f"Saving graph embeddings to {csv_path}...")
+                df_embs = pd.DataFrame(graph_embeddings)
+                df_embs.to_csv(csv_path, index=False)
+        else:
+            csv_path = emb_pkl_path.replace('.pkl', '.csv')
+            print("Skipping saving embeddings to disk (save_embeddings=False).")
 
         print(f"Graph Embeddings Shape: {graph_embeddings.shape}")
         

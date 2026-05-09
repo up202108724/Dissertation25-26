@@ -120,7 +120,7 @@ class CustomGraph2Vec:
             workers=1,                        # ATENÇÃO: workers > 1 quebra OBJETIVAMENTE o determinismo no Gensim (threads no numpy)!
             seed=self.seed,
             epochs=self.epochs,
-            #hashfxn=deterministic_hash        # A hash nativa do Python muda a cada run. Esta não muda.
+            hashfxn=deterministic_hash        # A hash nativa do Python muda a cada run. Esta não muda.
         )
        
         print(f"A construir vocabulário para {len(unique_tagged_data)} assinaturas únicas de grafo...")

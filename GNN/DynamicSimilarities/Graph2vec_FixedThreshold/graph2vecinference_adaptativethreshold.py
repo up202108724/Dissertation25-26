@@ -18,7 +18,7 @@ def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wi
     item_ids = window_data.index.values
     
     target_ts = np.array(target_preds)
-    distance_metrics=['euclidean', 'hamming', 'amplitude_offset', 'slope_consistency', 'phase_invariance', 'dtw', 'cid']
+    distance_metrics=['euclidean','manhattan', 'hamming', 'amplitude_offset', 'slope_consistency', 'phase_invariance', 'dtw', 'cid', 'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
     similarity_metrics=['pearson', 'spearman', 'kendall']
    
     is_distance = metric in distance_metrics
@@ -39,18 +39,11 @@ def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wi
     valid_scores = scores[valid_mask]
     valid_original_idxs = np.arange(len(item_ids))[valid_mask]
     
-    # We strictly use the provided fixed_threshold from the pre-computed training metrics
-    # Safe fallback if metrics are missing: allow all items depending on metric direction
-    if fixed_threshold is None:
-        print("WARNING: 'fixed_threshold' is None. Defaulting to fully connected subgraph.")
-        dynamic_threshold = float('inf') if is_distance else -float('inf')
-    else:
-        dynamic_threshold = fixed_threshold
     
     if is_distance:
-        final_mask = valid_scores <= dynamic_threshold
+        final_mask = valid_scores <= fixed_threshold
     else:
-        final_mask = valid_scores >= dynamic_threshold
+        final_mask = valid_scores >= fixed_threshold
         
     selected_scores = valid_scores[final_mask]
     selected_ids = valid_item_ids[final_mask]
@@ -78,7 +71,7 @@ def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wi
                 
             for j in range(i + 1, len(n_ids)):
                     # Here we apply the same calculated global threshold
-                condition = (n_scores[j] <= dynamic_threshold) if is_distance else (n_scores[j] >= dynamic_threshold)
+                condition = (n_scores[j] <= fixed_threshold) if is_distance else (n_scores[j] >= fixed_threshold)
                 if condition:
                     if np.sum(np.abs(n1_ts)) > 0 and np.sum(np.abs(n_ts_array[j])) > 0:
                         G.add_edge(n_id1, n_ids[j], weight=float(n_scores[j]))
@@ -99,10 +92,10 @@ def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wi
                     
                     add_edge = False
                     if is_distance:
-                        if val_sub <= dynamic_threshold:
+                        if val_sub <= fixed_threshold:
                             add_edge = True
                     else:
-                        if val_sub >= dynamic_threshold:
+                        if val_sub >= fixed_threshold:
                             add_edge = True
                             
                     if add_edge:

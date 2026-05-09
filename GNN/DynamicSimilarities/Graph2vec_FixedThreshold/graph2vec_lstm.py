@@ -31,8 +31,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
-SEEDS = [42]  # Add more seeds as needed
-#SEEDS = [1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
+SEEDS = [42, 1000, 26008, 213626, 907969, 5219788,13451285]  # Add more seeds as needed
+
  
 # Add the products and stores you want to iterate over
 PRODUCTS_TO_TEST = [
@@ -56,6 +56,69 @@ EXOG_COLS = [
     "is_post_holiday_1", "is_post_holiday_2", "is_post_holiday_3", "is_post_holiday_7",
     "is_bridge_day",
 ]
+
+# Grid Search Parameters Setup
+
+grid_configs = [
+    #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
+    #{'metric': 'pearson', 'percentiles':  [0.5, 1, 2]},
+    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.001)]},
+    {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.7, 0.82, 0.001)]},
+    {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.74, 0.001)]},
+    #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2, 3.1, 0.01)]},
+]
+
+'''
+grid_configs = [
+    # Similaridades (Já existentes)
+    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
+    {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
+    {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
+    
+    # Distâncias Robustas e Lock-step
+    {'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},
+    {'metric': 'manhattan', 'thresholds': [round(t, 2) for t in np.arange(4.0, 10.0, 0.1)]},
+    {'metric': 'lorentzian', 'thresholds': [round(t, 2) for t in np.arange(1.0, 5.0, 0.1)]},
+    
+    # Distâncias Elásticas (Elastic)
+    {'metric': 'dtw', 'thresholds': [round(t, 2) for t in np.arange(1.5, 4.0, 0.05)]},
+    {'metric': 'twed', 'thresholds': [round(t, 2) for t in np.arange(2.0, 8.0, 0.2)]},
+    {'metric': 'erp', 'thresholds': [round(t, 2) for t in np.arange(2.0, 8.0, 0.2)]},
+    
+    # Baseadas em Forma e Deslizamento (Sliding)
+    {'metric': 'sbd', 'thresholds': [round(t, 3) for t in np.arange(0.05, 0.5, 0.01)]},
+    {'metric': 'stid', 'thresholds': [round(t, 2) for t in np.arange(1.5, 3.5, 0.05)]},
+    
+    # Baseadas em Atributos (Feature-based)
+    {'metric': 'catch22', 'thresholds': [round(t, 1) for t in np.arange(2.0, 15.0, 0.5)]},
+]
+'''
+'''
+grid_configs = [
+    
+    # Distâncias Robustas e Lock-step
+    {'metric': 'cid', 'percentiles': [0.5, 1, 2]},  # We will compute thresholds based on these percentiles of the CID distribution
+    {'metric': 'manhattan', 'percentiles': [0.5, 1, 2]},
+    {'metric': 'lorentzian', 'percentiles': [0.5, 1, 2]},
+]
+'''
+window_sizes = [15]     
+step_sizes = [1]
+enable_edges_opts = [True]
+enable_second_degree_opts = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
+USE_RESIDUALS = False
+MODEL_TYPE = 'ridge'
+EPOCHS = 1000
+PATIENCE = 100
+LEARNING_RATE = 0.001
+HIDDEN_SIZE = 32
+NUM_LAYERS = 1
+DROPOUT = 0.0
+SAVE_MODELS = False
+SAVE_PLOTS = True
+USE_EMBEDDINGS = True
+SAVE_EMBEDDINGS = False
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def main():
@@ -149,27 +212,6 @@ def main():
                 torch.cuda.manual_seed_all(seed)
 
             print(f"\n--- RUNNING WITH SEED {seed} ---\n")
-
-            # Grid Search Parameters Setup
-            metrics = ['kendall']
-            thresholds = None  # Change to a list of thresholds if you want to provide them directly instead of percentiles
-            #thresholds = [0.5, 1, 1.5, 2, 3]  
-            percentiles=[0.5,1,1.5,2,3]
-            #percentiles = None # Change percentiles here. Provide thresholds directly.
-            window_sizes = [15]     
-            step_sizes = [1]
-            enable_edges_opts = [True]
-            enable_second_degree_opts = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
-            USE_RESIDUALS = False
-            MODEL_TYPE = 'ridge'
-            EPOCHS = 1000
-            PATIENCE = 100
-            LEARNING_RATE = 0.001
-            HIDDEN_SIZE = 32
-            NUM_LAYERS = 1
-            DROPOUT = 0.0
-
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             
             # Get the directory where `graph2vec_lstm.py` is located to anchor our save paths
             script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -180,28 +222,30 @@ def main():
             os.makedirs(best_models_seed_dir, exist_ok=True)
 
             # 1. Run Baseline (no embeddings) first
-            all_metrics = ['no_emb'] + metrics
+            all_configs = [{'metric': 'no_emb'}] + grid_configs if USE_EMBEDDINGS else [{'metric': 'no_emb'}]
             base_forecast, base_train_losses, base_val_losses = None, None, None
             base_rmse, base_mae, base_bias, base_score, base_pocid = None, None, None, None, None
 
-            for metric in all_metrics:
+            for config in all_configs:
+                metric = config['metric']
+                thresholds = config.get('thresholds', [None])
+                percentiles = config.get('percentiles', [None])
+                
                 results_by_w_s = {}
 
                 if metric == 'no_emb':
+                    is_threshold_mode = False
                     iterator = [(None, 15, 1, False, False)]
                 else:
-                    if thresholds is not None and len(thresholds) > 0 and percentiles is None :
-                        # Use provided thresholds directly
-                        iterator = itertools.product(thresholds, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
-                    else:
-                        iterator = itertools.product(percentiles, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
+                    is_threshold_mode = thresholds is not None and thresholds != [None]
+                    params = thresholds if is_threshold_mode else percentiles
+                    iterator = itertools.product(params, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
             
                 for param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
                     use_embeddings = (metric != 'no_emb')
                     
-                    is_threshold_mode = thresholds is not None and len(thresholds) > 0 and percentiles is None
-                    current_threshold = param_val if is_threshold_mode else None
-                    current_percentile = param_val if not is_threshold_mode else None
+                    current_threshold = param_val if use_embeddings and is_threshold_mode else None
+                    current_percentile = param_val if use_embeddings and not is_threshold_mode else None
 
                     key = (param_val, window_size, step_size)
                     if key not in results_by_w_s:
@@ -246,7 +290,8 @@ def main():
                             seed=seed,
                             train_end_idx=val_start_idx,
                             df=df_wide_global,
-                            cat_labels=cat_labels_dict
+                            cat_labels=cat_labels_dict,
+                            save_embeddings=SAVE_EMBEDDINGS
                         )
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         print(f"Embedding file: {csv_path}")
@@ -289,7 +334,12 @@ def main():
                     )
                     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=use_pin_memory)
 
-                    # Initialize Model
+                    # Initialize Model with fixed seed for determinism across iterations!
+                    torch.manual_seed(seed)
+                    np.random.seed(seed)
+                    if torch.cuda.is_available():
+                        torch.cuda.manual_seed(seed)
+                        
                     model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
                     criterion = nn.MSELoss()
                     criterion2 = nn.MSELoss()  
@@ -351,17 +401,20 @@ def main():
                             train_loader=train_loader, val_loader=val_loader, 
                             exog_cols=EXOG_COLS, criterion=criterion, criterion2=criterion2, 
                             optimizer=optimizer, device=device, 
-                            best_model_path=best_model_path, scheduler=scheduler, patience=PATIENCE
+                            best_model_path=best_model_path if SAVE_MODELS else None, scheduler=scheduler, patience=PATIENCE
                         )
-                        with open(history_path, 'wb') as f:
-                            pickle.dump({
-                                'train_losses': train_losses, 'val_losses': val_losses,
-                                'best_epoch': best_epoch, 'train_time': train_time
-                            }, f)
+                        
+                        if SAVE_MODELS:
+                            with open(history_path, 'wb') as f:
+                                pickle.dump({
+                                    'train_losses': train_losses, 'val_losses': val_losses,
+                                    'best_epoch': best_epoch, 'train_time': train_time
+                                }, f)
 
                     # Explicitly load the best saved model before inference to guarantee clean pipeline state
-                    print(f"Loading best weights from {best_model_path} for inference...")
-                    model.load_state_dict(torch.load(best_model_path))
+                    if SAVE_MODELS and os.path.exists(best_model_path):
+                        print(f"Loading best weights from {best_model_path} for inference...")
+                        model.load_state_dict(torch.load(best_model_path))
 
                     exog_test_data = df[EXOG_COLS][test_slice].values
 
@@ -370,7 +423,7 @@ def main():
                     print("Running Inference...")
                     forecast, inference_time = graph2vec_inference(
                         metric=metric, window_size=window_size, step_size=step_size,
-                        threshold=inf_threshold, model=model,
+                        model=model,
                         df=df, df_wide=df_wide_global, cat_labels=cat_labels_dict, date_col=DATE_COL,
                         scaler=scaler, exog_scaler=exog_scaler,
                         test_start_idx=test_start_idx, seq_length=seq_length,
@@ -385,7 +438,7 @@ def main():
                         enable_edges_within_star=enable_edges,
                         enable_second_degree=enable_second_degree,
                         percentile=current_percentile if not is_threshold_mode else None,  # Passes percentile mode if used (otherwise None)
-                        threshold=inf_threshold if is_threshold_mode else None,  # Passes threshold if used (otherwise None)
+                        threshold=inf_threshold,  # Pass the threshold inferred from the percentile
                         create_plots=False  # We will create combined plots later, so disable individual plotting here
                     )
 
@@ -426,24 +479,54 @@ def main():
                     results_by_w_s[key]['pocid'][label_name] = pocid
                 
                     print(f"Finished {metric} @ {param_val} -> RMSE: {rmse:.4f}\n")
+                    
+                    # Append results to a persistent CSV file
+                    import csv
+                    csv_results_path = os.path.join(script_dir, f"{metric}.csv")
+                    file_exists = os.path.exists(csv_results_path)
+                    
+                    with open(csv_results_path, 'a', newline='') as csvfile:
+                        writer = csv.writer(csvfile)
+                        if not file_exists:
+                            writer.writerow(["product_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "rmse", "mae", "bias", "r2_score", "pocid"])
+                        
+                        writer.writerow([
+                            product_id, 
+                            store_id, 
+                            seed, 
+                            metric, 
+                            15 if metric == 'no_emb' else window_size, 
+                            1 if metric == 'no_emb' else step_size, 
+                            current_threshold if use_embeddings else "", 
+                            current_percentile if use_embeddings else "", 
+                            enable_edges if use_embeddings else "", 
+                            enable_second_degree if use_embeddings else "", 
+                            rmse, 
+                            mae, 
+                            bias, 
+                            score, 
+                            pocid
+                        ])
 
                 train_index = df[DATE_COL][train_slice].values
                 val_index = df[DATE_COL][val_slice].values
                 test_index = df[DATE_COL][test_slice].values
 
                 if metric == 'no_emb':
-                    sub_dir = os.path.join(grid_search_plots_dir, 'no_emb', f'window_{15}', f'step_{1}', f'item_{product_id}')
+                    values_str = "no_thresholds"
+                    sub_dir = os.path.join(grid_search_plots_dir, 'no_emb', f'window_{15}', f'step_{1}', f'item_{product_id}', values_str)
                     os.makedirs(sub_dir, exist_ok=True)
                     save_plot_path = os.path.join(sub_dir, f"item_{product_id}_store_{store_id}_no_emb_seed_{seed}.html")
                     emb_title = f'Baseline LSTM Forecast (No Embeddings | Seed={seed})'
                     
-                    print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
-                    plot_results(train, val, test, results_by_w_s[(None, 15, 1)]['forecasts'], train_index, val_index, test_index,
-                                 results_by_w_s[(None, 15, 1)]['train_losses'], results_by_w_s[(None, 15, 1)]['val_losses'], metric=metric, embedding_strategy='graph2vec',
-                                 window_size=15, step_size=1, threshold=None, percentile=None,
-                                 target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
-                                 save_path=save_plot_path, rmse=results_by_w_s[(None, 15, 1)]['rmse'], mae=results_by_w_s[(None, 15, 1)]['mae'], 
-                                 bias=results_by_w_s[(None, 15, 1)]['bias'], score=results_by_w_s[(None, 15, 1)]['score'], pocid=results_by_w_s[(None, 15, 1)]['pocid'])
+                    if SAVE_PLOTS:
+                        print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
+                        plot_results(train, val, test, results_by_w_s[(None, 15, 1)]['forecasts'], train_index, val_index, test_index,
+                                     results_by_w_s[(None, 15, 1)]['train_losses'], results_by_w_s[(None, 15, 1)]['val_losses'], metric=metric, embedding_strategy='graph2vec',
+                                     window_size=15, step_size=1, threshold=None, percentile=None,
+                                     target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
+                                     save_path=save_plot_path, rmse=results_by_w_s[(None, 15, 1)]['rmse'], mae=results_by_w_s[(None, 15, 1)]['mae'], 
+                                     bias=results_by_w_s[(None, 15, 1)]['bias'], score=results_by_w_s[(None, 15, 1)]['score'], pocid=results_by_w_s[(None, 15, 1)]['pocid'])
                 else:
                     metric_type = infer_metric_type(metric)
                     
@@ -465,21 +548,77 @@ def main():
                         grouped_results[key]['score'].update(res_dicts['score'])
                         grouped_results[key]['pocid'].update(res_dicts['pocid'])
 
+                    import hashlib
                     for (w, s), res_dicts in grouped_results.items():
-                        sub_dir = os.path.join(grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}', f'item_{product_id}')
+                        if thresholds is not None and len(thresholds) > 0 and percentiles is None:
+                            raw_str = "_".join(map(str, thresholds))
+                        else:
+                            raw_str = "_".join(map(str, percentiles))
+                        
+                        # Hash the configuration to avoid Extremely Long Path issues
+                        values_str = hashlib.md5(raw_str.encode()).hexdigest()[:8]
+                        
+                        sub_dir = os.path.join(grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}', f'item_{product_id}', values_str)
                         os.makedirs(sub_dir, exist_ok=True)
                         
                         # Shorten the filename to avoid Windows MAX_PATH (260 chars) limitation
                         save_plot_path = os.path.join(sub_dir, f"item_{product_id}_{metric}_seed_{seed}_all_configs.html")
                         emb_title = f'Graph2Vec Forecasts ({metric} | Seed={seed} | W={w} | S={s})'
 
-                        print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
-                        plot_results(train, val, test, res_dicts['forecasts'], train_index, val_index, test_index,
-                                     res_dicts['train_losses'], res_dicts['val_losses'], metric=metric, embedding_strategy='graph2vec',
-                                     window_size=w, step_size=s, threshold=None, percentile=None,
-                                     target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
-                                     save_path=save_plot_path, rmse=res_dicts['rmse'], mae=res_dicts['mae'], 
-                                     bias=res_dicts['bias'], score=res_dicts['score'], pocid=res_dicts['pocid'])
+                        if SAVE_PLOTS:
+                            print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
+                            plot_results(train, val, test, res_dicts['forecasts'], train_index, val_index, test_index,
+                                         res_dicts['train_losses'], res_dicts['val_losses'], metric=metric, embedding_strategy='graph2vec',
+                                         window_size=w, step_size=s, threshold=None, percentile=None,
+                                         target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
+                                         save_path=save_plot_path, rmse=res_dicts['rmse'], mae=res_dicts['mae'], 
+                                         bias=res_dicts['bias'], score=res_dicts['score'], pocid=res_dicts['pocid'])
+                                     
+    # Generate correlation plots at the very end
+    if SAVE_PLOTS:
+        import matplotlib.pyplot as plt
+        print("\nGenerating Correlation Plots across all collected CSVs...")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    for csv_file in os.listdir(script_dir):
+        if csv_file.endswith('.csv') and csv_file != 'no_emb.csv':
+            metric_name = csv_file.replace('.csv', '')
+            csv_path = os.path.join(script_dir, csv_file)
+            
+            try:
+                res_df = pd.read_csv(csv_path)
+                # Plot setup
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+                fig.suptitle(f'Threshold vs RMSE and MAE | Metric: {metric_name}', fontsize=16)
+
+                # Need to check if they used direct 'threshold' or 'percentile'
+                x_col = 'threshold' if res_df['threshold'].notna().any() else 'percentile'
+                
+                # Drop rows where x_col might be missing
+                plot_data = res_df.dropna(subset=[x_col, 'rmse', 'mae']).sort_values(by=x_col)
+                
+                if plot_data.empty:
+                    continue
+
+                ax1.plot(plot_data[x_col], plot_data['rmse'], marker='o', linestyle='-', color='b')
+                ax1.set_title(f'{x_col.capitalize()} vs RMSE')
+                ax1.set_xlabel(x_col.capitalize())
+                ax1.set_ylabel('RMSE')
+                ax1.grid(True)
+
+                ax2.plot(plot_data[x_col], plot_data['mae'], marker='s', linestyle='-', color='r')
+                ax2.set_title(f'{x_col.capitalize()} vs MAE')
+                ax2.set_xlabel(x_col.capitalize())
+                ax2.set_ylabel('MAE')
+                ax2.grid(True)
+
+                plot_save_path = os.path.join(script_dir, f"{metric_name}_correlation_plot.png")
+                plt.tight_layout()
+                plt.savefig(plot_save_path)
+                plt.close()
+                
+                print(f"Saved correlation plot for {metric_name} at {plot_save_path}")
+            except Exception as e:
+                print(f"Failed to generate plot for {csv_file}: {e}")
 
 if __name__ == '__main__':
     main()
