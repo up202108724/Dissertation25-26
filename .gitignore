@@ -4,6 +4,7 @@ __pycache__
 /LSTM/training_plots
 grid_search_plots/
 best_models/
+embeddings/
 grid_search_results.csv
 training_logs/
 product_forecasts/
@@ -11,3 +12,4 @@ GNN/DynamicSimilarities/GraphAnalysis/DynamicGraphPkls
 GNN/DynamicSimilarities/GraphAnalysis/GraphPlots
 GNN/FixedGraphs/GraphAnalysis/FixedGraphPkls
 GNN/FixedGraphs/GraphAnalysis/FixedGraphPlots
+inference_logs/
