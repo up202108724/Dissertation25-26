@@ -2,7 +2,6 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import numpy as np
 from typing import Tuple
-
 class WindowDataset(Dataset):
     def __init__(self, X: np.ndarray, y: np.ndarray):
         self.X = torch.from_numpy(X)  # (N, L, C)

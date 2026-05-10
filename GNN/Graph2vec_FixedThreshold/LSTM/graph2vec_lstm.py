@@ -17,13 +17,13 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from lstm import LSTM
-from graph2vecdataset import TimeSeriesDataset
+from GNN.Graph2vec_FixedThreshold.LSTM.lstm import LSTM
+from GNN.Graph2vec_FixedThreshold.LSTM.graph2vecdataset import TimeSeriesDataset
 from model_utils.utils import generate_exogenous_features, compute_metrics 
-from plots import plot_results #ensure available
-from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
-from train import train_model
-from graph2vecinference_adaptativethreshold import graph2vec_inference
+from GNN.Graph2vec_FixedThreshold.LSTM.plots import plot_results #ensure available
+from GNN.Graph2vec_FixedThreshold.LSTM.generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
+from GNN.Graph2vec_FixedThreshold.LSTM.train import train_model
+from GNN.Graph2vec_FixedThreshold.LSTM.graph2vecinference_adaptativethreshold import graph2vec_inference
 
 # Constants
 # Resolve DATA_PATH perfectly from the file directory upwards

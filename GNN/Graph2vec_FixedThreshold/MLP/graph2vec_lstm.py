@@ -10,20 +10,20 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # Paths & Setup
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from lstm import LSTM
-from graph2vecdataset import TimeSeriesDataset
+from GNN.Graph2vec_FixedThreshold.LSTM.lstm import LSTM
+from GNN.Graph2vec_FixedThreshold.LSTM.graph2vecdataset import TimeSeriesDataset
 from model_utils.utils import generate_exogenous_features, compute_metrics 
-from plots import plot_results #ensure available
-from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
-from train import train_model
-from graph2vecinference_adaptativethreshold import graph2vec_inference
+from GNN.Graph2vec_FixedThreshold.LSTM.plots import plot_results #ensure available
+from GNN.Graph2vec_FixedThreshold.LSTM.generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
+from GNN.Graph2vec_FixedThreshold.LSTM.train import train_model
+from GNN.Graph2vec_FixedThreshold.LSTM.graph2vecinference_adaptativethreshold import graph2vec_inference
 
 # Constants
 # Resolve DATA_PATH perfectly from the file directory upwards
@@ -31,14 +31,15 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
-SEEDS = [42]  # Add more seeds as needed
-
+#SEEDS = [42, 1000, 26008, 213626, 907969, 5219788,13451285]  # Add more seeds as needed
+SEEDS =[42]
  
 # Add the products and stores you want to iterate over
 PRODUCTS_TO_TEST = [
-  #(26008, 6269),
-  #(907969,6269),
-  #(907967,6269),
+  (26008, 6269),
+  (907969,6269),
+  (210036, 6269),
+  (907967,6269),
   (213626,6269),
 ]
 
@@ -62,10 +63,10 @@ EXOG_COLS = [
 grid_configs = [
     #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
     #{'metric': 'pearson', 'percentiles':  [0.5, 1, 2]},
-    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
-    {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
-    {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
-    {'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2, 3.1, 0.01)]},
+    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.001)]},
+    {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.7, 0.82, 0.001)]},
+    {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.74, 0.001)]},
+    #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2, 3.1, 0.01)]},
 ]
 '''
 '''
@@ -94,12 +95,15 @@ grid_configs = [
 ]
 '''
 grid_configs = [
-    
     # Distâncias Robustas e Lock-step
-    {'metric': 'cid', 'percentiles': [0.5, 1, 2]},  # We will compute thresholds based on these percentiles of the CID distribution
-    {'metric': 'manhattan', 'percentiles': [0.5, 1, 2]},
-    {'metric': 'lorentzian', 'percentiles': [0.5, 1, 2]},
+    #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},
+    #{'metric': 'amplitude_offset', 'percentiles': [0.5, 1, 2]},
+   
+    {'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.2, 0.01)]},
+    # Distâncias Robustas e Lock-step
+    {'metric': 'amplitude_offset', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},
 ]
+
 window_sizes = [15]     
 step_sizes = [1]
 enable_edges_opts = [True]
@@ -144,23 +148,33 @@ def main():
     df_wide_global = full_df.pivot_table(index='item_id', columns=DATE_COL, values=TARGET_COL, aggfunc='sum').fillna(0)
     df_wide_global.columns = pd.to_datetime(df_wide_global.columns).strftime('%Y-%m-%d')
 
-    # --- Apply Per-Product (Row-Wise) Scaling ---
-    # Fit scalers purely on the training + validation window to prevent data leakage,
-    # ensuring distance metrics (DTW/Euclidean) compare shape rather than raw sales volume magnitude.
-    global_forecast_horizon = 152
-    train_val_end_idx = len(df_wide_global.columns) - global_forecast_horizon
+    # Globally define train split based on identical logic for all items
+    L = len(df_wide_global.columns)
+    forecast_horizon_global = 152
+    val_size_global = 154
+    train_size_global = 455
+    global_train_start_idx = L - forecast_horizon_global - val_size_global - train_size_global
+    global_val_start_idx = L - forecast_horizon_global - val_size_global
+
+    # Build dictionary of local StandardScalers and transform df_wide_global
+    product_scalers = {}
     
-    if train_val_end_idx > 0:
-        train_val_subset = df_wide_global.iloc[:, :train_val_end_idx].values
+    # We ensure we don't drop out of bounds if df is shorter than assumed
+    if global_train_start_idx < 0: global_train_start_idx = 0
+    train_df_wide = df_wide_global.iloc[:, global_train_start_idx:global_val_start_idx]
+    
+    df_wide_scaled = df_wide_global.copy()
+    for item_id_iter in df_wide_global.index:
+        z_scaler = StandardScaler()
+        # fit on training window for this item
+        train_ts = train_df_wide.loc[item_id_iter].values.reshape(-1, 1)
+        z_scaler.fit(train_ts)
         
-        # Calculate min and max per row (axis=1) from strictly the train+val period
-        row_min = train_val_subset.min(axis=1, keepdims=True)
-        row_max = train_val_subset.max(axis=1, keepdims=True)
-        row_range = np.where(row_max - row_min == 0, 1, row_max - row_min) # Prevent divide by zero
+        product_scalers[item_id_iter] = z_scaler
         
-        # Transform the entire timeline (including test metrics) using the fitted train+val parameters
-        df_wide_global.iloc[:, :] = (df_wide_global.values - row_min) / row_range
-        print(f"Applied Per-Product (Row-wise) Min-Max Scaling to df_wide_global (Fitted on first {train_val_end_idx} time steps).")
+        # Transform the entire continuous history for the graph
+        full_ts = df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
+        df_wide_scaled.loc[item_id_iter] = z_scaler.transform(full_ts).flatten()
 
     for product_id, store_id in PRODUCTS_TO_TEST:
         print(f"\n{'='*80}")
@@ -291,6 +305,11 @@ def main():
                     fixed_threshold = None
                     if use_embeddings:
                         metric_type = infer_metric_type(metric)
+                        
+                        # Use norm-scaled df for distances
+                        distance_metrics = ['euclidean','manhattan', 'hamming', 'amplitude_offset', 'slope_consistency', 'phase_invariance', 'dtw', 'cid', 'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
+                        current_df_wide = df_wide_scaled if metric in distance_metrics else df_wide_global
+                        
                         graph_embeddings, graph2vec_model, csv_path, build_time, emb_time, fixed_threshold = load_or_generate_embeddings(
                             product_id=product_id,
                             metric=metric,
@@ -305,7 +324,7 @@ def main():
                             model_type=MODEL_TYPE,
                             seed=seed,
                             train_end_idx=val_start_idx,
-                            df=df_wide_global,
+                            df=current_df_wide,
                             cat_labels=cat_labels_dict,
                             save_embeddings=SAVE_EMBEDDINGS
                         )
@@ -437,10 +456,14 @@ def main():
                     inf_threshold = fixed_threshold if use_embeddings and fixed_threshold is not None else None
 
                     print("Running Inference...")
+                    
+                    distance_metrics = ['euclidean','manhattan', 'hamming', 'amplitude_offset', 'slope_consistency', 'phase_invariance', 'dtw', 'cid', 'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
+                    current_df_wide = df_wide_scaled if metric in distance_metrics else df_wide_global
+                    
                     forecast, inference_time = graph2vec_inference(
                         metric=metric, window_size=window_size, step_size=step_size,
                         model=model,
-                        df=df, df_wide=df_wide_global, cat_labels=cat_labels_dict, date_col=DATE_COL,
+                        df=df, df_wide=current_df_wide, cat_labels=cat_labels_dict, date_col=DATE_COL,
                         scaler=scaler, exog_scaler=exog_scaler,
                         test_start_idx=test_start_idx, seq_length=seq_length,
                         forecast_window=forecast_horizon, device=device,
@@ -448,6 +471,7 @@ def main():
                         criterion="MSELoss", val_scaled=val_scaled, test_scaled=test_scaled,
                         exog_val_scaled=exog_val_scaled, exog_test_scaled=exog_test_scaled,
                         exog_test_raw=exog_test_data, exog_cols=EXOG_COLS,
+                        product_scalers=product_scalers,
                         save_plot_path=None,
                         node_embeddings=aligned_embeddings if use_embeddings else None,
                         graph2vec_model=graph2vec_model if use_embeddings else None,
