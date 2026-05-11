@@ -2,6 +2,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import numpy as np
 from typing import Tuple
+
 class WindowDataset(Dataset):
     def __init__(self, X: np.ndarray, y: np.ndarray):
         self.X = torch.from_numpy(X)  # (N, L, C)
@@ -18,6 +19,7 @@ def make_windows(
     series: np.ndarray,
     lookback: int,
     horizon: int,
+    target_channel: int = 0
 ) -> Tuple[np.ndarray, np.ndarray]:
 
     series = np.asarray(series, dtype=np.float32)
@@ -32,8 +34,18 @@ def make_windows(
     X = np.zeros((N, lookback, C), dtype=np.float32)
     y = np.zeros((N, horizon, C), dtype=np.float32)
 
+    exog_indices = [idx for idx in range(C) if idx != target_channel]
+
     for i in range(N):
-        X[i] = series[i : i + lookback]
+        X[i] = series[i : i + lookback].copy()
+        
+        # Shift exogenous variables forward by 1 so the model sees the target day's exog features
+        # X[i] target corresponds to steps i ... i+lookback-1
+        # X[i] exog corresponds to steps i+1 ... i+lookback
+        if len(exog_indices) > 0:
+            X_i = X[i]
+            X_i[:, exog_indices] = series[i + 1 : i + lookback + 1, exog_indices]
+            
         y[i] = series[i + lookback : i + lookback + horizon]
 
     return X, y
