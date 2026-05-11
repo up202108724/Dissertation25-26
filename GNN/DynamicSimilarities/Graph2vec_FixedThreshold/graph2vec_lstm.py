@@ -58,17 +58,6 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 
-# Grid Search Parameters Setup
-'''
-grid_configs = [
-    #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
-    #{'metric': 'pearson', 'percentiles':  [0.5, 1, 2]},
-    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.001)]},
-    {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.7, 0.82, 0.001)]},
-    {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.74, 0.001)]},
-    #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2, 3.1, 0.01)]},
-]
-'''
 '''
 grid_configs = [
     # Similaridades (Já existentes)
