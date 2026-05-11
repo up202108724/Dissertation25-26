@@ -10,6 +10,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
+from mlp import MLPForecaster
 from dataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
@@ -33,9 +34,9 @@ def train_mlp_forecaster(
     target_channel: int = 0,    
     val_ratio: float = 0.2,
     hidden_sizes=(16, 8),
-    target_col,
-    exog_cols,
-    test_size
+    target_col=None,
+    exog_cols=None,
+    test_size=None
 ):
 
     
