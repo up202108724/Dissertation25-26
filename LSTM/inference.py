@@ -18,14 +18,18 @@ def recursive_inference(model, test_start_idx, seq_length,
     
     forecast = []
     
-    rolling_features = []
+    dynamic_features = []
     if exog_cols:
         for idx, col in enumerate(exog_cols):
-            if col.startswith("rolling_mean_"):
-                try:
-                    rolling_features.append((idx, int(col.split("_")[-1])))
-                except ValueError:
-                    pass
+            try:
+                if col.startswith("rolling_mean_excl_"):
+                    dynamic_features.append((idx, "rolling_mean_excl", int(col.split("_")[-1])))
+                elif col.startswith("rolling_mean_"):
+                    dynamic_features.append((idx, "rolling_mean", int(col.split("_")[-1])))
+                elif col.startswith("lag_"):
+                    dynamic_features.append((idx, "lag", int(col.split("_")[-1])))
+            except ValueError:
+                pass
                     
     # Setup inference log file
     inf_log_dir = os.path.join(script_dir, f'inference_logs/seed_{seed}/{loss_type}/{strategy}')
@@ -72,13 +76,26 @@ def recursive_inference(model, test_start_idx, seq_length,
                 if exog_cols and len(exog_cols) > 0 and step + 1 < forecast_window:
                     next_exog_raw = exog_test[step + 1].copy()
 
-                    if len(rolling_features) > 0:
-                        max_w = max([w for _, w in rolling_features])
+                    if len(dynamic_features) > 0:
+                        max_w = max([w for _, _, w in dynamic_features])
+                        # current_seq[-1] is the prediction for 'step'. We are preparing exog for 'step + 1'
                         hist_unscaled = scaler.inverse_transform(np.array(current_seq[-max_w:]).reshape(-1, 1)).flatten()
                         
-                        for idx, w in rolling_features:
-                            window_values = hist_unscaled[-w:]
-                            next_exog_raw[idx] = np.mean(window_values) if len(window_values) > 0 else 0.0
+                        for idx, feat_type, w in dynamic_features:
+                            if feat_type == "lag":
+                                if w <= len(hist_unscaled):
+                                    next_exog_raw[idx] = hist_unscaled[-w]
+                                else:
+                                    next_exog_raw[idx] = hist_unscaled[0] if len(hist_unscaled) > 0 else 0.0
+                            elif feat_type == "rolling_mean_excl":
+                                # For step+1, shift(1) means the window ends at step.
+                                window_values = hist_unscaled[-w:]
+                                next_exog_raw[idx] = np.mean(window_values) if len(window_values) > 0 else 0.0
+                            elif feat_type == "rolling_mean":
+                                # For step+1, rolling included the future target at step+1, which we don't have.
+                                # Approximating by averaging the available window up to step.
+                                window_values = hist_unscaled[-w:]
+                                next_exog_raw[idx] = np.mean(window_values) if len(window_values) > 0 else 0.0
 
                     next_exog_scaled = exog_scaler.transform(next_exog_raw.reshape(1, -1))[0]
                     current_exog_seq = current_exog_seq[1:] + [next_exog_scaled.tolist()]

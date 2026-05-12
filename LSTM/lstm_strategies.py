@@ -32,6 +32,8 @@ lookback_window = 7
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
     "month", "quarter", "is_weekend",
+    "lag_1", "lag_7",  "lag_30",
+    #"rolling_mean_excl_7", "rolling_mean_excl_3", "rolling_mean_excl_5","rolling_mean_excl_15",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
     "is_monday", "is_friday",
     "is_holiday", "is_thanksgiving", "is_black_friday",
@@ -47,8 +49,8 @@ num_layers = 1
 dropout = 0.0
 EPOCHS = 1000
 LEARNING_RATE = 0.001
-#seeds = [42]
-seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
+seeds = [57]
+#seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
  
 loss_type = 'MSELoss'
 
@@ -70,8 +72,8 @@ def main():
     
     target_products = [26008, 907969, 907967, 213626]
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
-    
-    strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
+    strategies= ['best_val', 'best_train_early_val']
+    #strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
     results = []
     
     os.makedirs('best_models', exist_ok=True)
