@@ -405,3 +405,48 @@ def train_model_combined(seed, epochs_to_train, model, combined_loader, criterio
     train_time = time.time() - start_train_time
 
     return model, train_losses, train_time
+
+'''
+def train_model_selected_epochs(seed, selected_epochs, model, combined_loader, criterion, optimizer, device, final_model_path):
+    """
+    New Strategy: Trains the model using the combined training + validation data 
+    for a explicitly selected number of epochs from scratch.
+    """
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+    
+    start_train_time = time.time()
+    train_losses = []
+    best_train_loss = float('inf')
+    best_model_epoch = 0
+    for epoch in range(selected_epochs):
+        model.train()
+        epoch_loss = 0
+        for batch_idx, (batch_x, batch_y) in enumerate(combined_loader):
+            batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+            optimizer.zero_grad()
+            outputs = model(batch_x)
+            loss = criterion(outputs, batch_y)
+            loss.backward()
+            optimizer.step()
+                
+            epoch_loss += loss.item()
+            
+        avg_train_loss = epoch_loss / len(combined_loader)
+        train_losses.append(avg_train_loss)
+        
+        if avg_train_loss < best_train_loss:
+            best_train_loss = avg_train_loss
+            best_model_epoch = epoch + 1
+            torch.save(model.state_dict(), final_model_path)
+        
+        if (epoch + 1) % 10 == 0 or epoch == selected_epochs - 1:
+            print(f"Epoch {epoch+1}/{selected_epochs} | Train+Val Train Loss: {avg_train_loss:.6f}")
+
+    train_time = time.time() - start_train_time
+
+    return model, train_losses, best_train_loss, best_model_epoch, train_time
+
+'''

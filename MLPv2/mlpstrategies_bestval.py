@@ -15,7 +15,7 @@ sys.path.append(os.path.join(script_dir, '..', 'LSTM'))
 
 from plots import plot_results
 from utils import generate_exogenous_features
-from train import TrainConfig, train_mlp_forecaster, train_model_best_train_loss, train_model_combined, train_model_expanding_window, train_model_sliding_window
+from train import TrainConfig, train_mlp_forecaster
 from inference import recursive_inference
 # -----------------------------------------------------------------------------
 # Configuration
@@ -27,12 +27,12 @@ TARGET_COL = 'value'
 train_size = 455
 val_size = 154
 forecast_horizon = 152
-lookback_window = 90
+lookback_window = 30
 
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
     "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    #"lag_1", "lag_7", "lag_30",
+    "lag_1", "lag_7", "lag_30",
     "rolling_mean_3", "rolling_mean_5", "rolling_mean_7","rolling_mean_14",
     "month", "quarter",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
@@ -70,8 +70,6 @@ def main():
     
     target_products = [26008, 907969, 907967, 213626]
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
-    #strategies= ['best_val']
-    strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
     results = []
     
     os.makedirs('best_models', exist_ok=True)
@@ -128,31 +126,20 @@ def main():
             
             # Dataloaders and Dataset extraction deleted since the updated `train.py` functions use df & TrainConfig directly.
 
-            strategy_forecasts = {}
-            strategy_train_losses = {}
-            strategy_val_losses = {}
-            strategy_rmses = {}
-            strategy_maes = {}
-            strategy_biases = {}
-            strategy_scores = {}
-            strategy_pocids = {}
-
             train_index = df_product[DATE_COL][train_slice].values
             val_index = df_product[DATE_COL][val_slice].values
             test_index = df_product[DATE_COL][test_slice].values
 
-            for strategy in strategies:
-                print(f"\\n--- Strategy: {strategy}, Seed: {seed}, Item: {item_id}, Store: {store_id} ---")
-                
-                # Removed manual MLP instantiation here because it's now created inside the train script
+            # Removed manual MLP instantiation here because it's now created inside the train script
 
-                model_dir = f'best_models/seed_{seed}/{loss_type}/{strategy}'
-                os.makedirs(model_dir, exist_ok=True)
-                model_path = f'{model_dir}/mlp_item{item_id}_store{store_id}.pth'
+            model_dir = f'best_models/seed_{seed}/{loss_type}'
+            os.makedirs(model_dir, exist_ok=True)
+            model_path = f'{model_dir}/mlp_item{item_id}_store{store_id}.pth'
                 
                 
-                # Prepare global config for this strategy
-                cfg = TrainConfig(
+            # Prepare global config for this strategy
+            
+            cfg = TrainConfig(
                     lookback=lookback_window,
                     horizon=1, 
                     batch_size=batch_size,
@@ -163,91 +150,46 @@ def main():
                     device=str(device)
                 )
 
-                if strategy == 'best_val':
-                    model, _, t_losses, v_losses, best_epoch = train_mlp_forecaster(
+            model, _, t_losses, v_losses, best_epoch = train_mlp_forecaster(
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                         product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
                         hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
-                    train_time = 0.0 # Time block removed from baseline signature
-                elif strategy == 'best_train_early_val':
-                    model, _, t_losses, v_losses, best_epoch = train_model_best_train_loss(
-                        df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
-                        product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
-                    train_time = 0.0
-                elif strategy == 'combined':
-                    model, _, _, v_losses, optimal_epoch = train_mlp_forecaster(
-                        df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
-                        product_id=f"{item_id}_{store_id}_temp", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
-                    
-                    cfg.epochs = optimal_epoch if optimal_epoch > 0 else EPOCHS
-                    model, _, t_losses, train_time = train_model_combined(
-                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
-                         product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                         hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
-                    v_losses = []
-                    best_epoch = optimal_epoch
-                elif strategy == 'expanding_window':
-                    model, _, t_losses, v_losses, best_epoch = train_model_expanding_window(
-                        df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
-                        product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
-                    train_time = 0.0
-                elif strategy == 'sliding_window':
-                    model, _, t_losses, v_losses, best_epoch = train_model_sliding_window(
-                        df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
-                        product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
-                    train_time = 0.0
-
-                strategy_train_losses[strategy] = t_losses
-                strategy_val_losses[strategy] = v_losses
-
-                # Load best model
-                if os.path.exists(model_path):
-                    model.load_state_dict(torch.load(model_path))
+            train_time = 0.0 
+            # Load best model
+            if os.path.exists(model_path):
+                model.load_state_dict(torch.load(model_path))
                 
                 # Inference
-                recent_target = val[-lookback_window:].reshape(-1, 1)
-                recent_exog_scaled = exog_val_scaled[-lookback_window:]
-                recent_history = np.column_stack([recent_target, recent_exog_scaled])
+            recent_target = val[-lookback_window:].reshape(-1, 1)
+            recent_exog_scaled = exog_val_scaled[-lookback_window:]
+            recent_history = np.column_stack([recent_target, recent_exog_scaled])
                 
-                start_infer = time.time()
-                forecast = recursive_inference(
-                    model=model,
-                    scaler=scaler,
-                    recent_history=recent_history,
-                    future_exog=exog_test_scaled,
-                    target_channel=0,
-                    device=str(device)
-                )
-                infer_time = time.time() - start_infer
+            start_infer = time.time()
+            forecast = recursive_inference(
+                model=model,
+                scaler=scaler,
+                recent_history=recent_history,
+                future_exog=exog_test_scaled,
+                target_channel=0,
+                device=str(device)
+            )
+            infer_time = time.time() - start_infer
                 
-                # Metrics
-                rmse = np.sqrt(mean_squared_error(test, forecast))
-                mae = mean_absolute_error(test, forecast)
-                bias = np.mean(forecast - test)
+            # Metrics
+            rmse = np.sqrt(mean_squared_error(test, forecast))
+            mae = mean_absolute_error(test, forecast)
+            bias = np.mean(forecast - test)
                 
-                # POCID
-                diff_original = test[1:] - test[:-1]
-                diff_pred = forecast[1:] - forecast[:-1]
-                is_positive = (diff_original * diff_pred) > 0
-                pocid = is_positive.sum() / len(is_positive) if len(is_positive) > 0 else 0.0
+            # POCID
+            diff_original = test[1:] - test[:-1]
+            diff_pred = forecast[1:] - forecast[:-1]
+            is_positive = (diff_original * diff_pred) > 0
+            pocid = is_positive.sum() / len(is_positive) if len(is_positive) > 0 else 0.0
                 
-                # Score
-                score = 0.5 * rmse + 0.25 * mae + 0.25 * abs(bias)
-
-                strategy_forecasts[strategy] = forecast
-                strategy_rmses[strategy] = rmse
-                strategy_maes[strategy] = mae
-                strategy_biases[strategy] = bias
-                strategy_scores[strategy] = score
-                strategy_pocids[strategy] = pocid
-                
-                results.append({
+            # Score
+            score = 0.5 * rmse + 0.25 * mae + 0.25 * abs(bias)
+            results.append({
                     'seed': seed,
-                    'strategy': strategy,
                     'item_id': item_id,
                     'store_id': store_id,
                     'rmse': rmse,
@@ -261,21 +203,19 @@ def main():
             plot_dir = os.path.join(script_dir, f'grid_search_plots/seed_{seed}/{loss_type}')
             os.makedirs(plot_dir, exist_ok=True)
             
-            #strategies_str = "_".join(strategies)
-            strategies_str = "_"
-            plot_path = os.path.join(plot_dir, f'item{item_id}_store{store_id}_{strategies_str}_comparison.html')
+            plot_path = os.path.join(plot_dir, f'item{item_id}_store{store_id}_comparison.html')
             
-            plot_results(train, val, test, strategy_forecasts, 
+            plot_results(train, val, test, {'MLP': forecast}, 
                          train_index, val_index, test_index,
-                         strategy_train_losses, strategy_val_losses,
-                         target_col=TARGET_COL, title=f'MLP Strategies Comparison - Item {item_id} Store {store_id} (Seed {seed})',
+                         {'MLP': t_losses}, {'MLP': v_losses},
+                         target_col=TARGET_COL, title=f'MLP Forecast - Item {item_id} Store {store_id} (Seed {seed})',
                          save_path=plot_path,
-                         rmse=strategy_rmses, mae=strategy_maes, bias=strategy_biases,
-                         score=strategy_scores, pocid=strategy_pocids, df_full=df_product)
+                         rmse={'MLP': rmse}, mae={'MLP': mae}, bias={'MLP': bias},
+                         score={'MLP': score}, pocid={'MLP': pocid}, df_full=df_product)
 
     results_df = pd.DataFrame(results)
-    results_df.to_csv(os.path.join(script_dir, 'mlp_strategies_results.csv'), index=False)
-    print("Experiments completed. Results saved to mlp_strategies_results.csv.")
+    results_df.to_csv(os.path.join(script_dir, 'mlp_results.csv'), index=False)
+    print("Experiments completed. Results saved to mlp_results.csv.")
 
 if __name__ == "__main__":
     main()

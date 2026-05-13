@@ -14,7 +14,7 @@ from plots import plot_results
 from utils import generate_exogenous_features
 from lstm import LSTM
 from dataset import TimeSeriesDataset
-from train import train_model, train_model_best_train_loss, train_model_combined, train_model_expanding_window, train_model_sliding_window
+from train import train_model, train_model_best_train_loss, train_model_combined, train_model_expanding_window, train_model_sliding_window, train_model_selected_epochs
 from inference import recursive_inference
 # -----------------------------------------------------------------------------
 # Configuration
@@ -72,8 +72,8 @@ def main():
     
     target_products = [26008, 907969, 907967, 213626]
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
-    strategies= ['best_val', 'best_train_early_val']
-    #strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
+    #strategies= ['selected_epochs']
+    strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
     results = []
     
     os.makedirs('best_models', exist_ok=True)
@@ -171,6 +171,14 @@ def main():
                     model, t_losses, train_time = train_model_combined(
                         seed, optimal_epoch, model, combined_loader, criterion, optimizer, device, model_path)
                     best_epoch = optimal_epoch
+                elif strategy == 'selected_epochs':
+                    # Ask or define a selected number of epochs, e.g., 200 (could be dynamically assigned)
+                    selected_num_epochs = 200 
+                    model, t_losses, best_train_loss, best_model_epoch, train_time = train_model_selected_epochs(
+                        seed, selected_num_epochs, model, combined_loader, criterion, optimizer, device, model_path)
+                    best_epoch = best_model_epoch
+                    print(f"Best Train Loss: {best_train_loss}, at epoch: {best_model_epoch}")
+                    v_losses = [] # No validation loss since it's train+val combined
                 elif strategy == 'expanding_window':
                     model, t_losses, v_losses, best_epoch, train_time = train_model_expanding_window(
                         seed=seed, epochs=EPOCHS, model=model, 

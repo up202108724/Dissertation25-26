@@ -1,66 +1,73 @@
+from torch.utils.data import Dataset, DataLoader
 import torch
-from torch.utils.data import Dataset
 import numpy as np
+from typing import Tuple
 
-class TimeSeriesDataset(Dataset):
-    def __init__(self, target_data, exog_data, seq_length, embeddings=None, graph_window_size=7):
-        """
-        Dataset for time series with optional exogenous variables and graph embeddings.
-        
-        Args:
-            target_data: Scaled target variable data
-            exog_data: Scaled exogenous variables data (can be None)
-            seq_length: Length of input sequences
-            embeddings: Node embeddings data (can be None). If you pass the embeddings 
-                        of the sliding windows, this class will automatically pad the 
-                        first `graph_window_size` days with zeros, ensuring the embedding 
-                        generated from days 0..(graph_window_size-1) is only active starting 
-                        on day `graph_window_size`.
-            graph_window_size: The window size used to construct the graphs.
-        """
-        self.target_data = target_data
-        self.exog_data = exog_data
-        self.seq_length = seq_length
-        self.has_exog = exog_data is not None
-        self.has_embeddings = embeddings is not None
+class WindowDataset(Dataset):
+    def __init__(self, X: np.ndarray, y: np.ndarray):
+        self.X = torch.from_numpy(X)  # (N, L, C)
+        self.y = torch.from_numpy(y)  # (N, H, C)
 
-        if self.has_embeddings:
-            # If the embeddings array only contains the valid sliding windows (e.g. N - graph_window_size)
-            # We zero-pad the first `graph_window_size` days so that embeddings[t] represents 
-            # the graph from the graph_window_size days prior to t.
-            if len(embeddings) < len(target_data):
-                emb_dim = embeddings.shape[1] if len(embeddings.shape) > 1 else 1
-                zero_pad = np.zeros((graph_window_size, emb_dim))
-                self.embeddings = np.vstack([zero_pad, embeddings])
-            else:
-                self.embeddings = embeddings
-        else:
-            self.embeddings = None
-    
     def __len__(self):
-        return len(self.target_data) - self.seq_length
-    
+        return self.X.shape[0]
+
     def __getitem__(self, idx):
-        # Target sequence and label
-        target_seq = self.target_data[idx:idx+self.seq_length]
-        y = self.target_data[idx+self.seq_length]
-        
-        if self.has_exog:
-            # Combine target with exogenous variables
-            exog_seq = self.exog_data[idx+1:idx+self.seq_length+1]  # Align exog with target sequence
-            # Stack target and exog features: shape (seq_length, 1 + n_exog)
-            x = np.column_stack([target_seq.reshape(-1, 1), exog_seq])
+        return self.X[idx], self.y[idx]
+    
+
+def make_windows(
+    series: np.ndarray,
+    lookback: int,
+    horizon: int,
+    target_channel: int = 0,
+    embeddings: np.ndarray = None,
+    graph_window_size: int = 7
+) -> Tuple[np.ndarray, np.ndarray]:
+
+    series = np.asarray(series, dtype=np.float32)
+    if series.ndim == 1:
+        series = series[:, None]  # (T, 1)
+
+    T, C = series.shape
+    N = T - lookback - horizon + 1
+    if N <= 0:
+        raise ValueError("Time series too short for given lookback/horizon.")
+
+    # Process embeddings if provided
+    has_embeddings = embeddings is not None
+    if has_embeddings:
+        # Pad embeddings precisely as in the LSTM approach
+        if len(embeddings) < len(series):
+            emb_dim = embeddings.shape[1] if len(embeddings.shape) > 1 else 1
+            zero_pad = np.zeros((graph_window_size, emb_dim))
+            padded_embeddings = np.vstack([zero_pad, embeddings])
         else:
-            x = target_seq.reshape(-1, 1)
-            
-        if self.has_embeddings:
-            # Fetch embeddings corresponding to the sequence days
-            # Because of the padding in __init__, emb_seq[i] is the graph of the graph_window_size days before day (idx + 1 + i)
-            emb_seq = self.embeddings[idx:idx+self.seq_length] 
-            # Stack the target/exog features with the embeddings: shape (seq_length, 1 + n_exog? + emb_dim)
-            x = np.column_stack([x, emb_seq])
-            
-        x_tensor = torch.FloatTensor(x)
-        y_tensor = torch.FloatTensor([y])
+            padded_embeddings = embeddings
+        out_C = C + padded_embeddings.shape[1]
+    else:
+        out_C = C
+
+    X = np.zeros((N, lookback, out_C), dtype=np.float32)
+    y = np.zeros((N, horizon, C), dtype=np.float32)
+
+    exog_indices = [idx for idx in range(C) if idx != target_channel]
+
+    for i in range(N):
+        window_base = series[i : i + lookback].copy()
         
-        return x_tensor, y_tensor
+        # Shift exogenous variables forward by 1 so the model sees the target day's exog features
+        # X[i] target corresponds to steps i ... i+lookback-1
+        # X[i] exog corresponds to steps i+1 ... i+lookback
+        if len(exog_indices) > 0:
+            window_base[:, exog_indices] = series[i + 1 : i + lookback + 1, exog_indices]
+            
+        if has_embeddings:
+            # fetch embeddings for the window
+            emb_seq = padded_embeddings[i : i + lookback]
+            X[i] = np.column_stack([window_base, emb_seq])
+        else:
+            X[i] = window_base
+
+        y[i] = series[i + lookback : i + lookback + horizon]
+
+    return X, y

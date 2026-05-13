@@ -61,20 +61,24 @@ if __name__ == "__main__":
     grid_configs = [
         #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
         #{'metric': 'pearson', 'percentiles':  [0.5, 1, 2]},
-        {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
-        {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
-        {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]}
+        {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.01)]},
+        {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.01)]},
+        {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.01)]}
     ]
-    num_plots_to_draw = 10  # Sample exactly 10 plots per item
+    num_plots_to_draw = None  # Draw all plots if None
     for item_id in item_ids:
         print(f"\n========================================")
         print(f"Processing product ID: {item_id}")
         print(f"========================================")
         
-        # Calculate total windows and pick 10 fixed random window indices for this item
+        # Calculate total windows
         total_windows = len(range(0, (train_size + val_size) - window_size + 1, step_size))
         np.random.seed(item_id)  # Seed with item_id for reproducibility across runs
-        sampled_graph_indices = np.random.choice(total_windows, size=min(num_plots_to_draw, total_windows), replace=False).tolist()
+        
+        if num_plots_to_draw is None:
+            sampled_graph_indices = list(range(total_windows))
+        else:
+            sampled_graph_indices = np.random.choice(total_windows, size=min(num_plots_to_draw, total_windows), replace=False).tolist()
         
         for config in grid_configs:
             metric = config['metric']
