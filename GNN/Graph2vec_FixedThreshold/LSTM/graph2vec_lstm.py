@@ -32,7 +32,7 @@ DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_and
 DATE_COL = 'date'
 TARGET_COL = 'value'
 #SEEDS = [42, 1000, 26008, 213626, 907969, 5219788,13451285]  # Add more seeds as needed
-SEEDS =[42]
+SEEDS =[42,1000,26008,213626]
  
 # Add the products and stores you want to iterate over
 PRODUCTS_TO_TEST = [
@@ -41,6 +41,12 @@ PRODUCTS_TO_TEST = [
   (210036, 6269),
   (907967,6269),
   (213626,6269),
+  (213628, 6269),
+  (213625, 6269),
+  (26862, 6269),
+  (156753, 6269),
+  (53682, 6269),
+  (34497, 6269)
 ]
 
 # EXOG_COLS definition
@@ -98,10 +104,10 @@ grid_configs = [
     # Distâncias Robustas e Lock-step
     #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},
     #{'metric': 'amplitude_offset', 'percentiles': [0.5, 1, 2]},
-   
-    {'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.2, 0.01)]},
+    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.82, 0.92, 0.03)]},
+    #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.2, 0.01)]},
     # Distâncias Robustas e Lock-step
-    {'metric': 'amplitude_offset', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},
+    #{'metric': 'amplitude_offset', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},
 ]
 
 window_sizes = [15]     

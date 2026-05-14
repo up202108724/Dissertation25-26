@@ -23,7 +23,7 @@ import hashlib
 
 
 if __name__ == "__main__":
-    item_ids = [26008,907969,907967,213626]  # Add your list of product ids here
+    item_ids = [26008,907969,907967,213626,213628, 213625, 26862, 156753,53682,34497]  # Add your list of product ids here
     # Use absolute path to ensure it finds the dataset regardless of where the script is executed from
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_PATH = os.path.join(BASE_DIR, '..', '..', '..', 'dataset', 'data_andre.feather')
@@ -61,9 +61,9 @@ if __name__ == "__main__":
     grid_configs = [
         #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
         #{'metric': 'pearson', 'percentiles':  [0.5, 1, 2]},
-        {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.01)]},
-        {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.01)]},
-        {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.01)]}
+        {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.82, 0.92, 0.03)]},
+        #{'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.01)]},
+        #{'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.01)]}
     ]
     num_plots_to_draw = None  # Draw all plots if None
     for item_id in item_ids:

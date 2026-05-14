@@ -35,27 +35,64 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
         return sim.cpu().numpy()
         
     elif metric == 'spearman':
-        _, target_indices = torch.sort(target, dim=1)
-        target_ranks = torch.empty_like(target)
-        target_ranks.scatter_(1, target_indices, torch.arange(1, target.shape[1]+1, dtype=torch.float32, device=device).unsqueeze(0))
-        
-        _, X_indices = torch.sort(X, dim=1)
-        X_ranks = torch.empty_like(X)
-        X_ranks.scatter_(1, X_indices, torch.arange(1, X.shape[1]+1, dtype=torch.float32, device=device).unsqueeze(0).expand_as(X))
-        
+        def get_fractional_ranks(tensor):
+            # 1. Sort the tensor
+            # 2. Find where the values change to identify groups of ties
+            # 3. Compute the average rank for each group
+            shape = tensor.shape
+            # Flatten to 2D if necessary, but assuming (N, L)
+            n, l = shape
+            
+            # Sort and get inverse indices
+            sorted_tensor, indices = torch.sort(tensor, dim=1)
+            
+            # Create a sequence of ranks [1, 2, 3, ..., L]
+            rhs = torch.arange(1, l + 1, device=device, dtype=torch.float32).expand(n, l)
+            
+            # Find ties: True if current value is same as next value
+            # We use a small trick: find the start and end of each tie group
+            # For discrete data, simple equality works:
+            is_tie = torch.cat([
+                torch.tensor([[True]], device=device).expand(n, 1),
+                sorted_tensor[:, 1:] != sorted_tensor[:, :-1]
+            ], dim=1)
+            
+            # Group sum of ranks divided by group count
+            group_id = torch.cumsum(is_tie.long(), dim=1)
+            
+            # Compute average ranks for ties
+            # We use scatter_add to sum ranks of same values, then divide by counts
+            sum_ranks = torch.zeros(n, l + 1, device=device)
+            counts = torch.zeros(n, l + 1, device=device)
+            
+            sum_ranks.scatter_add_(1, group_id, rhs)
+            counts.scatter_add_(1, group_id, torch.ones_like(rhs))
+            
+            avg_ranks = sum_ranks / counts
+            # Map back to original positions
+            sorted_fractional_ranks = torch.gather(avg_ranks, 1, group_id)
+            
+            # Use the original indices to put ranks in correct order
+            inv_indices = torch.argsort(indices, dim=1)
+            return torch.gather(sorted_fractional_ranks, 1, inv_indices)
+
+        target_ranks = get_fractional_ranks(target)
+        X_ranks = get_fractional_ranks(X)
+
+        # Re-use the Pearson logic on these fractional ranks
         target_mean = torch.mean(target_ranks, dim=1, keepdim=True)
         X_mean = torch.mean(X_ranks, dim=1, keepdim=True)
-        
+
         target_centered = target_ranks - target_mean
         X_centered = X_ranks - X_mean
-        
+
         cov = torch.sum(target_centered * X_centered, dim=1)
         target_var = torch.sqrt(torch.sum(target_centered**2, dim=1))
         X_var = torch.sqrt(torch.sum(X_centered**2, dim=1))
-        
+
         sim = cov / (target_var * X_var + eps)
         return sim.cpu().numpy()
-        
+
     elif metric == 'kendall':
         seq_len = target.shape[1]
         if seq_len < 2:
