@@ -482,12 +482,17 @@ def compute_distances_1vsAll(target_ts, all_ts, metric='amplitude_offset', eps=1
     else:
         raise ValueError(f"Metric {metric} not supported")
 
-def generate_exogenous_features(df, exog_cols, date_col='date'):
+def generate_exogenous_features(df, exog_cols, date_col='date', target_col='value', group_cols=None):
     """
     Generates specific calendar, cyclical, and holiday exogenous features for a DataFrame
     based on the provided `exog_cols` list.
     """
     df = df.copy()
+    
+    if group_cols is None:
+        group_cols = [c for c in ['item_id', 'store_id'] if c in df.columns]
+        if not group_cols:
+            group_cols = None
     
     # -----------------------------------------------------------------------------
     # FEATURE BUILDER DICTIONARY
@@ -611,6 +616,27 @@ def generate_exogenous_features(df, exog_cols, date_col='date'):
                 target_date = h - pd.Timedelta(days=lag) if is_pre else h + pd.Timedelta(days=lag)
                 df.loc[df[date_col] == target_date, col] = 1
                 
+        elif col.startswith("lag_"):
+            lag = int(col.split("_")[-1])
+            if group_cols:
+                df[col] = df.groupby(group_cols)[target_col].shift(lag).fillna(0)
+            else:
+                df[col] = df[target_col].shift(lag).fillna(0)
+                
+        elif col.startswith("rolling_mean_excl_"):
+            window = int(col.split("_")[-1])
+            if group_cols:
+                df[col] = df.groupby(group_cols)[target_col].transform(lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()).fillna(0)
+            else:
+                df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
+                
+        elif col.startswith("rolling_mean_"):
+            window = int(col.split("_")[-1])
+            if group_cols:
+                df[col] = df.groupby(group_cols)[target_col].transform(lambda x: x.rolling(window=window, min_periods=1).mean()).fillna(0)
+            else:
+                df[col] = df[target_col].rolling(window=window, min_periods=1).mean().fillna(0)
+
         elif col == "is_bridge_day":
             _, holiday_dates = get_holiday_dates()
             holiday_set = set(holiday_dates)
@@ -632,7 +658,6 @@ def generate_exogenous_features(df, exog_cols, date_col='date'):
             print(f"Warning: Builder for feature '{col}' not found.")
 
     return df
-
 '''
 
 class ExogenousScaler:

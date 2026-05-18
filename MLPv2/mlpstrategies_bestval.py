@@ -28,9 +28,8 @@ train_size = 455
 val_size = 154
 forecast_horizon = 152
 lookback_window = 30
-
+'''
 EXOG_COLS = [
-    "day_of_week", "day_of_month", "week_of_year", "week_of_month",
     "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
     "lag_1", "lag_7", "lag_30",
     "rolling_mean_3", "rolling_mean_5", "rolling_mean_7","rolling_mean_14",
@@ -41,7 +40,17 @@ EXOG_COLS = [
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day",
 ]
-
+'''
+EXOG_COLS = [
+    "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
+    "rolling_mean_7",
+    "month", "quarter",
+    "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
+    "is_monday", "is_friday",
+    "is_holiday", "is_thanksgiving", "is_black_friday",
+    "is_christmas", "is_christmas_eve", "is_new_year_eve",
+    "is_bridge_day",
+]
 batch_size = 32
 hidden_sizes = (64, 32)
 dropout = 0.2

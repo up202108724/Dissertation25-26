@@ -12,18 +12,18 @@ import networkx as nx
 from utils import compute_distances_1vsAll, compute_similarities_1vsAll
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # Add LSTM directory to path to reuse training scripts, datasets and plots
-sys.path.append(os.path.join(script_dir, '..', 'LSTM'))
+sys.path.append(os.path.join(script_dir, '..'))
 
 from plots import plot_results
 from utils import generate_exogenous_features
 from train import TrainConfig, train_mlp_forecaster
-from GNN.Graph2vec_FixedThreshold.MLP.graph2vecinference import recursive_inference
+from graph2vecinference import recursive_inference
 
 from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-DATA_PATH = os.path.join(script_dir, '..', 'dataset', 'data_andre.feather')
+DATA_PATH = os.path.join(script_dir, '..','..','..', 'dataset', 'data_andre.feather')
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
@@ -33,11 +33,9 @@ forecast_horizon = 152
 lookback_window = 30
 
 EXOG_COLS = [
-    "day_of_week", "day_of_month", "week_of_year", "week_of_month",
+
     "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    "lag_1", "lag_7", "lag_30",
-    "rolling_mean_3", "rolling_mean_5", "rolling_mean_7","rolling_mean_14",
-    "month", "quarter",
+    "rolling_mean_7",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
     "is_monday", "is_friday",
     "is_holiday", "is_thanksgiving", "is_black_friday",
@@ -89,7 +87,7 @@ def main():
     df = df.sort_values([DATE_COL, "item_id", "store_id"]).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     
-    target_products = [26008, 907969, 907967, 213626]
+    target_products = [26008]
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
     results = []
     
@@ -99,6 +97,9 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     criterion = nn.MSELoss()
     criterion2 = nn.MSELoss()
+    
+    # Create df_wide for dynamic graph building during inference
+    df_wide = df.pivot_table(index='item_id', columns=DATE_COL, values=TARGET_COL, aggfunc='sum').fillna(0)
 
     for seed in seeds:
         for item_id, store_id in products:
@@ -173,14 +174,14 @@ def main():
                             model_type='ridge',
                             seed=seed,
                             train_end_idx=val_start_idx,
-                            df=df,
+                            df=df_wide,
                             cat_labels=None, # if you have a dict, supply it here
                             save_embeddings=True
                         )
             print(f"Resolved graph threshold: {fixed_threshold}")
             print(f"Embedding file: {csv_path}")
                         
-                 
+            input_size = 1 + len(EXOG_COLS)
             cfg = TrainConfig(
                     lookback=lookback_window,
                     horizon=1, 
@@ -195,15 +196,19 @@ def main():
             model, _, t_losses, v_losses, best_epoch = train_mlp_forecaster(
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                         product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
+                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, graph_embeddings=graph_embeddings, test_size=forecast_horizon)
+            
+            input_size = 1 + len(EXOG_COLS) + graph_embeddings.shape[1]
             train_time = 0.0 
             # Load best model
             if os.path.exists(model_path):
                 model.load_state_dict(torch.load(model_path))
                 
                 # Inference
+            # Inference
             recent_target = val[-lookback_window:].reshape(-1, 1)
             recent_exog_scaled = exog_val_scaled[-lookback_window:]
+            recent_embeddings = graph_embeddings[:val_start_idx][-lookback_window:] if graph_embeddings is not None else None
             recent_history = np.column_stack([recent_target, recent_exog_scaled])
                 
             start_infer = time.time()
@@ -213,7 +218,19 @@ def main():
                 recent_history=recent_history,
                 future_exog=exog_test_scaled,
                 target_channel=0,
-                device=str(device)
+                device=str(device),
+                graph2vec_model=graph2vec_model,
+                graph_window_size=15,
+                recent_embeddings=recent_embeddings,
+                df_wide=df_wide,
+                cat_labels=None, # Update if needed
+                target_id=item_id,
+                metric='cid',
+                fixed_threshold=fixed_threshold,
+                enable_edges_within_star=False,
+                enable_second_degree=False,
+                past_dates=pd.to_datetime(df_product[DATE_COL][:test_start_idx]).dt.strftime('%Y-%m-%d').values,
+                future_dates=pd.to_datetime(df_product[DATE_COL][test_start_idx:]).dt.strftime('%Y-%m-%d').values
             )
             infer_time = time.time() - start_infer
                 

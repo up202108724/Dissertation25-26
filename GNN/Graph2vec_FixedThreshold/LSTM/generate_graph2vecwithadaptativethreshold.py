@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import time
 from tqdm.auto import tqdm
-from GNN.Graph2vec_FixedThreshold.LSTM.graph2vec import CustomGraph2Vec as Graph2Vec
+from Graph2vec_FixedThreshold.LSTM.graph2vec import CustomGraph2Vec as Graph2Vec
 
 DISTANCE_METRICS = {
     'euclidean', 'hamming', 'amplitude_offset', 'slope_consistency',

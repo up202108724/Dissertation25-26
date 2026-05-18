@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
 from mlp import MLPForecaster
-from dataset import make_windows, WindowDataset
+from graph2vecdataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
@@ -36,6 +36,7 @@ def train_mlp_forecaster(
     hidden_sizes=(16, 8),
     target_col=None,
     exog_cols=None,
+    graph_embeddings=None,
     test_size=None
 ):
 
@@ -63,8 +64,21 @@ def train_mlp_forecaster(
     val_target = val_context_data[:, target_channel:target_channel+1]
     val_scaled[:, target_channel:target_channel+1] = scaler.transform(val_target)
 
-    X_train, y_train_full = make_windows(train_scaled, cfg.lookback, cfg.horizon)
-    X_val, y_val_full = make_windows(val_scaled, cfg.lookback, cfg.horizon)
+    # Extract embeddings for Train and Val (if provided)
+    if graph_embeddings is not None:
+        emb_train = graph_embeddings[:len(train_scaled)]
+        emb_val = graph_embeddings[len(train_scaled): len(train_scaled) + len(val_scaled)]
+    else:
+        emb_train = None
+        emb_val = None
+
+    # Create windows with targets, exogenous features, and embeddings
+    X_train, y_train_full = make_windows(
+        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_train, graph_window_size=15
+    )
+    X_val, y_val_full = make_windows(
+        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_val, graph_window_size=15
+    )
 
     y_train = y_train_full[:, :, target_channel : target_channel + 1]
     y_val = y_val_full[:, :, target_channel : target_channel + 1]

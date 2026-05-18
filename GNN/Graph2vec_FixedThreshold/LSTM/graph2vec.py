@@ -5,6 +5,11 @@ import numpy as np
 import networkx as nx
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 
+# Para OBRIGAR a inicialização determinística da rede neural no Gensim independentemente do sistema:
+import hashlib
+def deterministic_hash(text):
+    return int(hashlib.md5(str(text).encode('utf-8')).hexdigest(), 16) & 0xffffffff
+        
 '''
 def load_graphs(pkl_filepath, num_graphs=7):
     """

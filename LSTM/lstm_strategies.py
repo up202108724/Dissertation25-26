@@ -14,7 +14,8 @@ from plots import plot_results
 from utils import generate_exogenous_features
 from lstm import LSTM
 from dataset import TimeSeriesDataset
-from train import train_model, train_model_best_train_loss, train_model_combined, train_model_expanding_window, train_model_sliding_window, train_model_selected_epochs
+from train import train_model, train_model_best_train_loss, train_model_combined, train_model_expanding_window, train_model_sliding_window
+#from train import train_model_selected_epochs
 from inference import recursive_inference
 # -----------------------------------------------------------------------------
 # Configuration
@@ -49,8 +50,8 @@ num_layers = 1
 dropout = 0.0
 EPOCHS = 1000
 LEARNING_RATE = 0.001
-seeds = [57]
-#seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
+#seeds = [57]
+seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
  
 loss_type = 'MSELoss'
 

@@ -4,6 +4,10 @@ import random
 import numpy as np
 import networkx as nx
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+import hashlib
+
+def deterministic_hash(text):
+    return int(hashlib.md5(str(text).encode('utf-8')).hexdigest(), 16) & 0xffffffff
 
 '''
 def load_graphs(pkl_filepath, num_graphs=7):
@@ -107,11 +111,6 @@ class CustomGraph2Vec:
      
         # 3. Configuração do Doc2Vec para evitar o erro de 'high <= 0'
         # dm=0 seleciona PV-DBOW, que é mais rápido e não exige janela (window) de contexto
-        
-        # Para OBRIGAR a inicialização determinística da rede neural no Gensim independentemente do sistema:
-        import hashlib
-        def deterministic_hash(text):
-            return int(hashlib.md5(str(text).encode('utf-8')).hexdigest(), 16) & 0xffffffff
             
         self.model = Doc2Vec(
             vector_size=self.dimensions,
