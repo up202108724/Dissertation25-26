@@ -15,8 +15,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 from plots import plot_results
 from utils import generate_exogenous_features
-from train import TrainConfig, train_pure_sage
-from graphsageinference import recursive_inference_pure_sage, recursive_inference_no_graph
+from train import TrainConfig, train_sage_lstm
+from graphsageinference import recursive_inference_sage_lstm, recursive_inference_no_graph
 from utils import compute_distances_1vsAll, compute_similarities_1vsAll, neighbourhood_graph
 import itertools
 import csv
@@ -69,6 +69,11 @@ grid_configs = [
 batch_size = 32
 hidden_sizes = (64, 32)
 dropout = 0.2
+# SAGE+LSTM hyperparameters
+SAGE_HIDDEN_CHANNELS = 32
+SAGE_OUT_CHANNELS = 16
+LSTM_HIDDEN = 32
+NUM_LSTM_LAYERS = 1
 EPOCHS = 1000
 LEARNING_RATE = 0.001
 SEEDS = [42]
@@ -289,11 +294,17 @@ def main():
                         device=str(device)
                     )
 
-                    model, _, t_losses, v_losses, best_epoch = train_pure_sage(
+                    model, _, t_losses, v_losses, best_epoch = train_sage_lstm(
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse',
                         product_id=f"{product_id}_{store_id}", scaler=scaler, target_channel=0,
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS,
-                        graphs=graphs_list, test_size=forecast_horizon, graph_window_size=window_sz
+                        target_col=TARGET_COL, exog_cols=EXOG_COLS,
+                        graphs=graphs_list, test_size=forecast_horizon,
+                        graph_window_size=window_sz,
+                        sage_hidden_channels=SAGE_HIDDEN_CHANNELS,
+                        sage_out_channels=SAGE_OUT_CHANNELS,
+                        lstm_hidden=LSTM_HIDDEN,
+                        num_lstm_layers=NUM_LSTM_LAYERS,
+                        dropout=dropout,
                     )
 
                     recent_target = val[-lookback_window:].reshape(-1, 1)
@@ -315,7 +326,7 @@ def main():
                             device=str(device),
                         )
                     else:
-                        forecast = recursive_inference_pure_sage(
+                        forecast = recursive_inference_sage_lstm(
                             model=model,
                             scaler=scaler,
                             recent_history=recent_history,
