@@ -28,17 +28,23 @@ train_size = 455
 val_size = 154
 forecast_horizon = 152
 lookback_window = 30
-'''
+
 EXOG_COLS = [
-    "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    "lag_1", "lag_7", "lag_30",
-    "rolling_mean_3", "rolling_mean_5", "rolling_mean_7","rolling_mean_14",
-    "month", "quarter",
+    # Cyclical Calendar Features 
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos",
+    "dom_sin", "dom_cos", "wom_sin", "wom_cos", "month_sin", "month_cos", "quarter_sin", "quarter_cos", "woy_sin", "woy_cos",
+ 
+    # Structural boundaries 
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
-    "is_monday", "is_friday",
+   
+    # Trend Hint 
+    "rolling_mean_7",
+   
+ 
+    # Holidays & Events (Crucial)
     "is_holiday", "is_thanksgiving", "is_black_friday",
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
-    "is_bridge_day",
+    "is_bridge_day"
 ]
 '''
 EXOG_COLS = [
@@ -51,13 +57,14 @@ EXOG_COLS = [
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day",
 ]
+'''
 batch_size = 32
 hidden_sizes = (64, 32)
 dropout = 0.2
 EPOCHS = 1000
 LEARNING_RATE = 0.001
-seeds = [42]
-#seeds = [42, 1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
+#seeds = [42]
+seeds = [42, 1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
 
 loss_type = 'MSELoss'
 
