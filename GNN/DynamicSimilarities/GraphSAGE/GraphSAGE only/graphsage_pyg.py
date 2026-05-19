@@ -6,123 +6,70 @@ import networkx as nx
 from torch_geometric.data import Data
 from torch_geometric.nn import SAGEConv
 
-def compute_node_features(ts_sequence):
+def generate_node_features(ts, cal_next=None, cal_lookback=None, selected_features=None, is_neighbor=False, pad_ts_to=None):
     """
-    Computes node features from a time-series sequence.
-    ts_sequence: 1D numpy array of sales/demand for the given window (e.g., 15 days).
-    """
-    ts_sequence = np.array(ts_sequence, dtype=np.float32)
-    seq_len = len(ts_sequence)
+    Builder function to generate node features dynamically based on selected_features.
     
-    # 1. Raw Sequence
-    raw_seq = ts_sequence.tolist()
-    
-    # 2. Statistical Features
-    last_demand = ts_sequence[-1] if seq_len > 0 else 0.0
-    mean7 = np.mean(ts_sequence[-7:]) if seq_len >= 7 else np.mean(ts_sequence)
-    mean15 = np.mean(ts_sequence) if seq_len > 0 else 0.0
-    std15 = np.std(ts_sequence) if seq_len > 0 else 0.0
-    zero_ratio15 = np.mean(ts_sequence == 0) if seq_len > 0 else 0.0
-    
-    # Slope (linear trend)
-    if seq_len > 1:
-        x = np.arange(seq_len)
-        # polyfit returns [slope, intercept]
-        slope15 = np.polyfit(x, ts_sequence, 1)[0]
-    else:
-        slope15 = 0.0
-        
-    min_15 = np.min(ts_sequence) if seq_len > 0 else 0.0
-    max_15 = np.max(ts_sequence) if seq_len > 0 else 0.0
-    
-    stats = [last_demand, mean7, mean15, std15, zero_ratio15, slope15, min_15, max_15]
-    
-    # Total features: len(raw_seq) + 8
-    return np.array(raw_seq + stats, dtype=np.float32)
-
-class GraphSAGEEncoder(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels):
-        super(GraphSAGEEncoder, self).__init__()
-        # SAGEConv aggregates neighborhood features.
-        # in_channels: size of your node features (e.g., 15 raw + 8 stats = 23)
-        self.conv1 = SAGEConv(in_channels, hidden_channels)
-        self.conv2 = SAGEConv(hidden_channels, out_channels)
-        self.activation = nn.ReLU()
-        self.dropout = nn.Dropout(p=0.2)
-
-    def forward(self, x, edge_index):
-        # 1st SAGE Layer
-        h = self.conv1(x, edge_index)
-        h = self.activation(h)
-        h = self.dropout(h)
-        
-        # 2nd SAGE Layer
-        h = self.conv2(h, edge_index)
-        return h
-
-
-# ---------------------------------------------------------------------------
-# Pure GraphSAGE forecaster (no external MLP)
-# ---------------------------------------------------------------------------
-
-def compute_target_node_features_pure(ts_lookback, cal_next_step, feature_dim):
+    selected_features can include:
+    'ts'           : the raw time-series sequence (padded for neighbors if pad_ts_to is set).
+    'cal_lookback' : calendar features for the lookback window (flattened). Ignored/zeroed for neighbors.
+    'cal_next'     : calendar features for the next step. Ignored/zeroed for neighbors.
+    'last_demand'  : last sequence value.
+    'mean7'        : mean of last 7 days.
+    'mean_all'     : mean of the entire sequence.
+    'std_all'      : standard deviation of the sequence.
+    'zero_ratio'   : ratio of zeros.
+    'slope'        : linear slope.
+    'min_v'        : minimum value.
+    'max_v'        : maximum value.
     """
-    Builds the target (central) node feature vector for the pure SAGE forecaster.
 
-    Layout: [ts_lookback | cal_next_step | stats_8]
-        ts_lookback   – (lookback,) scaled target values covering the full lookback window
-        cal_next_step – (cal_dim,)  calendar features for the prediction day
-        stats_8       – 8 hand-crafted statistics computed on ts_lookback
+    ts_arr = np.array(ts, dtype=np.float32)
+    seq_len = len(ts_arr)
 
-    feature_dim = lookback + cal_dim + 8  (must match compute_neighbor_node_features_pure)
-    """
-    ts = np.array(ts_lookback, dtype=np.float32)
-    lookback = len(ts)
+    # Initialize feats list
+    feats = []
 
-    last_demand = float(ts[-1])
-    mean7       = float(np.mean(ts[-7:])) if lookback >= 7 else float(np.mean(ts))
-    mean_all    = float(np.mean(ts))
-    std_all     = float(np.std(ts))
-    zero_ratio  = float(np.mean(ts == 0))
-    slope       = float(np.polyfit(np.arange(lookback), ts, 1)[0]) if lookback > 1 else 0.0
-    min_v       = float(np.min(ts))
-    max_v       = float(np.max(ts))
-    stats = np.array([last_demand, mean7, mean_all, std_all, zero_ratio, slope, min_v, max_v],
-                     dtype=np.float32)
+    # Helper function for padded neighbor ts
+    def get_ts():
+        if is_neighbor and pad_ts_to is not None:
+            ts_part = np.zeros(pad_ts_to, dtype=np.float32)
+            fill_len = min(seq_len, pad_ts_to)
+            if fill_len > 0:
+                ts_part[-fill_len:] = ts_arr[-fill_len:]
+            return ts_part
+        return ts_arr
 
-    cal = np.array(cal_next_step, dtype=np.float32)
-    return np.concatenate([ts, cal, stats])
+    # Define builder dictionary for compute logic
+    builders = {
+        'ts': lambda: get_ts(),
+        'cal_lookback': lambda: np.zeros_like(np.asarray(cal_lookback, dtype=np.float32).reshape(-1)) if is_neighbor else np.asarray(cal_lookback, dtype=np.float32).reshape(-1) if cal_lookback is not None else np.array([]),
+        'cal_next': lambda: np.zeros_like(np.array(cal_next, dtype=np.float32)) if is_neighbor else np.array(cal_next, dtype=np.float32) if cal_next is not None else np.array([]),
+        'last_demand': lambda: np.array([ts_arr[-1] if seq_len > 0 else 0.0], dtype=np.float32),
+        'mean7': lambda: np.array([np.mean(ts_arr[-7:]) if seq_len >= 7 else (np.mean(ts_arr) if seq_len > 0 else 0.0)], dtype=np.float32),
+        'mean_all': lambda: np.array([np.mean(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
+        'mean15': lambda: np.array([np.mean(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
+        'std_all': lambda: np.array([np.std(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
+        'std15': lambda: np.array([np.std(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
+        'zero_ratio': lambda: np.array([np.mean(ts_arr == 0) if seq_len > 0 else 0.0], dtype=np.float32),
+        'zero_ratio15': lambda: np.array([np.mean(ts_arr == 0) if seq_len > 0 else 0.0], dtype=np.float32),
+        'slope': lambda: np.array([np.polyfit(np.arange(seq_len), ts_arr, 1)[0] if seq_len > 1 else 0.0], dtype=np.float32),
+        'slope15': lambda: np.array([np.polyfit(np.arange(seq_len), ts_arr, 1)[0] if seq_len > 1 else 0.0], dtype=np.float32),
+        'min_v': lambda: np.array([np.min(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
+        'min_15': lambda: np.array([np.min(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
+        'max_v': lambda: np.array([np.max(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
+        'max_15': lambda: np.array([np.max(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
+    }
 
-
-def compute_neighbor_node_features_pure(ts_window, feature_dim):
-    """
-    Builds a neighbor node feature vector padded to `feature_dim`.
-
-    Layout: [zeros_(feature_dim-8) right-filled with ts_window | stats_8]
-    Calendar positions are left as zero (neighbor calendar is unknown / irrelevant).
-
-    feature_dim = lookback + cal_dim + 8
-    """
-    ts = np.array(ts_window, dtype=np.float32)
-    seq_len = len(ts)
-
-    last_demand = float(ts[-1]) if seq_len > 0 else 0.0
-    mean7       = float(np.mean(ts[-7:])) if seq_len >= 7 else (float(np.mean(ts)) if seq_len > 0 else 0.0)
-    mean_all    = float(np.mean(ts)) if seq_len > 0 else 0.0
-    std_all     = float(np.std(ts))  if seq_len > 0 else 0.0
-    zero_ratio  = float(np.mean(ts == 0)) if seq_len > 0 else 0.0
-    slope       = float(np.polyfit(np.arange(seq_len), ts, 1)[0]) if seq_len > 1 else 0.0
-    min_v       = float(np.min(ts)) if seq_len > 0 else 0.0
-    max_v       = float(np.max(ts)) if seq_len > 0 else 0.0
-    stats = np.array([last_demand, mean7, mean_all, std_all, zero_ratio, slope, min_v, max_v],
-                     dtype=np.float32)
-
-    # Right-align ts values inside the (feature_dim - 8) non-stats slots
-    ts_part = np.zeros(feature_dim - 8, dtype=np.float32)
-    fill_len = min(seq_len, feature_dim - 8)
-    ts_part[-fill_len:] = ts[-fill_len:]
-
-    return np.concatenate([ts_part, stats])
+    for feat in selected_features:
+        if feat in builders:
+            feat_val = builders[feat]()
+            if feat_val.size > 0:
+                feats.append(feat_val)
+            
+    if not feats:
+        return np.array([], dtype=np.float32)
+    return np.concatenate(feats)
 
 
 class PureGraphSAGEForecaster(nn.Module):

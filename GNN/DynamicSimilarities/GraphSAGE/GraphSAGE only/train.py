@@ -44,6 +44,8 @@ def train_pure_sage(
     sage_hidden_channels: int = 32,
     sage_out_channels: int = 16,
     dropout: float = 0.2,
+    include_cal_lookback: bool = False,
+    node_features: list = None,
 ):
     """
     Train either:
@@ -111,11 +113,15 @@ def train_pure_sage(
             train_ts, train_cal, cfg.lookback, cfg.horizon,
             target_channel=0, graphs=graphs_train,
             graph_window_size=graph_window_size,
+            include_cal_lookback=include_cal_lookback,
+            node_features=node_features,
         )
         y_val, g_val = make_single_windows(
             val_ts, val_cal, cfg.lookback, cfg.horizon,
             target_channel=0, graphs=graphs_val,
             graph_window_size=graph_window_size,
+            include_cal_lookback=include_cal_lookback,
+            node_features=node_features,
         )
 
         train_loader = DataLoader(
@@ -129,7 +135,10 @@ def train_pure_sage(
             collate_fn=single_graph_collate,
         )
 
-        sage_in_channels = cfg.lookback + cal_dim + 8
+        if include_cal_lookback:
+            sage_in_channels = cfg.lookback * (1 + cal_dim) + cal_dim + 8
+        else:
+            sage_in_channels = cfg.lookback + cal_dim + 8
         model = PureGraphSAGEForecaster(
             in_channels=sage_in_channels,
             hidden_channels=sage_hidden_channels,

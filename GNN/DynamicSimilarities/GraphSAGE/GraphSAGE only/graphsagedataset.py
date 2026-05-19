@@ -87,6 +87,8 @@ def make_single_windows(
     target_channel: int = 0,
     graphs=None,
     graph_window_size: int = 15,
+    include_cal_lookback: bool = False,
+    node_features: list = None,
 ) -> tuple:
     """
     Creates one (y, graph) pair per sliding window for the pure SAGE forecaster.
@@ -95,29 +97,34 @@ def make_single_windows(
     the last observation of the lookback period (timestep i + lookback - 1).
 
     The target node (always index 0 in each graph) has its feature vector rebuilt
-    to include the **full lookback window + next-step calendar + 8 stats**, giving
-    all temporal context that the (now-removed) MLP used to receive.
+    to include the **full lookback window + [cal_lookback] + next-step calendar +
+    8 stats**, giving all temporal context that the (now-removed) MLP used to receive.
 
     Neighbor nodes are re-padded to the same feature dimension (their calendar
     and extra time-slots are set to zero).
 
     Parameters
     ----------
-    series          : (T, 1)        – scaled target-channel values
-    cal             : (T, cal_dim)  – scaled calendar features
-    lookback        : int
-    horizon         : int
-    target_channel  : int           – column index of the target in `series`
-    graphs          : List[Data]    – one graph per timestep from neighbourhood_graph
-                                     (may be None for the no-graph dummy path)
-    graph_window_size : int         – window_size used when graphs were built
+    series               : (T, 1)        – scaled target-channel values
+    cal                  : (T, cal_dim)  – scaled calendar features
+    lookback             : int
+    horizon              : int
+    target_channel       : int           – column index of the target in `series`
+    graphs               : List[Data]    – one graph per timestep from neighbourhood_graph
+                                          (may be None for the no-graph dummy path)
+    graph_window_size    : int           – window_size used when graphs were built
+    include_cal_lookback : bool          – if True, the full (lookback × cal_dim) calendar
+                                          matrix is flattened and added to the target node
+                                          features between ts_lookback and cal_next_step.
+                                          feature_dim becomes lookback*(1+cal_dim)+cal_dim+8
+                                          instead of lookback+cal_dim+8.
 
     Returns
     -------
     y             : (N, horizon, 1)  np.float32
     window_graphs : List[Data]       length N
     """
-    from graphsage_pyg import compute_target_node_features_pure, compute_neighbor_node_features_pure
+    from graphsage_pyg import generate_node_features
 
     series = np.asarray(series, dtype=np.float32)
     cal    = np.asarray(cal,    dtype=np.float32)
@@ -132,7 +139,10 @@ def make_single_windows(
     if N <= 0:
         raise ValueError("Time series too short for given lookback/horizon.")
 
-    feature_dim = lookback + cal_dim + 8   # target node feature size
+    if include_cal_lookback:
+        feature_dim = lookback * (1 + cal_dim) + cal_dim + 8
+    else:
+        feature_dim = lookback + cal_dim + 8
 
     # --- Pad graphs so that padded_graphs[t] = graph whose window ends at t ---
     # neighbourhood_graph builds (T - window_size + 1) graphs; the i-th graph
@@ -171,11 +181,14 @@ def make_single_windows(
         n_nodes = base_graph.x.shape[0]
         x_new   = torch.zeros((n_nodes, feature_dim), dtype=torch.float32)
 
-        # Target node (index 0): full lookback + next-step calendar + stats
+        # Target node (index 0): full lookback + [cal_lookback] + next-step calendar + stats
         target_ts = series[i : i + lookback, target_channel]           # (lookback,)
         cal_next  = cal[i + lookback] if (i + lookback) < T else cal[-1]  # (cal_dim,)
+        cal_lb    = cal[i : i + lookback] if include_cal_lookback else None  # (lookback, cal_dim) or None
+        
+        selected_target = node_features if node_features is not None else (['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'] if include_cal_lookback else ['ts', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'])
         x_new[0]  = torch.tensor(
-            compute_target_node_features_pure(target_ts, cal_next, feature_dim),
+            generate_node_features(target_ts, cal_next=cal_next, cal_lookback=cal_lb, selected_features=selected_target),
             dtype=torch.float32,
         )
 
@@ -183,8 +196,10 @@ def make_single_windows(
         for node_idx in range(1, n_nodes):
             orig_feat   = base_graph.x[node_idx].numpy()            # (graph_window_size + 8,)
             neighbor_ts = orig_feat[:graph_window_size]              # raw values only
+            
+            selected_neighbor = node_features if node_features is not None else (['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'] if include_cal_lookback else ['ts', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'])
             x_new[node_idx] = torch.tensor(
-                compute_neighbor_node_features_pure(neighbor_ts, feature_dim),
+                generate_node_features(neighbor_ts, selected_features=selected_neighbor, is_neighbor=True, pad_ts_to=lookback),
                 dtype=torch.float32,
             )
 

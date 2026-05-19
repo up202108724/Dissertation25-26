@@ -21,10 +21,10 @@ def train_model(seed, epochs, model, train_loader, val_loader, exog_cols, criter
     for epoch in range(epochs):
         model.train()
         epoch_loss = 0
-        for batch_idx, (batch_x, batch_y) in enumerate(train_loader):
-            batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+        for batch_idx, (batch_x, batch_emb, batch_y) in enumerate(train_loader):
+            batch_x, batch_emb, batch_y = batch_x.to(device), batch_emb.to(device), batch_y.to(device)
             optimizer.zero_grad()
-            outputs = model(batch_x)
+            outputs = model(batch_x, batch_emb)
             loss = criterion(outputs, batch_y)
             loss.backward()
             optimizer.step()
@@ -40,11 +40,12 @@ def train_model(seed, epochs, model, train_loader, val_loader, exog_cols, criter
         all_targets = []
 
         with torch.no_grad():
-            for batch_idx, (batch_x, batch_y) in enumerate(val_loader):
+            for batch_idx, (batch_x, batch_emb, batch_y) in enumerate(val_loader):
                 batch_x = batch_x.to(device)
+                batch_emb = batch_emb.to(device)
                 batch_y = batch_y.to(device)
                 
-                outputs = model(batch_x)
+                outputs = model(batch_x, batch_emb)
                 all_outputs.append(outputs)
                 all_targets.append(batch_y)
 

@@ -1,24 +1,21 @@
 from torch import nn
 
-
 class MLPForecaster(nn.Module):
-    """Flat MLP forecaster used as the no-graph baseline."""
-
     def __init__(
         self,
         lookback: int,
         in_channels: int,
         horizon: int,
-        out_dim: int = 1,
+        out_dim: int = 1,                 # often 1 for a single target variable
         hidden_sizes=(64, 32),
         dropout: float = 0.2,
         activation: str = "relu",
     ):
         super().__init__()
-        self.lookback    = lookback
+        self.lookback = lookback
         self.in_channels = in_channels
-        self.horizon     = horizon
-        self.out_dim     = out_dim
+        self.horizon = horizon
+        self.out_dim = out_dim
 
         act = {"relu": nn.ReLU, "gelu": nn.GELU, "tanh": nn.Tanh}[activation]
 
@@ -28,10 +25,12 @@ class MLPForecaster(nn.Module):
             layers += [nn.Linear(prev, hs), act(), nn.Dropout(dropout)]
             prev = hs
         layers += [nn.Linear(prev, horizon * out_dim)]
+
         self.net = nn.Sequential(*layers)
 
     def forward(self, x):
         # x: (B, L, C)
         b = x.size(0)
-        y = self.net(x.reshape(b, -1))          # (B, H*out_dim)
-        return y.reshape(b, self.horizon, self.out_dim)
+        x = x.reshape(b, -1)  # flatten - changed from .view to .reshape
+        y = self.net(x)    # (B, H*out_dim)
+        return y.view(b, self.horizon, self.out_dim)

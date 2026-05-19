@@ -14,21 +14,24 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # Paths & Setup
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _SCRIPT_DIR)  # local LSTM-with-embedding files take priority
+sys.path.append(os.path.abspath(os.path.join(_SCRIPT_DIR, '../../..')))
+sys.path.append(os.path.abspath(os.path.join(_SCRIPT_DIR, '..')))
 
-from GNN.Graph2vec_FixedThreshold.LSTM.lstm import LSTM
-from GNN.Graph2vec_FixedThreshold.LSTM.graph2vecdataset import TimeSeriesDataset
-from model_utils.utils import generate_exogenous_features, compute_metrics 
-from GNN.Graph2vec_FixedThreshold.LSTM.plots import plot_results #ensure available
-from GNN.Graph2vec_FixedThreshold.LSTM.generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
-from GNN.Graph2vec_FixedThreshold.LSTM.train import train_model
-from GNN.Graph2vec_FixedThreshold.LSTM.graph2vecinference_adaptativethreshold import graph2vec_inference
+# Import from the LOCAL versions of these files (with trainable embedding support)
+from lstm_with_embeddings import LSTMWithLearnedEmbedding, LSTM
+from graph2vecdataset import TimeSeriesDataset
+from plots import plot_results
+from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
+from train import train_model
+from graph2vecinference_adaptativethreshold import graph2vec_inference
+from utils import generate_exogenous_features, compute_metrics
 
 # Constants
 # Resolve DATA_PATH perfectly from the file directory upwards
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
+DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/data_andre.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
 SEEDS = [42]  # Add more seeds as needed
@@ -37,7 +40,7 @@ SEEDS = [42]  # Add more seeds as needed
 # Add the products and stores you want to iterate over
 PRODUCTS_TO_TEST = [
   #(26008, 6269),
-  #(907969,6269),
+  (907969,6269),
   #(907967,6269),
   (213626,6269),
 ]
@@ -116,8 +119,29 @@ SAVE_MODELS = False
 SAVE_PLOTS = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
+# Dimensionality of the trainable projection applied to the Graph2Vec embeddings.
+# The LSTM's effective input grows by PROJ_DIM instead of the full emb_dim.
+PROJ_DIM = 16
+# If True, adds a residual adapter (emb_dim → emb_dim, init ≈ identity) before
+# the projection, so the raw Graph2Vec vectors are fine-tuned end-to-end.
+FINETUNE_EMB = True
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def save_projected_embeddings(model, aligned_embeddings, device, csv_path, before=True):
+    """Saves the projected (trainable) embeddings before or after training to a CSV."""
+    if aligned_embeddings is None or csv_path is None:
+        return
+    model.eval()
+    with torch.no_grad():
+        raw_embs_torch = torch.tensor(aligned_embeddings, dtype=torch.float32, device=device)
+        projected = model.emb_projector(raw_embs_torch).cpu().numpy()
+        
+    suffix = '_proj_before_training.csv' if before else '_proj_after_training.csv'
+    save_path = csv_path.replace('.csv', suffix)
+    
+    # Save as DataFrame
+    pd.DataFrame(projected).to_csv(save_path, index=False)
+    print(f"Saved projected embeddings to {save_path}")
 
 def main():
     # Load and Preprocess Data (Once for all products)
@@ -329,7 +353,9 @@ def main():
                         emb_val = None
                         embedding_dim = 0
 
-                    input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0) + embedding_dim
+                    # input_size covers only target + calendar features.
+                    # The embedding projection is handled inside the model.
+                    input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
 
                     train_dataset = TimeSeriesDataset(
                         target_data=train_scaled, 
@@ -356,7 +382,15 @@ def main():
                     if torch.cuda.is_available():
                         torch.cuda.manual_seed(seed)
                         
-                    model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
+                    if use_embeddings:
+                        model = LSTMWithLearnedEmbedding(
+                            input_size=input_size, hidden_size=HIDDEN_SIZE,
+                            num_layers=NUM_LAYERS, dropout=DROPOUT,
+                            emb_dim=embedding_dim, proj_dim=PROJ_DIM,
+                            finetune_emb=FINETUNE_EMB,
+                        ).to(device)
+                    else:
+                        model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
                     criterion = nn.MSELoss()
                     criterion2 = nn.MSELoss()  
                     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -403,6 +437,10 @@ def main():
 
                     if os.path.exists(best_model_path) and os.path.exists(history_path):
                         print(f"Loading existing model from {best_model_path}...")
+                        
+                        if use_embeddings and csv_path:
+                            save_projected_embeddings(model, aligned_embeddings, device, csv_path, before=True)
+                            
                         model.load_state_dict(torch.load(best_model_path))
                         with open(history_path, 'rb') as f:
                             history = pickle.load(f)
@@ -412,6 +450,10 @@ def main():
                         print(f"Model not found. Expected model at {best_model_path}")
                         print(f"Expected history at {history_path}")
                         print("Training new model...")
+                        
+                        if use_embeddings and csv_path:
+                            save_projected_embeddings(model, aligned_embeddings, device, csv_path, before=True)
+                            
                         model, train_losses, val_losses, best_epoch, train_time = train_model(
                             seed=seed, epochs=EPOCHS, model=model, 
                             train_loader=train_loader, val_loader=val_loader, 
@@ -426,6 +468,9 @@ def main():
                                     'train_losses': train_losses, 'val_losses': val_losses,
                                     'best_epoch': best_epoch, 'train_time': train_time
                                 }, f)
+
+                    if use_embeddings and csv_path:
+                        save_projected_embeddings(model, aligned_embeddings, device, csv_path, before=False)
 
                     # Explicitly load the best saved model before inference to guarantee clean pipeline state
                     if SAVE_MODELS and os.path.exists(best_model_path):

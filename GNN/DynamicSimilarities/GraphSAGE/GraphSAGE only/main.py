@@ -44,9 +44,20 @@ val_size = 153
 forecast_horizon = 152
 lookback_window = 30
 
+NODE_FEATURES = [
+    'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v',
+    "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
+    "rolling_mean_excl_7",
+    "month", "quarter",
+    "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
+    "is_monday", "is_friday",
+    "is_holiday", "is_thanksgiving", "is_black_friday",
+    "is_christmas", "is_christmas_eve", "is_new_year_eve",
+    "is_bridge_day",
+]
 EXOG_COLS = [
     "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    "rolling_mean_7",
+    "rolling_mean_excl_7",
     "month", "quarter",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
     "is_monday", "is_friday",
@@ -59,8 +70,8 @@ grid_configs = [
     # Distâncias Robustas e Lock-step
     #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},
     #{'metric': 'amplitude_offset', 'percentiles': [0.5, 1, 2]},
-    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.82, 0.92, 0.03)]},
-    #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.2, 0.01)]},
+    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.85, 0.92, 0.03)]},
+    #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(1.3, 2.2, 0.2)]},
     # Distâncias Robustas e Lock-step
     #{'metric': 'amplitude_offset', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},
 ]
@@ -84,13 +95,16 @@ SAVE_MODELS = False
 SAVE_PLOTS = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
+INCLUDE_CAL_LOOKBACK = True   # include full lookback calendar as target-node features
+SELECTED_NODE_FEATURES = ['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v']
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PRODUCTS_TO_TEST = [
-  (26008, 6269),
+  #(26008, 6269),
   (907969, 6269),
-  (907967, 6269),
-  (213626, 6269),
+  #(907967, 6269),
+  #(213626, 6269),
   (911753,6269)
 ]
 
@@ -270,7 +284,8 @@ def main():
                             residuals=USE_RESIDUALS,
                             enable_edges_within_star=enable_edges,
                             enable_second_degree=enable_second_degree,
-                            train_end_idx=val_start_idx
+                            train_end_idx=val_start_idx,
+                            node_features=SELECTED_NODE_FEATURES
                         )
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
@@ -293,7 +308,9 @@ def main():
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse',
                         product_id=f"{product_id}_{store_id}", scaler=scaler, target_channel=0,
                         hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS,
-                        graphs=graphs_list, test_size=forecast_horizon, graph_window_size=window_sz
+                        graphs=graphs_list, test_size=forecast_horizon, graph_window_size=window_sz,
+                        include_cal_lookback=INCLUDE_CAL_LOOKBACK,
+                        node_features=SELECTED_NODE_FEATURES,
                     )
 
                     recent_target = val[-lookback_window:].reshape(-1, 1)
@@ -331,7 +348,9 @@ def main():
                             enable_second_degree=enable_second_degree,
                             past_dates=pd.to_datetime(df_product[DATE_COL][:test_start_idx]).dt.strftime('%Y-%m-%d').values,
                             future_dates=pd.to_datetime(df_product[DATE_COL][test_start_idx:]).dt.strftime('%Y-%m-%d').values,
-                            graph_window_size=window_sz
+                            graph_window_size=window_sz,
+                            include_cal_lookback=INCLUDE_CAL_LOOKBACK,
+                            node_features=SELECTED_NODE_FEATURES,
                         )
                     infer_time = time.time() - start_infer
                         

@@ -52,15 +52,18 @@ class TimeSeriesDataset(Dataset):
             x = np.column_stack([target_seq.reshape(-1, 1), exog_seq])
         else:
             x = target_seq.reshape(-1, 1)
-            
+
         if self.has_embeddings:
-            # Fetch embeddings corresponding to the sequence days
-            # Because of the padding in __init__, emb_seq[i] is the graph of the graph_window_size days before day (idx + 1 + i)
-            emb_seq = self.embeddings[idx:idx+self.seq_length] 
-            # Stack the target/exog features with the embeddings: shape (seq_length, 1 + n_exog? + emb_dim)
-            x = np.column_stack([x, emb_seq])
-            
+            # Return embeddings SEPARATELY so the model can project them through
+            # its trainable embedding layer rather than treating them as raw features.
+            # emb_seq[i] is the graph embedding for the graph_window_size days before day (idx + 1 + i)
+            emb_seq = self.embeddings[idx:idx+self.seq_length]          # (seq_length, emb_dim)
+            emb_tensor = torch.FloatTensor(emb_seq)
+        else:
+            # Zero-sized embedding tensor keeps the DataLoader output shape consistent
+            emb_tensor = torch.zeros(self.seq_length, 0)
+
         x_tensor = torch.FloatTensor(x)
         y_tensor = torch.FloatTensor([y])
-        
-        return x_tensor, y_tensor
+
+        return x_tensor, emb_tensor, y_tensor

@@ -4,13 +4,13 @@ from typing import Optional
 from utils import compute_distances_1vsAll, compute_similarities_1vsAll
 import networkx as nx
 import pandas as pd
-def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wide, cat_labels, date_cols, metric, fixed_threshold, enable_edges_within_star=True, enable_second_degree=False):
+def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wide, cat_labels, date_cols, metric, fixed_threshold, enable_edges_within_star=True, enable_second_degree=False, node_features: list = None):
     from torch_geometric.data import Data
     try:
-        from graphsage_pyg import compute_node_features
+        from graphsage_pyg import generate_node_features
     except ImportError:
-        # Fallback if compute_node_features is not available in the inference directory
-        compute_node_features = lambda x: x
+        # Fallback if generate_node_features is not available in the inference directory
+        generate_node_features = lambda x, **kwargs: x
 
     # Extract data for the window
     window_data = df_wide[date_cols]
@@ -149,13 +149,14 @@ def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wi
 
     # Build feature matrix X (using window timeseries as features)
     x_matrix = []
+    _feats = node_features if node_features is not None else ['ts', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v']
     for n_id in graph_nodes:
         # Special logic for the central node because its current values are predictions
         if n_id == target_id:
-            features = compute_node_features(target_ts)
+            features = generate_node_features(target_ts, selected_features=_feats)
         else:
             row = window_data.loc[n_id].values
-            features = compute_node_features(row)
+            features = generate_node_features(row, selected_features=_feats)
         x_matrix.append(features)
         
     x = torch.tensor(np.array(x_matrix), dtype=torch.float)
@@ -185,6 +186,8 @@ def recursive_inference_pure_sage(
     past_dates: list = None,
     future_dates: list = None,
     graph_window_size: int = 15,
+    include_cal_lookback: bool = False,
+    node_features: list = None,
 ) -> np.ndarray:
     """
     Recursive 1-step-ahead inference for the PureGraphSAGEForecaster.
@@ -196,7 +199,7 @@ def recursive_inference_pure_sage(
       3. Forward pass → 1-step prediction → unscale → append → shift window.
     """
     from torch_geometric.data import Batch
-    from graphsage_pyg import compute_target_node_features_pure, compute_neighbor_node_features_pure
+    from graphsage_pyg import generate_node_features
 
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -220,7 +223,14 @@ def recursive_inference_pure_sage(
     target_window_scaled = x_scaled[:, target_channel].copy()   # (lookback,)
 
     all_dates        = list(past_dates) + list(future_dates)
-    feature_dim      = lookback + cal_dim + 8
+
+    if include_cal_lookback:
+        feature_dim  = lookback * (1 + cal_dim) + cal_dim + 8
+        # Rolling calendar lookback window (unscaled exog already scaled by caller)
+        cal_window   = x_scaled[:, exog_indices].copy()  # (lookback, cal_dim)
+    else:
+        feature_dim  = lookback + cal_dim + 8
+        cal_window   = None
 
     preds_unscaled   = []
     model            = model.to(device).eval()
@@ -252,17 +262,21 @@ def recursive_inference_pure_sage(
                 fixed_threshold=fixed_threshold,
                 enable_edges_within_star=enable_edges_within_star,
                 enable_second_degree=enable_second_degree,
+                node_features=node_features,
             )
 
             # ---- 2. Override node features with enhanced representations ----
             n_nodes = G_data.x.shape[0]
             x_new   = torch.zeros((n_nodes, feature_dim), dtype=torch.float32)
 
-            # Target node: full scaled lookback + next-step calendar + stats
+            # Target node: full scaled lookback + [cal_lookback] + next-step calendar + stats
             cal_next = (future_exog[i] if future_exog.ndim > 1
                         else np.array([future_exog[i]], dtype=np.float32))
+            cal_lb   = cal_window if include_cal_lookback else None
+            
+            selected_target = node_features if node_features is not None else (['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'] if include_cal_lookback else ['ts', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'])
             x_new[0] = torch.tensor(
-                compute_target_node_features_pure(target_window_scaled, cal_next, feature_dim),
+                generate_node_features(target_window_scaled, cal_next=cal_next, cal_lookback=cal_lb, selected_features=selected_target),
                 dtype=torch.float32,
             )
 
@@ -270,8 +284,10 @@ def recursive_inference_pure_sage(
             for node_idx in range(1, n_nodes):
                 orig_feat   = G_data.x[node_idx].numpy()
                 neighbor_ts = orig_feat[:graph_window_size]
+                
+                selected_neighbor = node_features if node_features is not None else (['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'] if include_cal_lookback else ['ts', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'])
                 x_new[node_idx] = torch.tensor(
-                    compute_neighbor_node_features_pure(neighbor_ts, feature_dim),
+                    generate_node_features(neighbor_ts, selected_features=selected_neighbor, is_neighbor=True, pad_ts_to=lookback),
                     dtype=torch.float32,
                 )
 
@@ -287,9 +303,14 @@ def recursive_inference_pure_sage(
             unscaled_val = scaler.inverse_transform([[val_pred]])[0, 0]
             preds_unscaled.append(unscaled_val)
 
-            # ---- 4. Shift rolling target window ----
+            # ---- 4. Shift rolling windows ----
             target_window_scaled = np.roll(target_window_scaled, -1)
             target_window_scaled[-1] = val_pred
+
+            # Shift calendar window: the step we just predicted contributes cal_next
+            if include_cal_lookback:
+                cal_window = np.roll(cal_window, -1, axis=0)
+                cal_window[-1] = cal_next
 
     return np.array(preds_unscaled).flatten()
 
