@@ -15,7 +15,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 from plots import plot_results
 from utils import generate_exogenous_features
-from train import TrainConfig, train_pure_sage
+from train import TrainConfig, train_pure_sage, train_lstm
 from graphsageinference import recursive_inference_pure_sage, recursive_inference_no_graph
 from utils import compute_distances_1vsAll, compute_similarities_1vsAll, neighbourhood_graph
 import itertools
@@ -65,7 +65,19 @@ EXOG_COLS = [
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day",
 ]
-
+EXOG_COLS_LSTM = [
+    "day_of_week", "day_of_month", "week_of_year", "week_of_month",
+    "month", "quarter", "is_weekend",
+    "lag_1", "lag_7",  "lag_30",
+    #"rolling_mean_excl_7", "rolling_mean_excl_3", "rolling_mean_excl_5","rolling_mean_excl_15",
+    "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
+    "is_monday", "is_friday",
+    "is_holiday", "is_thanksgiving", "is_black_friday",
+    "is_christmas", "is_christmas_eve", "is_new_year_eve",
+    "is_pre_holiday_1", "is_pre_holiday_2", "is_pre_holiday_3", "is_pre_holiday_7",
+    "is_post_holiday_1", "is_post_holiday_2", "is_post_holiday_3", "is_post_holiday_7",
+    "is_bridge_day",
+]
 grid_configs = [
     # Distâncias Robustas e Lock-step
     #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},
@@ -83,7 +95,8 @@ dropout = 0.2
 EPOCHS = 1000
 LEARNING_RATE = 0.001
 SEEDS = [42]
-window_sizes = [15]     
+window_sizes = [15]
+models=['lstm', 'mlp', 'graphsage']     
 step_sizes = [1]
 enable_edges_opts = [True]
 enable_second_degree_opts = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
@@ -96,14 +109,14 @@ SAVE_PLOTS = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 INCLUDE_CAL_LOOKBACK = True   # include full lookback calendar as target-node features
-SELECTED_NODE_FEATURES = ['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v']
+SELECTED_NODE_FEATURES = NODE_FEATURES
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 PRODUCTS_TO_TEST = [
-  #(26008, 6269),
-  (907969, 6269),
-  #(907967, 6269),
+  (26008, 6269),
+  #(907969, 6269),
+  (907967, 6269),
   #(213626, 6269),
   (911753,6269)
 ]
@@ -216,6 +229,8 @@ def main():
             
             base_forecast, base_train_losses, base_val_losses = None, None, None
             base_rmse, base_mae, base_bias, base_score, base_pocid = None, None, None, None, None
+            base_lstm_forecast, base_lstm_train_losses, base_lstm_val_losses = None, None, None
+            base_lstm_rmse, base_lstm_mae, base_lstm_bias, base_lstm_score, base_lstm_pocid = None, None, None, None, None
 
             for config in all_configs:
                 metric = config['metric']
@@ -230,7 +245,8 @@ def main():
                 else:
                     is_threshold_mode = thresholds is not None and thresholds != [None]
                     params = thresholds if is_threshold_mode else percentiles
-                    iterator = itertools.product(params, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
+                    
+                    iterator = itertools.product(models,params, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
             
                 for param_val, window_sz, step_sz, enable_edges, enable_second_degree in iterator:
                     use_embeddings = (metric != 'no_emb')
@@ -254,6 +270,15 @@ def main():
                             results_by_w_s[key]['bias']["No Embeddings"] = base_bias
                             results_by_w_s[key]['score']["No Embeddings"] = base_score
                             results_by_w_s[key]['pocid']["No Embeddings"] = base_pocid
+                        if metric != 'no_emb' and base_lstm_forecast is not None:
+                            results_by_w_s[key]['forecasts']["LSTM Baseline"] = base_lstm_forecast
+                            results_by_w_s[key]['train_losses']["LSTM Baseline"] = base_lstm_train_losses
+                            results_by_w_s[key]['val_losses']["LSTM Baseline"] = base_lstm_val_losses
+                            results_by_w_s[key]['rmse']["LSTM Baseline"] = base_lstm_rmse
+                            results_by_w_s[key]['mae']["LSTM Baseline"] = base_lstm_mae
+                            results_by_w_s[key]['bias']["LSTM Baseline"] = base_lstm_bias
+                            results_by_w_s[key]['score']["LSTM Baseline"] = base_lstm_score
+                            results_by_w_s[key]['pocid']["LSTM Baseline"] = base_lstm_pocid
 
                     print(f"\n{'='*60}")
                     if use_embeddings:
@@ -311,6 +336,7 @@ def main():
                         graphs=graphs_list, test_size=forecast_horizon, graph_window_size=window_sz,
                         include_cal_lookback=INCLUDE_CAL_LOOKBACK,
                         node_features=SELECTED_NODE_FEATURES,
+                        cal_columns=EXOG_COLS,
                     )
 
                     recent_target = val[-lookback_window:].reshape(-1, 1)
@@ -351,6 +377,7 @@ def main():
                             graph_window_size=window_sz,
                             include_cal_lookback=INCLUDE_CAL_LOOKBACK,
                             node_features=SELECTED_NODE_FEATURES,
+                            cal_columns=EXOG_COLS,
                         )
                     infer_time = time.time() - start_infer
                         
@@ -382,6 +409,57 @@ def main():
                         base_forecast, base_train_losses, base_val_losses = forecast, t_losses, v_losses
                         base_rmse, base_mae, base_bias = rmse, mae, bias
                         base_score, base_pocid = score, pocid
+
+                        # ── LSTM Baseline ──────────────────────────────────────
+                        print(f"\n{'='*60}")
+                        print("Running LSTM Baseline (no graph embeddings)")
+                        print(f"{'='*60}")
+                        lstm_scaler = MinMaxScaler()
+                        lstm_model, _, lstm_t_losses, lstm_v_losses, _ = train_lstm(
+                            df=df_product, cfg=cfg, seed=seed, loss_type='mse',
+                            product_id=f"{product_id}_{store_id}",
+                            scaler=lstm_scaler, target_channel=0,
+                            target_col=TARGET_COL, exog_cols=EXOG_COLS,
+                            test_size=forecast_horizon,
+                        )
+                        lstm_forecast = recursive_inference_no_graph(
+                            model=lstm_model, scaler=lstm_scaler,
+                            recent_history=recent_history,
+                            future_exog=exog_test_scaled,
+                            target_channel=0, device=str(device),
+                        )
+                        valid_mask_l = ~np.isnan(lstm_forecast)
+                        vt_l = test[valid_mask_l]
+                        vf_l = np.array(lstm_forecast)[valid_mask_l]
+                        lstm_rmse, lstm_mae, lstm_bias, lstm_score, lstm_pocid = None, None, None, None, None
+                        if len(vt_l) > 0:
+                            lstm_rmse  = np.sqrt(mean_squared_error(vt_l, vf_l))
+                            lstm_mae   = mean_absolute_error(vt_l, vf_l)
+                            lstm_bias  = np.mean(vf_l - vt_l)
+                            lstm_score = r2_score(vt_l, vf_l)
+                            d_orig = vt_l[1:] - vt_l[:-1]
+                            d_pred = vf_l[1:] - vf_l[:-1]
+                            lstm_pocid = ((d_orig * d_pred) > 0).sum() / max(len(d_orig), 1)
+                        base_lstm_forecast, base_lstm_train_losses, base_lstm_val_losses = lstm_forecast, lstm_t_losses, lstm_v_losses
+                        base_lstm_rmse, base_lstm_mae, base_lstm_bias = lstm_rmse, lstm_mae, lstm_bias
+                        base_lstm_score, base_lstm_pocid = lstm_score, lstm_pocid
+                        results_by_w_s[key]['forecasts']['LSTM Baseline'] = lstm_forecast
+                        results_by_w_s[key]['train_losses']['LSTM Baseline'] = lstm_t_losses
+                        results_by_w_s[key]['val_losses']['LSTM Baseline'] = lstm_v_losses
+                        results_by_w_s[key]['rmse']['LSTM Baseline'] = lstm_rmse
+                        results_by_w_s[key]['mae']['LSTM Baseline'] = lstm_mae
+                        results_by_w_s[key]['bias']['LSTM Baseline'] = lstm_bias
+                        results_by_w_s[key]['score']['LSTM Baseline'] = lstm_score
+                        results_by_w_s[key]['pocid']['LSTM Baseline'] = lstm_pocid
+                        print(f"LSTM Baseline -> RMSE: {lstm_rmse:.4f}\n")
+                        # Write LSTM Baseline to CSV
+                        csv_lstm_path = os.path.join(script_dir, "lstm_baseline.csv")
+                        file_exists_lstm = os.path.exists(csv_lstm_path)
+                        with open(csv_lstm_path, 'a', newline='') as csvfile_lstm:
+                            writer_lstm = csv.writer(csvfile_lstm)
+                            if not file_exists_lstm:
+                                writer_lstm.writerow(["product_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "rmse", "mae", "bias", "r2_score", "pocid"])
+                            writer_lstm.writerow([product_id, store_id, seed, "lstm_baseline", 15, 1, "", "", "", "", lstm_rmse, lstm_mae, lstm_bias, lstm_score, lstm_pocid])
 
                     results_by_w_s[key]['forecasts'][label_name] = forecast
                     results_by_w_s[key]['train_losses'][label_name] = t_losses

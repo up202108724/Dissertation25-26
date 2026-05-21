@@ -16,7 +16,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 from plots import plot_results
 from utils import generate_exogenous_features
 from train import TrainConfig, train_mlp_forecaster
-from graphsageinference import recursive_inference, recursive_inference_no_graph
+from GNN.DynamicSimilarities.GAT.MLP.gatinference import recursive_inference, recursive_inference_no_graph
 from utils import compute_distances_1vsAll, compute_similarities_1vsAll, neighbourhood_graph
 import itertools
 import csv
@@ -39,8 +39,8 @@ DATA_PATH = os.path.join(script_dir, '..', '..', '..', '..', 'dataset', 'data_an
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
-train_size = 579
-val_size = 30
+train_size = 455
+val_size = 153
 forecast_horizon = 152
 lookback_window = 30
 
@@ -69,6 +69,10 @@ grid_configs = [
 batch_size = 32
 hidden_sizes = (64, 32)
 dropout = 0.2
+GAT_HIDDEN = 32
+GAT_OUT = 16
+GAT_HEADS = 4
+ATT_DROPOUT = 0.0
 EPOCHS = 1000
 LEARNING_RATE = 0.001
 SEEDS = [42]
@@ -292,7 +296,12 @@ def main():
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                         product_id=f"{product_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
                         hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, 
-                        graphs=graphs_list, test_size=forecast_horizon, sage_in_channels=window_sz + 8
+                        graphs=graphs_list, test_size=forecast_horizon,
+                        gat_in_channels=window_sz + 8,
+                        gat_hidden_channels=GAT_HIDDEN,
+                        gat_out_channels=GAT_OUT,
+                        gat_heads=GAT_HEADS,
+                        att_dropout=ATT_DROPOUT,
                     )
 
                     recent_target = val[-lookback_window:].reshape(-1, 1)

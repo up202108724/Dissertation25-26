@@ -6,14 +6,14 @@ import networkx as nx
 from torch_geometric.data import Data
 from torch_geometric.nn import SAGEConv
 
-def generate_node_features(ts, cal_next=None, cal_lookback=None, selected_features=None, is_neighbor=False, pad_ts_to=None):
+def generate_node_features(ts, cal_next=None, cal_lookback=None, selected_features=None, is_neighbor=False, pad_ts_to=None, cal_columns=None):
     """
     Builder function to generate node features dynamically based on selected_features.
     
     selected_features can include:
     'ts'           : the raw time-series sequence (padded for neighbors if pad_ts_to is set).
     'cal_lookback' : calendar features for the lookback window (flattened). Ignored/zeroed for neighbors.
-    'cal_next'     : calendar features for the next step. Ignored/zeroed for neighbors.
+    'cal_next'     : all calendar features for the next step as a single vector. Ignored/zeroed for neighbors.
     'last_demand'  : last sequence value.
     'mean7'        : mean of last 7 days.
     'mean_all'     : mean of the entire sequence.
@@ -22,6 +22,14 @@ def generate_node_features(ts, cal_next=None, cal_lookback=None, selected_featur
     'slope'        : linear slope.
     'min_v'        : minimum value.
     'max_v'        : maximum value.
+    '<col_name>'   : any individual calendar column name present in cal_columns (e.g. 'dow_sin',
+                     'is_weekend'). Ignored/zeroed for neighbors.
+    
+    Parameters
+    ----------
+    cal_columns : list[str], optional
+        Ordered list of column names in cal_next / cal_lookback rows.
+        When provided, each column name is available as an individual feature key.
     """
 
     ts_arr = np.array(ts, dtype=np.float32)
@@ -56,10 +64,19 @@ def generate_node_features(ts, cal_next=None, cal_lookback=None, selected_featur
         'slope': lambda: np.array([np.polyfit(np.arange(seq_len), ts_arr, 1)[0] if seq_len > 1 else 0.0], dtype=np.float32),
         'slope15': lambda: np.array([np.polyfit(np.arange(seq_len), ts_arr, 1)[0] if seq_len > 1 else 0.0], dtype=np.float32),
         'min_v': lambda: np.array([np.min(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
-        'min_15': lambda: np.array([np.min(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
         'max_v': lambda: np.array([np.max(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
-        'max_15': lambda: np.array([np.max(ts_arr) if seq_len > 0 else 0.0], dtype=np.float32),
     }
+
+    # Dynamically add per-column calendar feature builders when cal_columns is provided.
+    # Each column maps to a single scalar extracted from cal_next by its index.
+    # Neighbors always receive 0.0 for calendar features.
+    if cal_columns is not None and cal_next is not None:
+        cal_next_arr = np.array(cal_next, dtype=np.float32)
+        for _idx, _col in enumerate(cal_columns):
+            if is_neighbor:
+                builders[_col] = lambda: np.array([0.0], dtype=np.float32)
+            else:
+                builders[_col] = (lambda _i=_idx: np.array([cal_next_arr[_i]], dtype=np.float32))
 
     for feat in selected_features:
         if feat in builders:

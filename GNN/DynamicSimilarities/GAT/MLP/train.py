@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
 from mlp import MLPForecaster
-from graphsagedataset import make_windows, WindowGraphDataset
+from GNN.DynamicSimilarities.GAT.MLP.gatdataset import make_windows, WindowGraphDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
@@ -38,12 +38,14 @@ def train_mlp_forecaster(
     exog_cols=None,
     graphs=None, # Replaced graph_embeddings with graphs
     test_size=None,
-    sage_in_channels=1,
-    sage_hidden_channels=32,
-    sage_out_channels=16
+    gat_in_channels=1,
+    gat_hidden_channels=32,
+    gat_out_channels=16,
+    gat_heads=4,
+    att_dropout=0.0,
 ):
-    from graphsagedataset import py_geometric_collate
-    from graphsage_mlp import GraphSAGE_MLP_Forecaster
+    from GNN.DynamicSimilarities.GAT.MLP.gatdataset import py_geometric_collate
+    from GNN.DynamicSimilarities.GAT.MLP.gat_mlp import GAT_MLP_Forecaster
 
     use_graphs = graphs is not None
 
@@ -79,10 +81,10 @@ def train_mlp_forecaster(
 
     # Create windows with targets, exogenous features, and graphs
     X_train, y_train_full, graphs_train_seq = make_windows(
-        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, graphs=graphs_train, graph_window_size=sage_in_channels
+        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, graphs=graphs_train, graph_window_size=gat_in_channels
     )
     X_val, y_val_full, graphs_val_seq = make_windows(
-        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, graphs=graphs_val, graph_window_size=sage_in_channels
+        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, graphs=graphs_val, graph_window_size=gat_in_channels
     )
 
     y_train = y_train_full[:, :, target_channel : target_channel + 1]
@@ -99,7 +101,7 @@ def train_mlp_forecaster(
     print(f"  Val Targets:   {y_val.shape[0]} windows created")
     print(f"Input Shape:  (Batch, {cfg.lookback}, {C_in})")
     print(f"Output Shape: (Batch, {cfg.horizon}, 1)")
-    print(f"Mode: {'GraphSAGE+MLP' if use_graphs else 'Pure MLP (no embeddings)'}")
+    print(f"Mode: {'GAT+MLP' if use_graphs else 'Pure MLP (no embeddings)'}")
 
     if use_graphs:
         train_loader = DataLoader(
@@ -115,13 +117,15 @@ def train_mlp_forecaster(
             collate_fn=py_geometric_collate
         )
 
-        model = GraphSAGE_MLP_Forecaster(
+        model = GAT_MLP_Forecaster(
             lookback=cfg.lookback,
             ts_dim=ts_dim,
             cal_dim=cal_dim,
-            sage_in_channels=sage_in_channels,
-            sage_hidden_channels=sage_hidden_channels,
-            sage_out_channels=sage_out_channels,
+            gat_in_channels=gat_in_channels,
+            gat_hidden_channels=gat_hidden_channels,
+            gat_out_channels=gat_out_channels,
+            gat_heads=gat_heads,
+            att_dropout=att_dropout,
             horizon=cfg.horizon,
             mlp_hidden_sizes=hidden_sizes,
             dropout=0.2,

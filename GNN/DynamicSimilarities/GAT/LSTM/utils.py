@@ -14,7 +14,7 @@ from tslearn.metrics import dtw
 import holidays
 # Graph construction utils
 
-from graphsage_pyg import compute_node_features
+from DynamicSimilarities.GAT.LSTM.gat_pyg import compute_node_features
 
 import os
 import numpy as np

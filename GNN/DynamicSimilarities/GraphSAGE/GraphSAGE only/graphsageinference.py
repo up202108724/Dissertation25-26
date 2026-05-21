@@ -150,13 +150,16 @@ def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wi
     # Build feature matrix X (using window timeseries as features)
     x_matrix = []
     _feats = node_features if node_features is not None else ['ts', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v']
+    # Always store raw ts FIRST so make_single_windows can reliably extract
+    # the neighbor ts via orig_feat[:graph_window_size].
+    _storage_feats = ['ts'] + [f for f in _feats if f != 'ts']
     for n_id in graph_nodes:
         # Special logic for the central node because its current values are predictions
         if n_id == target_id:
-            features = generate_node_features(target_ts, selected_features=_feats)
+            features = generate_node_features(target_ts, selected_features=_storage_feats)
         else:
             row = window_data.loc[n_id].values
-            features = generate_node_features(row, selected_features=_feats)
+            features = generate_node_features(row, selected_features=_storage_feats)
         x_matrix.append(features)
         
     x = torch.tensor(np.array(x_matrix), dtype=torch.float)
@@ -188,6 +191,7 @@ def recursive_inference_pure_sage(
     graph_window_size: int = 15,
     include_cal_lookback: bool = False,
     node_features: list = None,
+    cal_columns: list = None,
 ) -> np.ndarray:
     """
     Recursive 1-step-ahead inference for the PureGraphSAGEForecaster.
@@ -225,12 +229,20 @@ def recursive_inference_pure_sage(
     all_dates        = list(past_dates) + list(future_dates)
 
     if include_cal_lookback:
-        feature_dim  = lookback * (1 + cal_dim) + cal_dim + 8
         # Rolling calendar lookback window (unscaled exog already scaled by caller)
         cal_window   = x_scaled[:, exog_indices].copy()  # (lookback, cal_dim)
     else:
-        feature_dim  = lookback + cal_dim + 8
         cal_window   = None
+
+    # Compute feature_dim dynamically from the actual feature list.
+    _dummy_ts  = np.zeros(lookback, dtype=np.float32)
+    _dummy_cal = np.zeros(cal_dim, dtype=np.float32) if cal_dim > 0 else None
+    _dummy_lb  = (np.zeros((lookback, cal_dim), dtype=np.float32)
+                  if include_cal_lookback and cal_dim > 0 else None)
+    feature_dim = len(generate_node_features(
+        _dummy_ts, cal_next=_dummy_cal, cal_lookback=_dummy_lb,
+        selected_features=node_features, cal_columns=cal_columns,
+    ))
 
     preds_unscaled   = []
     model            = model.to(device).eval()
@@ -274,9 +286,10 @@ def recursive_inference_pure_sage(
                         else np.array([future_exog[i]], dtype=np.float32))
             cal_lb   = cal_window if include_cal_lookback else None
             
-            selected_target = node_features if node_features is not None else (['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'] if include_cal_lookback else ['ts', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'])
+            selected_target = node_features 
             x_new[0] = torch.tensor(
-                generate_node_features(target_window_scaled, cal_next=cal_next, cal_lookback=cal_lb, selected_features=selected_target),
+                generate_node_features(target_window_scaled, cal_next=cal_next, cal_lookback=cal_lb,
+                                       selected_features=selected_target, cal_columns=cal_columns),
                 dtype=torch.float32,
             )
 
@@ -285,9 +298,10 @@ def recursive_inference_pure_sage(
                 orig_feat   = G_data.x[node_idx].numpy()
                 neighbor_ts = orig_feat[:graph_window_size]
                 
-                selected_neighbor = node_features if node_features is not None else (['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'] if include_cal_lookback else ['ts', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'])
+                selected_neighbor = node_features
                 x_new[node_idx] = torch.tensor(
-                    generate_node_features(neighbor_ts, selected_features=selected_neighbor, is_neighbor=True, pad_ts_to=lookback),
+                    generate_node_features(neighbor_ts, selected_features=selected_neighbor,
+                                           is_neighbor=True, pad_ts_to=lookback, cal_columns=cal_columns),
                     dtype=torch.float32,
                 )
 

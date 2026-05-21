@@ -172,14 +172,16 @@ def main():
                     model, t_losses, train_time = train_model_combined(
                         seed, optimal_epoch, model, combined_loader, criterion, optimizer, device, model_path)
                     best_epoch = optimal_epoch
-                elif strategy == 'selected_epochs':
+                
+            #    elif strategy == 'selected_epochs':
                     # Ask or define a selected number of epochs, e.g., 200 (could be dynamically assigned)
-                    selected_num_epochs = 200 
-                    model, t_losses, best_train_loss, best_model_epoch, train_time = train_model_selected_epochs(
-                        seed, selected_num_epochs, model, combined_loader, criterion, optimizer, device, model_path)
-                    best_epoch = best_model_epoch
-                    print(f"Best Train Loss: {best_train_loss}, at epoch: {best_model_epoch}")
-                    v_losses = [] # No validation loss since it's train+val combined
+            #        selected_num_epochs = 200 
+            #        model, t_losses, best_train_loss, best_model_epoch, train_time = train_model_selected_epochs(
+            #            seed, selected_num_epochs, model, combined_loader, criterion, optimizer, device, model_path)
+            #        best_epoch = best_model_epoch
+            #        print(f"Best Train Loss: {best_train_loss}, at epoch: {best_model_epoch}")
+            #        v_losses = [] # No validation loss since it's train+val combined
+
                 elif strategy == 'expanding_window':
                     model, t_losses, v_losses, best_epoch, train_time = train_model_expanding_window(
                         seed=seed, epochs=EPOCHS, model=model, 

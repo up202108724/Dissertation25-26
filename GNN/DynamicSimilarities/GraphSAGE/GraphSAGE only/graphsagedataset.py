@@ -89,6 +89,7 @@ def make_single_windows(
     graph_window_size: int = 15,
     include_cal_lookback: bool = False,
     node_features: list = None,
+    cal_columns: list = None,
 ) -> tuple:
     """
     Creates one (y, graph) pair per sliding window for the pure SAGE forecaster.
@@ -139,17 +140,25 @@ def make_single_windows(
     if N <= 0:
         raise ValueError("Time series too short for given lookback/horizon.")
 
-    if include_cal_lookback:
-        feature_dim = lookback * (1 + cal_dim) + cal_dim + 8
-    else:
-        feature_dim = lookback + cal_dim + 8
+    # Compute feature_dim dynamically from the actual feature list so it works
+    # with any node_features combination (ts+cal, stats-only, mixed, etc.).
+    _dummy_ts  = np.zeros(lookback, dtype=np.float32)
+    _dummy_cal = np.zeros(cal_dim, dtype=np.float32) if cal_dim > 0 else None
+    _dummy_lb  = (np.zeros((lookback, cal_dim), dtype=np.float32)
+                  if include_cal_lookback and cal_dim > 0 else None)
+    feature_dim = len(generate_node_features(
+        _dummy_ts, cal_next=_dummy_cal, cal_lookback=_dummy_lb,
+        selected_features=node_features, cal_columns=cal_columns,
+    ))
 
     # --- Pad graphs so that padded_graphs[t] = graph whose window ends at t ---
     # neighbourhood_graph builds (T - window_size + 1) graphs; the i-th graph
-    # covers [i, i + window_size).  Padding from the front aligns index t with
-    # the graph whose window ends at t.
+    # covers [i, i + window_size).  We need padded_graphs[t] to be the graph
+    # whose window *ends* at t, i.e. graph[t - window_size + 1] covering
+    # [t - window_size + 1, t].  This requires exactly (window_size - 1)
+    # leading dummy graphs, regardless of how many graphs were passed.
     if graphs is not None:
-        num_missing = T - len(graphs)
+        num_missing = graph_window_size - 1
         dummy_x = torch.zeros((1, feature_dim), dtype=torch.float32)
         dummy_graph = Data(
             x=dummy_x,
@@ -186,9 +195,10 @@ def make_single_windows(
         cal_next  = cal[i + lookback] if (i + lookback) < T else cal[-1]  # (cal_dim,)
         cal_lb    = cal[i : i + lookback] if include_cal_lookback else None  # (lookback, cal_dim) or None
         
-        selected_target = node_features if node_features is not None else (['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'] if include_cal_lookback else ['ts', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'])
+        selected_target = node_features 
         x_new[0]  = torch.tensor(
-            generate_node_features(target_ts, cal_next=cal_next, cal_lookback=cal_lb, selected_features=selected_target),
+            generate_node_features(target_ts, cal_next=cal_next, cal_lookback=cal_lb,
+                                   selected_features=selected_target, cal_columns=cal_columns),
             dtype=torch.float32,
         )
 
@@ -197,9 +207,10 @@ def make_single_windows(
             orig_feat   = base_graph.x[node_idx].numpy()            # (graph_window_size + 8,)
             neighbor_ts = orig_feat[:graph_window_size]              # raw values only
             
-            selected_neighbor = node_features if node_features is not None else (['ts', 'cal_lookback', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'] if include_cal_lookback else ['ts', 'cal_next', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v'])
+            selected_neighbor = node_features
             x_new[node_idx] = torch.tensor(
-                generate_node_features(neighbor_ts, selected_features=selected_neighbor, is_neighbor=True, pad_ts_to=lookback),
+                generate_node_features(neighbor_ts, selected_features=selected_neighbor,
+                                       is_neighbor=True, pad_ts_to=lookback, cal_columns=cal_columns),
                 dtype=torch.float32,
             )
 
