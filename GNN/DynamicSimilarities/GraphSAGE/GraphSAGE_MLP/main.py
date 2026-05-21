@@ -79,7 +79,7 @@ grid_configs = [
     # Distâncias Robustas e Lock-step
     #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},
     #{'metric': 'amplitude_offset', 'percentiles': [0.5, 1, 2]},
-    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.85, 0.92, 0.03)]},
+    {'metric': 'spearman', 'thresholds': [0.75, 0.82, 0.85, 0.88, 0.91]},
     #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(1.3, 2.2, 0.2)]},
     # Distâncias Robustas e Lock-step
     #{'metric': 'amplitude_offset', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},
@@ -87,7 +87,7 @@ grid_configs = [
 
 
 batch_size = 32
-hidden_sizes = (64, 32)
+hidden_sizes = (256, 128)
 dropout = 0.2
 EPOCHS = 1000
 LEARNING_RATE = 0.001

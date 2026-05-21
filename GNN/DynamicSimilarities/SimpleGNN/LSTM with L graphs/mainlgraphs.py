@@ -1,9 +1,9 @@
 """
-main.py  –  Grid search over spearman thresholds for GNN+MLP only.
+mainlgraphs.py  –  Grid search over Spearman thresholds for GCN+LSTM (L graphs).
 
 Thresholds: 0.75, 0.82, 0.85, 0.88, 0.91
-Models run: SimpleGNN+MLP (train_mlp_forecaster / recursive_inference)
-Results saved to: gnn_mlp_spearman_grid.csv
+Model: SimpleGNNSeqLSTMForecaster  (GCN at every lookback step → z_t concat ts_seq → LSTM)
+Results saved to: gnn_seq_lstm_spearman_grid.csv
 """
 
 import sys
@@ -12,17 +12,20 @@ import time
 import csv
 import itertools
 import warnings
+
 import numpy as np
 import pandas as pd
 import torch
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*incompatible dtype.*")
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 from utils import generate_exogenous_features, compute_similarities_1vsAll, neighbourhood_graph
-from train import TrainConfig, train_gnn_mlp
-from gnninference import recursive_inference
+from train import TrainConfig, train_gnn_lstm_sequence
+from gnninference import recursive_inference_seq
 from plots import plot_results
 
 # ── Data ──────────────────────────────────────────────────────────────────────
@@ -75,14 +78,16 @@ PRODUCTS_TO_TEST = [
 ]
 
 # ── Model hyper-parameters ────────────────────────────────────────────────────
-BATCH_SIZE          = 32
-HIDDEN_SIZES        = (256, 128)   # MLP hidden layer sizes — input is 30×(1+31+16)=1440
-DROPOUT             = 0.2
-GNN_HIDDEN_CHANNELS = 32
-GNN_OUT_CHANNELS    = 16
-EPOCHS              = 1000
-LR                  = 0.001
-PATIENCE            = 150
+BATCH_SIZE   = 32
+HIDDEN_SIZES = (32, 16)   # passed as hidden_sizes (used for sage_hidden_channels)
+DROPOUT_LSTM = 0.4
+DROPOUT_GNN  = 0.4
+LSTM_HIDDEN  = 64
+LSTM_LAYERS  = 1
+EPOCHS       = 1000
+LR           = 0.001
+PATIENCE     = 150
+INCLUDE_CAL_LOOKBACK = False   # not used by L-graph model
 
 ENABLE_EDGES         = True
 ENABLE_SECOND_DEGREE = False
@@ -90,7 +95,7 @@ ENABLE_SECOND_DEGREE = False
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # ── CSV output ────────────────────────────────────────────────────────────────
-CSV_PATH = os.path.join(script_dir, "gnn_mlp_spearman_grid.csv")
+CSV_PATH = os.path.join(script_dir, "gnn_seq_lstm_spearman_grid.csv")
 CSV_COLS = [
     "product_id", "store_id", "seed",
     "metric", "threshold", "window_size",
@@ -203,7 +208,7 @@ def main():
         val_index   = df_product[DATE_COL].iloc[val_sl].values
         test_index  = df_product[DATE_COL].iloc[test_sl].values
 
-        plots_dir = os.path.join(script_dir, 'gnn_mlp_spearman_plots')
+        plots_dir = os.path.join(script_dir, 'gnn_seq_lstm_spearman_plots')
         os.makedirs(plots_dir, exist_ok=True)
 
         # ── Seed / threshold grid ──────────────────────────────────────────────
@@ -258,9 +263,7 @@ def main():
                 )
 
                 t0 = time.time()
-                # gnn_in_channels = graph_window_size raw ts + 8 stat features
-                gnn_in_channels = window_sz + 8
-                model, trained_scaler, t_losses, v_losses, best_epoch = train_gnn_mlp(
+                model, trained_scaler, t_losses, v_losses, best_epoch = train_gnn_lstm_sequence(
                     df=df_product_lstm,
                     cfg=cfg,
                     seed=seed,
@@ -273,13 +276,15 @@ def main():
                     exog_cols=EXOG_COLS_LSTM,
                     graphs=graphs_list,
                     test_size=forecast_horizon,
-                    gnn_in_channels=gnn_in_channels,
-                    gnn_hidden_channels=GNN_HIDDEN_CHANNELS,
-                    gnn_out_channels=GNN_OUT_CHANNELS,
+                    graph_window_size=window_sz,
+                    dropout=DROPOUT_LSTM,
+                    lstm_hidden=LSTM_HIDDEN,
+                    lstm_layers=LSTM_LAYERS,
+                    patience=PATIENCE,
                 )
-                
+                train_time = time.time() - t0
 
-                forecast = recursive_inference(
+                forecast = recursive_inference_seq(
                     model=model,
                     scaler=trained_scaler,
                     recent_history=recent_history,
@@ -296,6 +301,7 @@ def main():
                     past_dates=past_dates,
                     future_dates=future_dates,
                     graph_window_size=window_sz,
+                    node_features=NODE_FEATURES,
                 )
 
                 rmse, mae, bias, r2, pocid = _compute_metrics(test_raw, forecast)
@@ -312,6 +318,15 @@ def main():
                 score_dict[label]        = r2
                 pocid_dict[label]        = pocid
 
+                with open(CSV_PATH, 'a', newline='') as f:
+                    csv.writer(f).writerow([
+                        product_id, store_id, seed,
+                        'spearman', threshold, window_sz,
+                        ENABLE_EDGES, ENABLE_SECOND_DEGREE,
+                        rmse, mae, bias, r2, pocid,
+                        best_epoch, round(train_time, 2),
+                    ])
+
             # ── Comparison plot for this product × seed ────────────────────────
             if forecasts_dict:
                 plot_save = os.path.join(
@@ -325,7 +340,7 @@ def main():
                     train_losses=train_losses_dict, val_losses=val_losses_dict,
                     metric='spearman', seed=seed,
                     target_col=TARGET_COL,
-                    title=f'GCN+MLP Spearman Threshold Comparison | Item {product_id} | Store {store_id}',
+                    title=f'GCN-SeqLSTM Spearman Threshold Comparison | Item {product_id} | Store {store_id}',
                     save_path=plot_save,
                     rmse=rmse_dict, mae=mae_dict, bias=bias_dict,
                     score=score_dict, pocid=pocid_dict,
