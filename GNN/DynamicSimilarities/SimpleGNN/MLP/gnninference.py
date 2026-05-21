@@ -4,14 +4,9 @@ from typing import Optional
 from utils import compute_distances_1vsAll, compute_similarities_1vsAll
 import networkx as nx
 import pandas as pd
+from torch_geometric.data import Data
+from gnn_pyg import compute_node_features
 def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wide, cat_labels, date_cols, metric, fixed_threshold, enable_edges_within_star=True, enable_second_degree=False):
-    from torch_geometric.data import Data
-    try:
-        from GNN.DynamicSimilarities.GAT.MLP.gat_pyg import compute_node_features
-    except ImportError:
-        # Fallback if compute_node_features is not available in the inference directory
-        compute_node_features = lambda x: x
-
     # Extract data for the window
     window_data = df_wide[date_cols]
     all_ts = window_data.values
@@ -292,57 +287,4 @@ def recursive_inference(
             if len(exog_indices) > 0 and (i + 1) < horizon:
                 input_window[-1, exog_indices] = future_exog[i + 1]
             
-    return np.array(preds_unscaled).flatten()
-
-
-def recursive_inference_no_graph(
-    model: torch.nn.Module,
-    scaler,
-    recent_history: np.ndarray,
-    future_exog: np.ndarray,
-    target_channel: int = 0,
-    device: Optional[str] = None,
-) -> np.ndarray:
-    """
-    Pure-MLP recursive inference (no GraphSAGE, no graph inputs).
-    Inputs: only target value + exogenous calendar features.
-    """
-    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-
-    horizon = len(future_exog)
-    recent_history = np.asarray(recent_history, dtype=np.float32)
-    if recent_history.ndim == 1:
-        recent_history = recent_history[:, None]
-
-    C_in = recent_history.shape[1]
-    exog_indices = [idx for idx in range(C_in) if idx != target_channel]
-
-    current_x_scaled = recent_history.copy()
-    current_x_scaled[:, target_channel:target_channel+1] = scaler.transform(
-        recent_history[:, target_channel:target_channel+1]
-    )
-    input_window = current_x_scaled.copy()
-
-    # Align exogenous features forward by 1 (same convention as training)
-    if len(exog_indices) > 0:
-        input_window[:-1, exog_indices] = input_window[1:, exog_indices]
-        input_window[-1, exog_indices] = future_exog[0]
-
-    preds_unscaled = []
-    model = model.to(device).eval()
-
-    with torch.no_grad():
-        for i in range(horizon):
-            x_tensor = torch.from_numpy(input_window).float().unsqueeze(0).to(device)  # (1, L, C)
-            y_pred = model(x_tensor)
-            val_pred = y_pred.view(-1)[0].item()
-
-            unscaled_val = scaler.inverse_transform([[val_pred]])[0, 0]
-            preds_unscaled.append(unscaled_val)
-
-            input_window = np.roll(input_window, -1, axis=0)
-            input_window[-1, target_channel] = val_pred
-            if len(exog_indices) > 0 and (i + 1) < horizon:
-                input_window[-1, exog_indices] = future_exog[i + 1]
-
     return np.array(preds_unscaled).flatten()

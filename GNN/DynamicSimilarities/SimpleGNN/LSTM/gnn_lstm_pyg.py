@@ -121,49 +121,6 @@ def compute_neighbor_node_features_pure(ts_window, feature_dim):
     return np.concatenate([ts_part, stats])
 
 
-class SimpleGNNForecaster(nn.Module):
-
-    def __init__(
-        self,
-        in_channels: int,        # lookback + cal_dim + 8
-        hidden_channels: int,
-        out_channels: int,
-        horizon: int,
-        dropout: float = 0.2,
-    ):
-        super().__init__()
-        self.conv1 = GCNConv(in_channels, hidden_channels, add_self_loops=True)
-        self.conv2 = GCNConv(hidden_channels, out_channels, add_self_loops=True)
-        self.activation = nn.ReLU()
-        self.dropout = nn.Dropout(p=dropout)
-        self.head = nn.Linear(out_channels, horizon)
-        self.horizon = horizon
-
-    def forward(self, pyg_batch, target_node_indices):
-        """
-        pyg_batch           : PyG Batch of B graphs (one graph per sample)
-        target_node_indices : LongTensor (B,) – global index of the central node
-                              in each graph.  Use pyg_batch.ptr[:-1] since the
-                              central node is always node 0 in every graph.
-
-        Returns : (B, horizon, 1)
-        """
-        ew = (pyg_batch.edge_attr.squeeze(1)
-              if (pyg_batch.edge_attr is not None and pyg_batch.edge_attr.shape[0] > 0)
-              else None)
-        h = self.conv1(pyg_batch.x, pyg_batch.edge_index, edge_weight=ew)
-        h = self.activation(h)
-        h = self.dropout(h)
-        h = self.conv2(h, pyg_batch.edge_index, edge_weight=ew)
-
-        z   = h[target_node_indices]   # (B, out_channels)
-        out = self.head(z)             # (B, horizon)
-        return out.unsqueeze(-1)       # (B, horizon, 1)
-
-
-# ---------------------------------------------------------------------------
-# GraphSAGE + LSTM forecaster
-# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Dynamic named-feature builder (mirrors graphsage_pyg.generate_node_features)
@@ -285,3 +242,89 @@ def compute_target_node_features_seq(ts_window, cal_at_t, feature_dim):
     return np.concatenate([ts_part, cal, stats])
 
 
+class SimpleGNNLSTMForecaster(nn.Module):
+    """
+    GCN encoder + LSTM forecaster.
+
+    Mirrors GraphSAGELSTMForecaster (graphsage_pyg.py) with GCNConv instead of SAGEConv.
+
+    The GCN processes ONE ego-graph per sample (the graph whose window ends at
+    the last observation of the lookback period).  The target-node embedding z
+    is projected to initialise the LSTM hidden and cell states (h₀, c₀), giving
+    the sequential model cross-item graph context from the first step.
+
+    The LSTM then processes the explicit lookback sequence:
+        ts_seq[:, t, :] = [value_t, cal_{t+1}]
+    i.e. at each step the LSTM sees the current scaled target value and the
+    calendar features of the *next* day, consistent with training labels.
+
+    Forward inputs
+    --------------
+    pyg_batch           : PyG Batch of B graphs (ONE per sample)
+    target_node_indices : LongTensor (B,) – use pyg_batch.ptr[:-1]
+    ts_seq              : FloatTensor (B, lookback, 1 + cal_dim)
+
+    Returns : (B, horizon, 1)
+    """
+
+    def __init__(
+        self,
+        in_channels: int,       # node feature dim (computed from generate_node_features)
+        hidden_channels: int,
+        out_channels: int,      # GCN output channels = LSTM init projection input
+        lstm_input_size: int,   # 1 + cal_dim
+        lstm_hidden: int,
+        lstm_layers: int,
+        horizon: int,
+        dropout: float = 0.2,
+    ):
+        super().__init__()
+        self.conv1 = GCNConv(in_channels, hidden_channels, add_self_loops=True)
+        self.conv2 = GCNConv(hidden_channels, out_channels, add_self_loops=True)
+        self.activation = nn.ReLU()
+        self.gnn_drop   = nn.Dropout(p=dropout)
+        # Project graph embedding → LSTM initial hidden + cell states
+        self.h_proj = nn.Linear(out_channels, lstm_hidden * lstm_layers)
+        self.c_proj = nn.Linear(out_channels, lstm_hidden * lstm_layers)
+        # LSTM over the lookback sequence
+        self.lstm = nn.LSTM(
+            lstm_input_size, lstm_hidden, lstm_layers,
+            batch_first=True,
+            dropout=dropout if lstm_layers > 1 else 0.0,
+        )
+        self.lstm_drop  = nn.Dropout(p=dropout)
+        self.head       = nn.Linear(lstm_hidden, horizon)
+        self.horizon    = horizon
+        self.lstm_layers = lstm_layers
+        self.lstm_hidden = lstm_hidden
+
+    def forward(self, pyg_batch, target_node_indices, ts_seq):
+        """
+        pyg_batch           : PyG Batch of B graphs
+        target_node_indices : LongTensor (B,)
+        ts_seq              : FloatTensor (B, lookback, 1 + cal_dim)
+
+        Returns : (B, horizon, 1)
+        """
+        ew = (pyg_batch.edge_attr.squeeze(1)
+              if (pyg_batch.edge_attr is not None and pyg_batch.edge_attr.shape[0] > 0)
+              else None)
+        h = self.conv1(pyg_batch.x, pyg_batch.edge_index, edge_weight=ew)
+        h = self.activation(h)
+        h = self.gnn_drop(h)
+        h = self.conv2(h, pyg_batch.edge_index, edge_weight=ew)
+
+        z = h[target_node_indices]   # (B, out_channels)
+        B = z.size(0)
+
+        h0 = (self.h_proj(z)
+                  .view(B, self.lstm_layers, self.lstm_hidden)
+                  .permute(1, 0, 2).contiguous())   # (layers, B, lstm_hidden)
+        c0 = (self.c_proj(z)
+                  .view(B, self.lstm_layers, self.lstm_hidden)
+                  .permute(1, 0, 2).contiguous())   # (layers, B, lstm_hidden)
+
+        lstm_out, _ = self.lstm(ts_seq, (h0, c0))   # (B, lookback, lstm_hidden)
+        out = self.lstm_drop(lstm_out[:, -1, :])     # (B, lstm_hidden)
+        pred = self.head(out)                        # (B, horizon)
+        return pred.unsqueeze(-1)                    # (B, horizon, 1)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch_geometric.data import Batch
 
-from GNN.DynamicSimilarities.SimpleGNN.MLP.gnn_pyg import SimpleGNNEncoder
+from gnn_pyg import SimpleGNNEncoder
 from mlp import MLPForecaster
 
 class SimpleGNN_MLP_Forecaster(nn.Module):
