@@ -47,9 +47,6 @@ def make_xy_windows(
     return X, y
 
 
-# ---------------------------------------------------------------------------
-# Pure GraphSAGE helpers (one graph per sample)
-# ---------------------------------------------------------------------------
 
 class SingleGraphDataset(Dataset):
     """

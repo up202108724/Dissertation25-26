@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
 from mlp import MLPForecaster
-from GNN.DynamicSimilarities.GAT.MLP.gatdataset import make_windows, WindowGraphDataset
+from gnndataset import make_windows, WindowGraphDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
@@ -24,7 +24,7 @@ class TrainConfig:
     weight_decay: float = 1e-3
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
-def train_mlp_forecaster(
+def train_gnn_mlp(
     df: pd.DataFrame, 
     cfg: TrainConfig,
     seed: int,
@@ -36,16 +36,15 @@ def train_mlp_forecaster(
     hidden_sizes=(16, 8),
     target_col=None,
     exog_cols=None,
-    graphs=None, # Replaced graph_embeddings with graphs
+    graphs=None,
     test_size=None,
-    gat_in_channels=1,
-    gat_hidden_channels=32,
-    gat_out_channels=16,
-    gat_heads=4,
-    att_dropout=0.0,
+    gnn_in_channels=1,
+    gnn_hidden_channels=32,
+    gnn_out_channels=16,
+    patience: int = 150,
 ):
-    from GNN.DynamicSimilarities.GAT.MLP.gatdataset import py_geometric_collate
-    from GNN.DynamicSimilarities.GAT.MLP.gat_mlp import GAT_MLP_Forecaster
+    from gnndataset import py_geometric_collate
+    from gnn_mlp import SimpleGNN_MLP_Forecaster
 
     use_graphs = graphs is not None
 
@@ -81,10 +80,10 @@ def train_mlp_forecaster(
 
     # Create windows with targets, exogenous features, and graphs
     X_train, y_train_full, graphs_train_seq = make_windows(
-        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, graphs=graphs_train, graph_window_size=gat_in_channels
+        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, graphs=graphs_train, graph_window_size=gnn_in_channels
     )
     X_val, y_val_full, graphs_val_seq = make_windows(
-        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, graphs=graphs_val, graph_window_size=gat_in_channels
+        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, graphs=graphs_val, graph_window_size=gnn_in_channels
     )
 
     y_train = y_train_full[:, :, target_channel : target_channel + 1]
@@ -101,7 +100,7 @@ def train_mlp_forecaster(
     print(f"  Val Targets:   {y_val.shape[0]} windows created")
     print(f"Input Shape:  (Batch, {cfg.lookback}, {C_in})")
     print(f"Output Shape: (Batch, {cfg.horizon}, 1)")
-    print(f"Mode: {'GAT+MLP' if use_graphs else 'Pure MLP (no embeddings)'}")
+    print(f"Mode: {'SimpleGNN+MLP' if use_graphs else 'Pure MLP (no embeddings)'}")
 
     if use_graphs:
         train_loader = DataLoader(
@@ -117,36 +116,18 @@ def train_mlp_forecaster(
             collate_fn=py_geometric_collate
         )
 
-        model = GAT_MLP_Forecaster(
+        model = SimpleGNN_MLP_Forecaster(
             lookback=cfg.lookback,
             ts_dim=ts_dim,
             cal_dim=cal_dim,
-            gat_in_channels=gat_in_channels,
-            gat_hidden_channels=gat_hidden_channels,
-            gat_out_channels=gat_out_channels,
-            gat_heads=gat_heads,
-            att_dropout=att_dropout,
+            gat_in_channels=gnn_in_channels,
+            gat_hidden_channels=gnn_hidden_channels,
+            gat_out_channels=gnn_out_channels,
             horizon=cfg.horizon,
             mlp_hidden_sizes=hidden_sizes,
             dropout=0.2,
         ).to(cfg.device)
-    else:
-        # Pure MLP baseline: just ts + cal, no graph encoder
-        from torch.utils.data import TensorDataset
-        train_ds = TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train))
-        val_ds = TensorDataset(torch.from_numpy(X_val), torch.from_numpy(y_val))
-        train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True)
-        val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False)
-
-        model = MLPForecaster(
-            lookback=cfg.lookback,
-            in_channels=C_in,
-            horizon=cfg.horizon,
-            out_dim=1,
-            hidden_sizes=hidden_sizes,
-            dropout=0.2,
-        ).to(cfg.device)
-
+    
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     
     if loss_type.lower() == 'mse':
@@ -160,7 +141,7 @@ def train_mlp_forecaster(
 
     best_val = float("inf")
     best_state = None
-    
+    no_improve = 0
     train_losses = []
     val_losses = []
 
@@ -228,7 +209,13 @@ def train_mlp_forecaster(
                 best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
                 torch.save(best_state, best_model_path)
                 best_epoch = epoch
-                print (f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
+                no_improve = 0
+                print(f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
+            else:
+                no_improve += 1
+                if patience > 0 and no_improve >= patience:
+                    print(f"Early stop at epoch {epoch} (no improvement for {patience} epochs)")
+                    break
         else:
             print("WARNING: Validation set is too small to form windows!")
 

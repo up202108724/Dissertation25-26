@@ -4,8 +4,6 @@ import time
 import pandas as pd
 import numpy as np
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import networkx as nx
@@ -15,9 +13,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent_dir = os.path.normpath(os.path.join(script_dir, '..', '..'))
 if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
-from lstm import LSTM, TimeSeriesDataset, train_lstm, recursive_inference_lstm
 from mlp import train_mlp_forecaster, recursive_inference_mlp
-
+import warnings
 from plots import plot_results
 from utils import generate_exogenous_features
 from train import TrainConfig, train_graphsage_mlp
@@ -30,9 +27,10 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score
 
-from lstm import LSTM, TimeSeriesDataset, train_lstm, recursive_inference_lstm
 from mlp import MLPForecaster, WindowDataset, train_mlp_forecaster, recursive_inference_mlp
 #from GNN.DynamicSimilarities.utils import infer_metric_type
+
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*incompatible dtype.*")
 
 def infer_metric_type(metric):
     distance_metrics = ['euclidean','manhattan', 'hamming', 'amplitude_offset', 'slope_consistency', 'phase_invariance', 'dtw', 'cid', 'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
@@ -221,12 +219,7 @@ def main():
             os.makedirs(grid_search_plots_dir, exist_ok=True)
             os.makedirs(best_models_seed_dir, exist_ok=True)
 
-            all_configs = [{'metric': 'no_emb'}] + grid_configs if USE_EMBEDDINGS else [{'metric': 'no_emb'}]
-
-            base_lstm_forecast, base_lstm_train_losses, base_lstm_val_losses = None, None, None
-            base_lstm_rmse, base_lstm_mae, base_lstm_bias, base_lstm_score, base_lstm_pocid = None, None, None, None, None
-            base_mlp_forecast, base_mlp_t_losses, base_mlp_v_losses = None, None, None
-            base_mlp_rmse, base_mlp_mae, base_mlp_bias, base_mlp_score, base_mlp_pocid = None, None, None, None, None
+            all_configs = grid_configs
 
             for config in all_configs:
                 metric = config['metric']
@@ -235,19 +228,13 @@ def main():
                 
                 results_by_w_s = {}
 
-                if metric == 'no_emb':
-                    is_threshold_mode = False
-                    iterator = [(None, 15, 1, False, False)]
-                else:
-                    is_threshold_mode = thresholds is not None and thresholds != [None]
-                    params = thresholds if is_threshold_mode else percentiles
-                    iterator = itertools.product(params, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
+                is_threshold_mode = thresholds is not None and thresholds != [None]
+                params = thresholds if is_threshold_mode else percentiles
+                iterator = itertools.product(params, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
             
                 for param_val, window_sz, step_sz, enable_edges, enable_second_degree in iterator:
-                    use_embeddings = (metric != 'no_emb')
-                    
-                    current_threshold = param_val if use_embeddings and is_threshold_mode else None
-                    current_percentile = param_val if use_embeddings and not is_threshold_mode else None
+                    current_threshold = param_val if is_threshold_mode else None
+                    current_percentile = param_val if not is_threshold_mode else None
 
                     key = (param_val, window_sz, step_sz)
                     if key not in results_by_w_s:
@@ -256,137 +243,8 @@ def main():
                             'rmse': {}, 'mae': {}, 'bias': {}, 'score': {}, 'pocid': {},
                             'threshold': None
                         }
-                        if base_lstm_forecast is not None:
-                            results_by_w_s[key]['forecasts']["LSTM Baseline"] = base_lstm_forecast
-                            results_by_w_s[key]['train_losses']["LSTM Baseline"] = base_lstm_train_losses
-                            results_by_w_s[key]['val_losses']["LSTM Baseline"] = base_lstm_val_losses
-                            results_by_w_s[key]['rmse']["LSTM Baseline"] = base_lstm_rmse
-                            results_by_w_s[key]['mae']["LSTM Baseline"] = base_lstm_mae
-                            results_by_w_s[key]['bias']["LSTM Baseline"] = base_lstm_bias
-                            results_by_w_s[key]['score']["LSTM Baseline"] = base_lstm_score
-                            results_by_w_s[key]['pocid']["LSTM Baseline"] = base_lstm_pocid
-                        if base_mlp_forecast is not None:
-                            results_by_w_s[key]['forecasts']["MLP"] = base_mlp_forecast
-                            results_by_w_s[key]['train_losses']["MLP"] = base_mlp_t_losses
-                            results_by_w_s[key]['val_losses']["MLP"] = base_mlp_v_losses
-                            results_by_w_s[key]['rmse']["MLP"] = base_mlp_rmse
-                            results_by_w_s[key]['mae']["MLP"] = base_mlp_mae
-                            results_by_w_s[key]['bias']["MLP"] = base_mlp_bias
-                            results_by_w_s[key]['score']["MLP"] = base_mlp_score
-                            results_by_w_s[key]['pocid']["MLP"] = base_mlp_pocid
 
-                    if not use_embeddings:
-                        # ── MLP Baseline ──────────────────────────────────────
-                        print(f"\n{'='*60}")
-                        print(f"Running MLP Baseline (seed={seed})")
-                        print(f"{'='*60}")
-                        _mlp_scaler = MinMaxScaler()
-                        _mlp_cfg = TrainConfig(
-                            lookback=lookback_window, horizon=1, batch_size=batch_size,
-                            train_size=train_size, val_size=val_size, lr=LEARNING_RATE,
-                            epochs=EPOCHS, device=str(device),
-                        )
-                        mlp_model_bl, _mlp_scaler, mlp_t_losses_bl, mlp_v_losses_bl, _ = train_mlp_forecaster(
-                            df=df_product, cfg=_mlp_cfg, seed=seed, loss_type='mse',
-                            product_id=f"{product_id}_{store_id}_mlp_bl",
-                            scaler=_mlp_scaler, target_channel=0, val_ratio=None,
-                            hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS,
-                            test_size=forecast_horizon,
-                        )
-                        _mlp_recent = np.column_stack([
-                            val[-lookback_window:].reshape(-1, 1), exog_val_scaled[-lookback_window:]
-                        ]) if EXOG_COLS else val[-lookback_window:].reshape(-1, 1)
-                        mlp_forecast_bl = recursive_inference_mlp(
-                            model=mlp_model_bl, scaler=_mlp_scaler, recent_history=_mlp_recent,
-                            future_exog=exog_test_scaled if EXOG_COLS else np.zeros((forecast_horizon, 0)),
-                            target_channel=0, device=str(device),
-                        )
-                        _vm = ~np.isnan(mlp_forecast_bl)
-                        _vt, _vf     = test[_vm], np.array(mlp_forecast_bl)[_vm]
-                        mlp_rmse_bl  = np.sqrt(mean_squared_error(_vt, _vf)) if len(_vt) > 0 else None
-                        mlp_mae_bl   = mean_absolute_error(_vt, _vf)          if len(_vt) > 0 else None
-                        mlp_bias_bl  = np.mean(_vf - _vt)                     if len(_vt) > 0 else None
-                        mlp_score_bl = r2_score(_vt, _vf)                     if len(_vt) > 0 else None
-                        _d = (_vt[1:] - _vt[:-1]) * (_vf[1:] - _vf[:-1]) > 0
-                        mlp_pocid_bl = _d.sum() / len(_d) if len(_d) > 0 else 0.0
-                        base_mlp_forecast, base_mlp_t_losses, base_mlp_v_losses = mlp_forecast_bl, mlp_t_losses_bl, mlp_v_losses_bl
-                        base_mlp_rmse, base_mlp_mae, base_mlp_bias = mlp_rmse_bl, mlp_mae_bl, mlp_bias_bl
-                        base_mlp_score, base_mlp_pocid = mlp_score_bl, mlp_pocid_bl
-                        results_by_w_s[key]['forecasts']['MLP'] = mlp_forecast_bl
-                        results_by_w_s[key]['train_losses']['MLP'] = mlp_t_losses_bl
-                        results_by_w_s[key]['val_losses']['MLP'] = mlp_v_losses_bl
-                        results_by_w_s[key]['rmse']['MLP'] = mlp_rmse_bl
-                        results_by_w_s[key]['mae']['MLP'] = mlp_mae_bl
-                        results_by_w_s[key]['bias']['MLP'] = mlp_bias_bl
-                        results_by_w_s[key]['score']['MLP'] = mlp_score_bl
-                        results_by_w_s[key]['pocid']['MLP'] = mlp_pocid_bl
-                        print(f"MLP Baseline -> RMSE: {mlp_rmse_bl:.4f}\n")
-
-                        # ── LSTM Baseline ──────────────────────────────────────
-                        print(f"\n{'='*60}")
-                        print(f"Running LSTM Baseline (seed={seed})")
-                        print(f"{'='*60}")
-                        _lstm_input      = 1 + len(EXOG_COLS) if EXOG_COLS else 1
-                        _ts_train_ds     = TimeSeriesDataset(train_scaled, exog_train_scaled if EXOG_COLS else None, lookback_window)
-                        _ts_val_ds       = TimeSeriesDataset(val_scaled,   exog_val_scaled   if EXOG_COLS else None, lookback_window)
-                        _ts_train_loader = DataLoader(_ts_train_ds, batch_size=batch_size, shuffle=False)
-                        _ts_val_loader   = DataLoader(_ts_val_ds,   batch_size=batch_size, shuffle=False)
-                        lstm_model_bl    = LSTM(input_size=_lstm_input, hidden_size=64, num_layers=2, dropout=dropout).to(device)
-                        lstm_model_path  = os.path.join(best_models_seed_dir, f'lstm_product_{product_id}.pth')
-                        lstm_optimizer   = torch.optim.Adam(lstm_model_bl.parameters(), lr=LEARNING_RATE, weight_decay=1e-3)
-                        _lstm_crit       = nn.MSELoss()
-                        lstm_model_bl, lstm_t_losses_bl, lstm_v_losses_bl, _ = train_lstm(
-                            seed=seed, epochs=EPOCHS, model=lstm_model_bl,
-                            train_loader=_ts_train_loader, val_loader=_ts_val_loader,
-                            exog_cols=EXOG_COLS, criterion=_lstm_crit, criterion2=_lstm_crit,
-                            optimizer=lstm_optimizer, device=device,
-                            best_model_path=lstm_model_path, patience=PATIENCE,
-                        )
-                        lstm_model_bl.load_state_dict(torch.load(lstm_model_path, map_location=device, weights_only=True))
-                        lstm_forecast_bl = recursive_inference_lstm(
-                            model=lstm_model_bl, test_start_idx=test_start_idx, seq_length=lookback_window,
-                            val_scaled=val_scaled, exog_val_scaled=exog_val_scaled,
-                            exog_test_scaled=exog_test_scaled,
-                            exog_test=exog_test if EXOG_COLS else np.zeros((forecast_horizon, 0)),
-                            scaler=scaler, exog_scaler=exog_scaler, df_product=df_product,
-                            device=device, exog_cols=EXOG_COLS if EXOG_COLS else [],
-                            forecast_window=forecast_horizon, seed=seed, strategy='recursive',
-                            item_id=product_id, store_id=store_id, loss_type=loss_type, script_dir=script_dir,
-                        )
-                        valid_mask_l = ~np.isnan(lstm_forecast_bl)
-                        vt_l = test[valid_mask_l]
-                        vf_l = np.array(lstm_forecast_bl)[valid_mask_l]
-                        lstm_rmse_bl, lstm_mae_bl, lstm_bias_bl, lstm_score_bl, lstm_pocid_bl = None, None, None, None, None
-                        if len(vt_l) > 0:
-                            lstm_rmse_bl  = np.sqrt(mean_squared_error(vt_l, vf_l))
-                            lstm_mae_bl   = mean_absolute_error(vt_l, vf_l)
-                            lstm_bias_bl  = np.mean(vf_l - vt_l)
-                            lstm_score_bl = r2_score(vt_l, vf_l)
-                            d_orig = vt_l[1:] - vt_l[:-1]
-                            d_pred = vf_l[1:] - vf_l[:-1]
-                            lstm_pocid_bl = ((d_orig * d_pred) > 0).sum() / max(len(d_orig), 1)
-                        base_lstm_forecast, base_lstm_train_losses, base_lstm_val_losses = lstm_forecast_bl, lstm_t_losses_bl, lstm_v_losses_bl
-                        base_lstm_rmse, base_lstm_mae, base_lstm_bias = lstm_rmse_bl, lstm_mae_bl, lstm_bias_bl
-                        base_lstm_score, base_lstm_pocid = lstm_score_bl, lstm_pocid_bl
-                        results_by_w_s[key]['forecasts']['LSTM Baseline'] = lstm_forecast_bl
-                        results_by_w_s[key]['train_losses']['LSTM Baseline'] = lstm_t_losses_bl
-                        results_by_w_s[key]['val_losses']['LSTM Baseline'] = lstm_v_losses_bl
-                        results_by_w_s[key]['rmse']['LSTM Baseline'] = lstm_rmse_bl
-                        results_by_w_s[key]['mae']['LSTM Baseline'] = lstm_mae_bl
-                        results_by_w_s[key]['bias']['LSTM Baseline'] = lstm_bias_bl
-                        results_by_w_s[key]['score']['LSTM Baseline'] = lstm_score_bl
-                        results_by_w_s[key]['pocid']['LSTM Baseline'] = lstm_pocid_bl
-                        print(f"LSTM Baseline -> RMSE: {lstm_rmse_bl:.4f}\n")
-                        csv_lstm_path = os.path.join(script_dir, "lstm_baseline.csv")
-                        file_exists_lstm = os.path.exists(csv_lstm_path)
-                        with open(csv_lstm_path, 'a', newline='') as csvfile_lstm:
-                            writer_lstm = csv.writer(csvfile_lstm)
-                            if not file_exists_lstm:
-                                writer_lstm.writerow(["product_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "rmse", "mae", "bias", "r2_score", "pocid"])
-                            writer_lstm.writerow([product_id, store_id, seed, "lstm_baseline", 15, 1, "", "", "", "", lstm_rmse_bl, lstm_mae_bl, lstm_bias_bl, lstm_score_bl, lstm_pocid_bl])
-                        continue
-
-                    # ── GraphSAGE+MLP with embeddings ──────────────────────────────
+                    # ── GraphSAGE+MLP ──────────────────────────────────────────────────────────────
                     print(f"\n{'='*60}")
                     param_str = f"threshold={current_threshold}" if is_threshold_mode else f"percentile={current_percentile}"
                     print(f"Running GraphSAGE+MLP: metric={metric}, {param_str}, window_size={window_sz}, enable_edges={enable_edges}, 2nd_degree={enable_second_degree}")
@@ -518,7 +376,7 @@ def main():
                     sub_dir = os.path.join(grid_search_plots_dir, 'no_emb', f'window_{15}', f'step_{1}', f'item_{product_id}', values_str)
                     os.makedirs(sub_dir, exist_ok=True)
                     save_plot_path = os.path.join(sub_dir, f"item_{product_id}_store_{store_id}_no_emb_seed_{seed}.html")
-                    emb_title = f'Baseline Forecasts (MLP & LSTM | Seed={seed})'
+                    emb_title = f'Baseline Forecasts (MLP | Seed={seed})'
                     
                     if SAVE_PLOTS:
                         plot_results(train, val, test, results_by_w_s[(None, 15, 1)]['forecasts'], train_index, val_index, test_index,

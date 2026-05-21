@@ -27,7 +27,7 @@ class TrainConfig:
 # Pure GraphSAGE training  (one graph per sample, linear head only)
 # ---------------------------------------------------------------------------
 
-def train_pure_sage(
+def train_gnn(
     df: pd.DataFrame,
     cfg: TrainConfig,
     seed: int,
@@ -41,25 +41,23 @@ def train_pure_sage(
     graphs=None,
     test_size=None,
     graph_window_size: int = 15,
-    sage_hidden_channels: int = 32,
-    sage_out_channels: int = 16,
-    gat_heads: int = 4,
-    att_dropout: float = 0.0,
+    gnn_hidden_channels: int = 32,
+    gnn_out_channels: int = 16,
     dropout: float = 0.2,
 ):
     """
     Train either:
-      • PureGraphSAGEForecaster  – when graphs is not None
+      • GNN-LSTMForecaster  – when graphs is not None
       • MLPForecaster (baseline)  – when graphs is None
 
     Returns
     -------
     model, scaler, train_losses, val_losses, best_epoch
     """
-    from gatdataset import (SingleGraphDataset, single_graph_collate,
-                              make_single_windows, make_xy_windows)
-    from gat_pyg import PureGATForecaster
-    from mlp import MLPForecaster
+    from gnndataset import (SingleGraphDataset, single_graph_collate,
+                             make_single_windows, make_xy_windows)
+    from gnn_pyg import SimpleGNNForecaster
+    from gnn_lstm import MLPForecaster
 
     use_graphs = graphs is not None
 
@@ -131,43 +129,17 @@ def train_pure_sage(
             collate_fn=single_graph_collate,
         )
 
-        sage_in_channels = cfg.lookback + cal_dim + 8
-        model = PureGATForecaster(
-            in_channels=sage_in_channels,
-            hidden_channels=sage_hidden_channels,
-            out_channels=sage_out_channels,
+        gnn_in_channels = cfg.lookback + cal_dim + 8
+        model = SimpleGNNForecaster(
+            in_channels=gnn_in_channels,
+            hidden_channels=cfg.gnn_hidden_channels,
+            out_channels=cfg.gnn_out_channels,
             horizon=cfg.horizon,
-            heads=gat_heads,
-            att_dropout=att_dropout,
             dropout=dropout,
         ).to(cfg.device)
 
-        print(f"  GAT node feature dim: {sage_in_channels}  "
-              f"(lookback={cfg.lookback} + cal_dim={cal_dim} + stats=8)"
-              f"  heads={gat_heads}")
-
-    else:
-        # Pure MLP baseline
-        X_train, y_train = make_xy_windows(train_scaled, cfg.lookback, cfg.horizon, target_channel)
-        X_val,   y_val   = make_xy_windows(val_scaled,   cfg.lookback, cfg.horizon, target_channel)
-
-        train_loader = DataLoader(
-            TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
-            batch_size=cfg.batch_size, shuffle=True,
-        )
-        val_loader = DataLoader(
-            TensorDataset(torch.from_numpy(X_val), torch.from_numpy(y_val)),
-            batch_size=cfg.batch_size, shuffle=False,
-        )
-
-        model = MLPForecaster(
-            lookback=cfg.lookback,
-            in_channels=C_in,
-            horizon=cfg.horizon,
-            out_dim=1,
-            hidden_sizes=hidden_sizes,
-            dropout=dropout,
-        ).to(cfg.device)
+        print(f"  GNN node feature dim: {gnn_in_channels}  "
+              f"(lookback={cfg.lookback} + cal_dim={cal_dim} + stats=8)")
 
     # ------------------------------------------------------------------ #
     #  Loss / optimiser                                                    #

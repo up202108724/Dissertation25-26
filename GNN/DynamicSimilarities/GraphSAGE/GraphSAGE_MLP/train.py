@@ -93,7 +93,7 @@ def train_graphsage_mlp(
     print(f"  Train End: {train_end_idx}")
     print(f"  Val Range: {val_start_idx} to {val_end_idx}")
     print(f"  Test Range: {test_start_idx} to end")
-    print(f"Mode: {'Pure GraphSAGE' if use_graphs else 'Pure MLP (no graph)'}")
+    print(f"Mode: {'GraphSAGE + MLP' if use_graphs else 'Pure MLP (no graph)'}")
 
     # ------------------------------------------------------------------ #
     #  Build loaders                                                       #

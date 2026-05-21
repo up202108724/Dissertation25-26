@@ -2,13 +2,13 @@ import torch
 import torch.nn as nn
 from torch_geometric.data import Batch
 
-from GNN.DynamicSimilarities.GAT.MLP.gat_pyg import GATEncoder
+from gnn_pyg import SimpleGNNEncoder
 from mlp import MLPForecaster
 
-class GAT_MLP_Forecaster(nn.Module):
+class SimpleGNN_MLP_Forecaster(nn.Module):
     """
-    End-To-End Forecasting Model combining GAT for spatial features 
-    and MLP for sequence forecasting.
+    End-To-End Forecasting Model combining a Simple GNN (2-layer GCN) for
+    spatial features and an MLP for sequence forecasting.
     """
     def __init__(
         self,
@@ -19,21 +19,17 @@ class GAT_MLP_Forecaster(nn.Module):
         gat_hidden_channels: int,
         gat_out_channels: int,
         horizon: int,
-        gat_heads: int = 4,
-        att_dropout: float = 0.0,
         mlp_hidden_sizes=(64, 32),
         dropout: float = 0.2,
     ):
         super().__init__()
         self.lookback = lookback
         
-        # GAT Encoder to process Ego-Graphs
-        self.gat = GATEncoder(
+        # Simple GCN Encoder to process Ego-Graphs
+        self.gat = SimpleGNNEncoder(
             in_channels=gat_in_channels, 
             hidden_channels=gat_hidden_channels, 
             out_channels=gat_out_channels,
-            heads=gat_heads,
-            att_dropout=att_dropout,
             dropout=dropout
         )
         
@@ -66,7 +62,7 @@ class GAT_MLP_Forecaster(nn.Module):
         """
         B, L, _ = ts_seq.shape
         
-        # 1. Process all graphs through GAT
+        # 1. Process all graphs through Simple GCN
         # Pass edge_attr if present
         ea = pyg_batch.edge_attr if (pyg_batch.edge_attr is not None and pyg_batch.edge_attr.shape[0] > 0) else None
         # node_embeddings shape: (total_nodes_in_batch, gat_out_channels)
