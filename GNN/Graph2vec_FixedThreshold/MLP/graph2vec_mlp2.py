@@ -54,7 +54,7 @@ grid_configs = [
     # Distâncias Robustas e Lock-step
     #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},
     #{'metric': 'amplitude_offset', 'percentiles': [0.5, 1, 2]},
-    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.82, 0.92, 0.03)]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
     #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.2, 0.01)]},
     # Distâncias Robustas e Lock-step
     #{'metric': 'amplitude_offset', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},

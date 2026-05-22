@@ -1,112 +1,236 @@
-from torch.utils.data import Dataset, DataLoader
-import torch
 import numpy as np
-from typing import Tuple
-
-from torch.utils.data import Dataset, DataLoader
 import torch
-import numpy as np
-from typing import Tuple, List
+from torch.utils.data import Dataset
 from torch_geometric.data import Data, Batch
 
-class WindowGraphDataset(Dataset):
-    def __init__(self, X: np.ndarray, y: np.ndarray, graphs: List[List[Data]]):
-        self.X = torch.from_numpy(X)  # (N, L, C)
-        self.y = torch.from_numpy(y)  # (N, H, C)
-        self.graphs = graphs  # List of N sequences, each containing L Data objects
-
-    def __len__(self):
-        return self.X.shape[0]
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx], self.graphs[idx]
-
-def py_geometric_collate(batch):
-    """
-    Custom collate function to handle standard PyTorch tensors and PyG Data objects together.
-    Flattens the sequences of graphs into a single PyG Batch.
-    """
-    X_batch = torch.stack([item[0] for item in batch])
-    y_batch = torch.stack([item[1] for item in batch])
     
-    # Flatten the graphs: batch of size B, each sequence has L graphs -> list of B*L graphs
-    flat_graphs = []
-    for item in batch:
-        flat_graphs.extend(item[2])
-        
-    graphs_batch = Batch.from_data_list(flat_graphs)
-    
-    return X_batch, y_batch, graphs_batch
+from gnn_pyg import generate_node_features
 
-def make_windows(
+# ---------------------------------------------------------------------------
+# Pure MLP baseline helpers (no graph)
+# ---------------------------------------------------------------------------
+
+def make_xy_windows(
     series: np.ndarray,
     lookback: int,
     horizon: int,
     target_channel: int = 0,
-    graphs: List[Data] = None,
-    graph_window_size: int = 15
-) -> Tuple[np.ndarray, np.ndarray, List[List[Data]]]:
+) -> tuple:
+    """
+    Sliding-window dataset for the pure-MLP (no-graph) baseline.
 
+    Returns
+    -------
+    X : (N, lookback, C)  float32
+    y : (N, horizon, 1)   float32
+    """
     series = np.asarray(series, dtype=np.float32)
     if series.ndim == 1:
-        series = series[:, None]  # (T, 1)
+        series = series[:, None]
 
     T, C = series.shape
     N = T - lookback - horizon + 1
     if N <= 0:
         raise ValueError("Time series too short for given lookback/horizon.")
 
-    X = np.zeros((N, lookback, C), dtype=np.float32)
-    y = np.zeros((N, horizon, C), dtype=np.float32)
-    
-    window_graphs = []
+    exog_indices = [i for i in range(C) if i != target_channel]
 
-    # Handle graph padding (just like Graph2Vec zeros)
-    # The first few steps don't have enough history for a graph, so we add dummy isolated graphs.
-    padded_graphs = []
-    feature_dim = graph_window_size  # matches sage_in_channels passed by caller
-    if graphs is not None and len(graphs) > 0:
-        # Infer real feature dim from first non-dummy graph if available
-        feature_dim = graphs[0].x.shape[1]
+    X = np.zeros((N, lookback, C), dtype=np.float32)
+    y = np.zeros((N, horizon, 1), dtype=np.float32)
+
+    for i in range(N):
+        window = series[i : i + lookback].copy()
+        # Shift exogenous features forward by 1 (target day's exog visible)
+        if exog_indices:
+            window[:, exog_indices] = series[i + 1 : i + lookback + 1, exog_indices]
+        X[i] = window
+        y[i, :, 0] = series[i + lookback : i + lookback + horizon, target_channel]
+
+    return X, y
+
+
+# ---------------------------------------------------------------------------
+# Pure GraphSAGE helpers (one graph per sample)
+# ---------------------------------------------------------------------------
+
+class SingleGraphDataset(Dataset):
+    """
+    Dataset for the GraphSAGE+MLP forecaster.
+
+    Each sample contains:
+        y       – (horizon, 1)  target values to predict
+        graph   – a single PyG Data object
+        ts_seq  – (lookback, 1 + cal_dim)  raw target + calendar lookback
+    """
+
+    def __init__(self, y: np.ndarray, graphs, ts_seqs: np.ndarray):
+        self.y = torch.from_numpy(y)                      # (N, H, 1)
+        self.graphs = graphs                               # List[Data], length N
+        self.ts_seqs = torch.from_numpy(ts_seqs)          # (N, lookback, 1+cal_dim)
+
+    def __len__(self):
+        return self.y.shape[0]
+
+    def __getitem__(self, idx):
+        return self.y[idx], self.graphs[idx], self.ts_seqs[idx]
+
+
+def single_graph_collate(batch):
+    """Custom collate: stack y + ts_seq tensors, merge PyG graphs into a Batch."""
+    y_batch      = torch.stack([item[0] for item in batch])
+    graphs_batch = Batch.from_data_list([item[1] for item in batch])
+    ts_seq_batch = torch.stack([item[2] for item in batch])
+    return y_batch, graphs_batch, ts_seq_batch
+
+
+def make_single_windows(
+    series: np.ndarray,
+    cal: np.ndarray,
+    lookback: int,
+    horizon: int,
+    target_channel: int = 0,
+    graphs=None,
+    graph_window_size: int = 15,
+    include_cal_lookback: bool = False,
+    node_features: list = None,
+    cal_columns: list = None,
+) -> tuple:
+    """
+    Creates one (y, graph) pair per sliding window for the pure SAGE forecaster.
+
+    For each sample *i* the graph used is the one whose similarity window ends at
+    the last observation of the lookback period (timestep i + lookback - 1).
+
+    The target node (always index 0 in each graph) has its feature vector rebuilt
+    to include the **full lookback window + [cal_lookback] + next-step calendar +
+    8 stats**, giving all temporal context that the (now-removed) MLP used to receive.
+
+    Neighbor nodes are re-padded to the same feature dimension (their calendar
+    and extra time-slots are set to zero).
+
+    Parameters
+    ----------
+    series               : (T, 1)        – scaled target-channel values
+    cal                  : (T, cal_dim)  – scaled calendar features
+    lookback             : int
+    horizon              : int
+    target_channel       : int           – column index of the target in `series`
+    graphs               : List[Data]    – one graph per timestep from neighbourhood_graph
+                                          (may be None for the no-graph dummy path)
+    graph_window_size    : int           – window_size used when graphs were built
+    include_cal_lookback : bool          – if True, the full (lookback × cal_dim) calendar
+                                          matrix is flattened and added to the target node
+                                          features between ts_lookback and cal_next_step.
+                                          feature_dim becomes lookback*(1+cal_dim)+cal_dim+8
+                                          instead of lookback+cal_dim+8.
+
+    Returns
+    -------
+    y             : (N, horizon, 1)  np.float32
+    window_graphs : List[Data]       length N
+    """
+
+    series = np.asarray(series, dtype=np.float32)
+    cal    = np.asarray(cal,    dtype=np.float32)
+
+    if series.ndim == 1:
+        series = series[:, None]
+
+    T       = series.shape[0]
+    cal_dim = cal.shape[1]
+    N       = T - lookback - horizon + 1
+
+    if N <= 0:
+        raise ValueError("Time series too short for given lookback/horizon.")
+
+    # Compute feature_dim dynamically from the actual feature list so it works
+    # with any node_features combination (ts+cal, stats-only, mixed, etc.).
+    _dummy_ts  = np.zeros(lookback, dtype=np.float32)
+    _dummy_cal = np.zeros(cal_dim, dtype=np.float32) if cal_dim > 0 else None
+    _dummy_lb  = (np.zeros((lookback, cal_dim), dtype=np.float32)
+                  if include_cal_lookback and cal_dim > 0 else None)
+    feature_dim = len(generate_node_features(
+        _dummy_ts, cal_next=_dummy_cal, cal_lookback=_dummy_lb,
+        selected_features=node_features, cal_columns=cal_columns,
+    ))
+
+    # --- Pad graphs so that padded_graphs[t] = graph whose window ends at t ---
+    # neighbourhood_graph builds (T - window_size + 1) graphs; the i-th graph
+    # covers [i, i + window_size).  We need padded_graphs[t] to be the graph
+    # whose window *ends* at t, i.e. graph[t - window_size + 1] covering
+    # [t - window_size + 1, t].  This requires exactly (window_size - 1)
+    # leading dummy graphs, regardless of how many graphs were passed.
     if graphs is not None:
-        num_missing = T - len(graphs)
-        if num_missing > 0:
-            dummy_x = torch.zeros((1, feature_dim), dtype=torch.float32)
-            dummy_graph = Data(
-                x=dummy_x, 
-                edge_index=torch.empty((2,0), dtype=torch.long),
-                edge_attr=torch.empty((0,1), dtype=torch.float),
-                central_node_idx=0
-            )
-            padded_graphs = [dummy_graph for _ in range(num_missing)] + graphs
-        else:
-            padded_graphs = graphs
+        num_missing = graph_window_size - 1
+        dummy_x = torch.zeros((1, feature_dim), dtype=torch.float32)
+        dummy_graph = Data(
+            x=dummy_x,
+            edge_index=torch.empty((2, 0), dtype=torch.long),
+            edge_attr=torch.empty((0, 1), dtype=torch.float),
+            central_node_idx=0,
+        )
+        padded_graphs = [dummy_graph] * num_missing + list(graphs)
     else:
         dummy_x = torch.zeros((1, feature_dim), dtype=torch.float32)
         dummy_graph = Data(
-            x=dummy_x, 
-            edge_index=torch.empty((2,0), dtype=torch.long),
-            edge_attr=torch.empty((0,1), dtype=torch.float),
-            central_node_idx=0
+            x=dummy_x,
+            edge_index=torch.empty((2, 0), dtype=torch.long),
+            edge_attr=torch.empty((0, 1), dtype=torch.float),
+            central_node_idx=0,
         )
-        padded_graphs = [dummy_graph for _ in range(T)]
+        padded_graphs = [dummy_graph] * T
 
-    exog_indices = [idx for idx in range(C) if idx != target_channel]
+    y             = np.zeros((N, horizon, 1),             dtype=np.float32)
+    ts_seqs       = np.zeros((N, lookback, 1 + cal_dim),  dtype=np.float32)
+    window_graphs = []
 
     for i in range(N):
-        window_base = series[i : i + lookback].copy()
+        y[i, :, 0] = series[i + lookback : i + lookback + horizon, target_channel]
+        ts_seqs[i, :, 0]  = series[i : i + lookback, target_channel]
+        ts_seqs[i, :, 1:] = cal[i : i + lookback]
+
+        # Graph whose sliding window ends at i + lookback - 1
+        base_graph = padded_graphs[i + lookback - 1]
+
+        # --- Rebuild node feature matrix ---
+        n_nodes = base_graph.x.shape[0]
+        x_new   = torch.zeros((n_nodes, feature_dim), dtype=torch.float32)
+
+        # Target node (index 0): full lookback + [cal_lookback] + next-step calendar + stats
+        target_ts = series[i : i + lookback, target_channel]           # (lookback,)
+        cal_next  = cal[i + lookback] if (i + lookback) < T else cal[-1]  # (cal_dim,)
+        cal_lb    = cal[i : i + lookback] if include_cal_lookback else None  # (lookback, cal_dim) or None
         
-        # Shift exogenous variables forward by 1 so the model sees the target day's exog features
-        # X[i] target corresponds to steps i ... i+lookback-1
-        # X[i] exog corresponds to steps i+1 ... i+lookback
-        if len(exog_indices) > 0:
-            window_base[:, exog_indices] = series[i + 1 : i + lookback + 1, exog_indices]
-            
-        X[i] = window_base
-        y[i] = series[i + lookback : i + lookback + horizon]
+        selected_target = node_features 
+        x_new[0]  = torch.tensor(
+            generate_node_features(target_ts, cal_next=cal_next, cal_lookback=cal_lb,
+                                   selected_features=selected_target, cal_columns=cal_columns),
+            dtype=torch.float32,
+        )
 
-        # Extract the sequence of graphs for this specific lookback window
-        seq_graphs = padded_graphs[i : i + lookback]
-        window_graphs.append(seq_graphs)
+        # Neighbor nodes: re-pad to feature_dim (zeros for extra ts slots + calendar)
+        # Pass a dummy cal_next so per-column calendar builders are registered in
+        # generate_node_features (is_neighbor=True makes them all return 0.0).
+        _dummy_cal_next = np.zeros(cal_dim, dtype=np.float32)
+        for node_idx in range(1, n_nodes):
+            orig_feat   = base_graph.x[node_idx].numpy()            # (graph_window_size + 8,)
+            neighbor_ts = orig_feat[:graph_window_size]              # raw values only
 
-    return X, y, window_graphs
+            selected_neighbor = node_features
+            x_new[node_idx] = torch.tensor(
+                generate_node_features(neighbor_ts, cal_next=_dummy_cal_next,
+                                       selected_features=selected_neighbor,
+                                       is_neighbor=True, pad_ts_to=lookback, cal_columns=cal_columns),
+                dtype=torch.float32,
+            )
+
+        new_graph = Data(
+            x=x_new,
+            edge_index=base_graph.edge_index.clone(),
+            edge_attr=(base_graph.edge_attr.clone()
+                       if base_graph.edge_attr is not None else None),
+            central_node_idx=0,
+        )
+        window_graphs.append(new_graph)
+
+    return y, window_graphs, ts_seqs

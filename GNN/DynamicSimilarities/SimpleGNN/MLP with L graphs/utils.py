@@ -14,7 +14,7 @@ from tslearn.metrics import dtw
 import holidays
 # Graph construction utils
 
-from gnn_pyg import generate_node_features
+from gnn_pyg import compute_node_features
 
 import os
 import numpy as np
@@ -101,7 +101,7 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
 
 def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func, 
                         threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
-                        enable_edges_within_star=True, enable_second_degree=False, num_plots=None, train_end_idx=None, node_features=None):
+                        enable_edges_within_star=True, enable_second_degree=False, num_plots=None, train_end_idx=None):
     """
     Constructs a graph by iterating over sliding time windows of the time series data.
     Finds items within the specified metric thresholds or percentiles to product_id.
@@ -315,15 +315,10 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
 
         # Build feature matrix X (using window timeseries as features)
         x_matrix = []
-        _feats = node_features if node_features is not None else ['ts', 'last_demand', 'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v']
-        # Always store raw ts FIRST so make_single_windows can reliably extract
-        # the neighbor ts via orig_feat[:graph_window_size], regardless of what
-        # order (or whether) 'ts' appears in node_features.
-        _storage_feats = ['ts'] + [f for f in _feats if f != 'ts']
         for n_id in graph_nodes:
             # Locate node row in the window
             row = window_data.loc[n_id].values
-            features = generate_node_features(row, selected_features=_storage_feats)
+            features = compute_node_features(row)
             x_matrix.append(features)
             
         x = torch.tensor(np.array(x_matrix), dtype=torch.float)

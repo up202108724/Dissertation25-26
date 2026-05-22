@@ -17,13 +17,13 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from GNN.Graph2vec_FixedThreshold.LSTM.lstm import LSTM
-from GNN.Graph2vec_FixedThreshold.LSTM.graph2vecdataset import TimeSeriesDataset
+from lstm import LSTM
+from graph2vecdataset import TimeSeriesDataset
 from model_utils.utils import generate_exogenous_features, compute_metrics 
-from GNN.Graph2vec_FixedThreshold.LSTM.plots import plot_results #ensure available
-from GNN.Graph2vec_FixedThreshold.LSTM.generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
-from GNN.Graph2vec_FixedThreshold.LSTM.train import train_model
-from GNN.Graph2vec_FixedThreshold.LSTM.graph2vecinference_adaptativethreshold import graph2vec_inference
+from plots import plot_results #ensure available
+from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
+from train import train_model
+from graph2vecinference_adaptativethreshold import graph2vec_inference
 
 # Constants
 # Resolve DATA_PATH perfectly from the file directory upwards
@@ -41,12 +41,12 @@ PRODUCTS_TO_TEST = [
   (210036, 6269),
   (907967,6269),
   (213626,6269),
-  (213628, 6269),
-  (213625, 6269),
-  (26862, 6269),
-  (156753, 6269),
-  (53682, 6269),
-  (34497, 6269)
+  #(213628, 6269),
+  #(213625, 6269),
+  #(26862, 6269),
+  #(156753, 6269),
+  #(53682, 6269),
+  #(34497, 6269)
 ]
 
 # EXOG_COLS definition
@@ -104,7 +104,7 @@ grid_configs = [
     # Distâncias Robustas e Lock-step
     #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},
     #{'metric': 'amplitude_offset', 'percentiles': [0.5, 1, 2]},
-    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.82, 0.92, 0.03)]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
     #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.2, 0.01)]},
     # Distâncias Robustas e Lock-step
     #{'metric': 'amplitude_offset', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},

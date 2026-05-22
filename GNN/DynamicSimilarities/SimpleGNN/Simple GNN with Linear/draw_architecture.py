@@ -1,533 +1,106 @@
-import matplotlib.pyplot as plt
+﻿"""
+GAT + Linear  (GATEncoder + nn.Linear)
+Single ego-graph per sample.  No sequential processing.
+"""
+import os, matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 
-fig, ax = plt.subplots(figsize=(24, 13))
-ax.set_xlim(0, 24)
-ax.set_ylim(0, 13)
-ax.axis('off')
-fig.patch.set_facecolor('#FAFAFA')
-
-# ── Colors ───────────────────────────────────────────────────────────────────
-C_IN   = '#AED6F1'   # blue  : inputs
-C_FEAT = '#FDEBD0'   # peach : feature construction
-C_GRAPH= '#A9DFBF'   # green : graph / SAGE
-C_HEAD = '#FAD7A0'   # orange: linear head
-C_OUT  = '#D7BDE2'   # purple: output
-C_DATA = '#D5DBDB'   # grey  : data sources
-ARROW  = '#1A252F'
-EDGE   = '#2C3E50'
-
-# ── Column X positions ────────────────────────────────────────────────────────
-XA = 2.0    # Data Inputs
-XB = 5.6    # Node Feature Construction
-XC = 9.6    # Ego-Graph Building
-XD = 13.4   # Batching
-XE = 17.4   # GraphSAGE Encoder
-XF = 21.6   # Linear Head + Output
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-def box(x, y, w, h, color, lines, fs=8.5, bold_first=False):
-    rect = FancyBboxPatch((x - w/2, y - h/2), w, h,
-                          boxstyle="round,pad=0.12",
-                          facecolor=color, edgecolor=EDGE, linewidth=1.6, zorder=3)
-    ax.add_patch(rect)
-    if isinstance(lines, str):
-        lines = [lines]
-    n = len(lines)
-    for i, line in enumerate(lines):
-        dy = (i - (n - 1) / 2) * (fs + 1.5) * 0.014
-        weight = 'bold' if (bold_first and i == 0) else 'normal'
-        ax.text(x, y - dy, line, ha='center', va='center', fontsize=fs,
-                fontweight=weight, zorder=4, color='#1A252F')
-
-def arrow(x1, y1, x2, y2, label='', color=ARROW):
-    ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle='-|>', color=color,
-                                lw=1.6, mutation_scale=14), zorder=5)
-    if label:
-        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
-        ax.text(mx + 0.05, my + 0.12, label, fontsize=7, color='#555',
-                zorder=6, style='italic')
-
-# ── Section banners ───────────────────────────────────────────────────────────
-for bx, bw, label, col in [
-    (XA,  2.8, "Data Inputs",               '#EBF5FB'),
-    (XB,  3.2, "Node Feature Construction", '#FEF9E7'),
-    (XC,  3.2, "Ego-Graph Building",        '#EAFAF1'),
-    (XD,  2.8, "Batching",                  '#EAFAF1'),
-    (XE,  3.2, "GraphSAGE Encoder",         '#EAFAF1'),
-    (XF,  2.4, "Linear Head + Output",      '#F5EEF8'),
-]:
-    banner = FancyBboxPatch((bx - bw / 2, 0.3), bw, 12.2,
-                            boxstyle="round,pad=0.1",
-                            facecolor=col, edgecolor='#BFC9CA',
-                            linewidth=1.0, zorder=1, alpha=0.5)
-    ax.add_patch(banner)
-    ax.text(bx, 12.7, label, ha='center', va='center', fontsize=9.0,
-            color='#5D6D7E', fontweight='bold', zorder=4)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  A – DATA INPUTS
-# ═══════════════════════════════════════════════════════════════════════════════
-box(XA, 10.6, 2.4, 0.85, C_DATA,
-    ['df_wide  (items × dates)',
-     'all neighbors in catalogue'],
-    fs=7.8, bold_first=True)
-
-box(XA, 9.0, 2.4, 0.85, C_IN,
-    ['Historical Sales (scaled)',
-     'lookback = 30 days, target col'],
-    fs=7.8, bold_first=True)
-
-box(XA, 7.3, 2.4, 0.85, C_IN,
-    ['Calendar Features (next-step)',
-     'cal_dim = 21  (EXOG_COLS)'],
-    fs=7.8, bold_first=True)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  B – NODE FEATURE CONSTRUCTION
-# ═══════════════════════════════════════════════════════════════════════════════
-box(XB, 9.9, 2.9, 2.2, C_FEAT,
-    ['TARGET NODE',
-     '────────────────────────',
-     'ts_lookback    (30 dims)',
-     'cal_next_step  (21 dims)',
-     'stats_8: last_val, mean_7,',
-     '  mean_all, std, zero_ratio,',
-     '  slope, min, max',
-     '──────────────────',
-     'total: 59 dims'],
-    fs=7.6, bold_first=True)
-
-box(XB, 7.1, 2.9, 1.6, C_FEAT,
-    ['NEIGHBOR NODES',
-     '────────────────────────',
-     'ts_window_15 right-aligned',
-     '  in zeros(51)',
-     'cal = 0  (unknown)',
-     '+ stats_8',
-     'total: 59 dims (padded)'],
-    fs=7.6, bold_first=True)
-
-# Arrows  A → B
-arrow(XA + 1.2, 9.0,  XB - 1.45, 10.2, label='lookback ts')
-arrow(XA + 1.2, 7.3,  XB - 1.45, 9.5,  label='cal next-step')
-arrow(XA + 1.2, 10.6, XB - 1.45, 7.4,  label='window data')
-
-# Shared feature_dim annotation
-ax.text(XB, 11.6,
-        'feature_dim = 30 + 21 + 8 = 59',
-        ha='center', fontsize=8.2, color='#784212', fontweight='bold', zorder=6)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  C – EGO-GRAPH BUILDING  (1 graph per sample)
-# ═══════════════════════════════════════════════════════════════════════════════
-box(XC, 8.6, 3.0, 2.8, C_GRAPH,
-    ['Ego-Graph   (ONE per sample)',
-     '──────────────────────────────',
-     'Pairwise similarity / distance',
-     '  (Spearman, Pearson, CID …)',
-     'Threshold → edges',
-     'Star topology',
-     '  + optional within-star',
-     '  + optional 2nd-degree links',
-     'target_id  →  node index 0',
-     'PyG  Data(x, edge_index)'],
-    fs=7.5, bold_first=True)
-
-ax.text(XC, 11.6,
-        '1 graph / sample  (not L graphs)',
-        ha='center', fontsize=8.2, color='#1A5276', fontweight='bold', zorder=6)
-
-# Arrows  B → C
-arrow(XB + 1.45, 9.8, XC - 1.5, 9.0)
-arrow(XB + 1.45, 7.2, XC - 1.5, 8.1)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  D – BATCHING
-# ═══════════════════════════════════════════════════════════════════════════════
-box(XD, 8.6, 2.6, 1.0, C_GRAPH,
-    ['Batch.from_data_list',
-     'B graphs  →  PyG Batch',
-     'node offset in ptr[:]'],
-    fs=8.0, bold_first=True)
-
-arrow(XC + 1.5, 8.6, XD - 1.3, 8.6)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  E – GRAPHSAGE ENCODER
-# ═══════════════════════════════════════════════════════════════════════════════
-box(XE, 10.5, 3.0, 0.9, C_GRAPH,
-    ['SAGEConv 1   (mean aggregator)',
-     'h = Linear(concat(h_self, mean(h_nbrs)))',
-     'in(59) → hidden(32)'],
-    fs=7.5, bold_first=True)
-
-box(XE, 9.2, 3.0, 0.65, C_GRAPH,
-    ['ReLU  +  Dropout(p = 0.2)'],
-    fs=8.0)
-
-box(XE, 8.1, 3.0, 0.9, C_GRAPH,
-    ['SAGEConv 2   (mean aggregator)',
-     'hidden(32) → out(16)'],
-    fs=7.5, bold_first=True)
-
-box(XE, 6.7, 3.0, 0.85, C_GRAPH,
-    ['Node Embeddings',
-     'shape: (total_nodes_in_batch, 16)'],
-    fs=8.0, bold_first=True)
-
-box(XE, 5.3, 3.0, 1.0, C_GRAPH,
-    ['Extract Target Nodes',
-     'idx  =  pyg_batch.ptr[:-1]',
-     '(always node 0 per graph)',
-     'z_target:  (B, 16)'],
-    fs=7.6, bold_first=True)
-
-# Batch → SAGEConv1
-ax.annotate('', xy=(XE - 1.5, 10.5), xytext=(XD + 1.3, 8.6),
-            arrowprops=dict(arrowstyle='-|>', color=ARROW, lw=1.5,
-                            connectionstyle='arc3,rad=-0.25'), zorder=5)
-
-# Internal arrows in E
-arrow(XE, 10.05, XE, 9.52)   # SAGEConv1 → ReLU
-arrow(XE, 8.87,  XE, 8.55)   # ReLU → SAGEConv2
-arrow(XE, 7.65,  XE, 7.12)   # SAGEConv2 → Embeddings
-arrow(XE, 6.27,  XE, 5.80)   # Embeddings → Extract
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  F – LINEAR HEAD + OUTPUT
-# ═══════════════════════════════════════════════════════════════════════════════
-box(XF, 6.7, 2.2, 1.0, C_HEAD,
-    ['Linear Head',
-     '(B, 16)  →  (B, horizon)',
-     'nn.Linear(out_ch, horizon)',
-     'no hidden layers'],
-    fs=7.8, bold_first=True)
-
-box(XF, 5.0, 2.2, 0.75, C_OUT,
-    ['Reshape',
-     '(B, horizon, 1)'],
-    fs=8.5, bold_first=True)
-
-box(XF, 3.4, 2.2, 0.85, C_OUT,
-    ['Predictions',
-     '(B, 1, 1)  per step'],
-    fs=8.5, bold_first=True)
-
-# Arrow E → F
-arrow(XE + 1.5, 5.3, XF - 1.1, 6.7)
-# Internal arrows in F
-arrow(XF, 6.20, XF, 5.37)
-arrow(XF, 4.62, XF, 3.82)
-
-# ── Recursive-inference annotation ───────────────────────────────────────────
-rec_rect = FancyBboxPatch((XD - 1.4, 0.4), (XF + 1.1 - (XD - 1.4)), 1.45,
-                          boxstyle="round,pad=0.08",
-                          facecolor='#FDFEFE', edgecolor='#884EA0',
-                          linewidth=1.3, linestyle=':', zorder=2)
-ax.add_patch(rec_rect)
-ax.text((XD + XF) / 2, 1.12,
-        'Recursive Inference  (horizon = 152 steps total, model trained with horizon = 1)\n'
-        'Prediction at step t  →  appended to target_window_scaled  →  ego-graph rebuilt  →  feeds step t+1',
-        ha='center', va='center', fontsize=7.4, color='#6C3483', zorder=6)
-
-# ── Title ─────────────────────────────────────────────────────────────────────
-ax.text(12, 12.3,
-        'Pure GraphSAGE Forecaster — Architecture Block Diagram',
-        ha='center', va='center', fontsize=13.5, fontweight='bold',
-        color='#1A252F', zorder=6)
-
-plt.tight_layout(pad=0.4)
-out = (r'c:\Users\Andre Silva\Desktop\Dissertation25-26'
-       r'\GNN\DynamicSimilarities\GraphSAGE\GraphSAGE only\architecture_pure_sage.png')
-plt.savefig(out, dpi=160, bbox_inches='tight', facecolor=fig.get_facecolor())
-print(f"Saved → {out}")
-plt.close()
-
-
-fig, ax = plt.subplots(figsize=(22, 13))
-ax.set_xlim(0, 22)
-ax.set_ylim(0, 13)
-ax.axis('off')
-fig.patch.set_facecolor('#FAFAFA')
-
-# ── Colors ──────────────────────────────────────────────────────────────────
-C_IN   = '#AED6F1'   # inputs
-C_GRAPH= '#A9DFBF'   # graph construction / sage
-C_FUS  = '#FAD7A0'   # fusion
-C_MLP  = '#F1948A'   # mlp
-C_OUT  = '#D7BDE2'   # output
-C_DATA = '#D5DBDB'   # data sources
-ARROW  = '#1A252F'
-EDGE   = '#2C3E50'
-
-# ── Helper functions ─────────────────────────────────────────────────────────
-def box(x, y, w, h, color, lines, fs=8.5, bold_first=False):
-    rect = FancyBboxPatch((x - w/2, y - h/2), w, h,
-                          boxstyle="round,pad=0.12",
-                          facecolor=color, edgecolor=EDGE, linewidth=1.6, zorder=3)
-    ax.add_patch(rect)
-    if isinstance(lines, str):
-        lines = [lines]
-    n = len(lines)
-    for i, line in enumerate(lines):
-        dy = (i - (n-1)/2) * (fs + 1.5) * 0.014
-        weight = 'bold' if (bold_first and i == 0) else 'normal'
-        ax.text(x, y - dy, line, ha='center', va='center', fontsize=fs,
-                fontweight=weight, zorder=4, color='#1A252F')
-
-def arrow(x1, y1, x2, y2, label='', color=ARROW):
-    ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle='-|>', color=color,
-                                lw=1.6, mutation_scale=14), zorder=5)
-    if label:
-        mx, my = (x1+x2)/2, (y1+y2)/2
-        ax.text(mx+0.05, my+0.1, label, fontsize=7, color='#555', zorder=6, style='italic')
-
-def section_label(x, y, text):
-    ax.text(x, y, text, fontsize=9, color='#666', ha='center', style='italic', zorder=4)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  ROW POSITIONS
-# ═══════════════════════════════════════════════════════════════════════════
-# We lay the diagram left-to-right in "columns":
-#   Col A  (x≈1.3) : External Data Inputs
-#   Col B  (x≈4.1) : Graph Construction
-#   Col C  (x≈7.3) : GraphSAGE Encoder
-#   Col D  (x≈10.3): Central-node extraction + TS/Cal inputs
-#   Col E  (x≈13.5): Spatial-Temporal Fusion
-#   Col F  (x≈17)  : MLP Forecaster
-#   Col G  (x≈20.5): Output
-
-XA, XB, XC, XD, XE, XF, XG = 1.6, 4.4, 7.6, 11.0, 14.0, 17.5, 21.0
-
-# ── Section banners ─────────────────────────────────────────────────────────
-for bx, bw, label, col in [
-    (XA,   2.6, "Data Inputs",          '#EBF5FB'),
-    (XB,   2.6, "Graph Construction",   '#EAFAF1'),
-    (XC,   2.8, "GraphSAGE Encoder",    '#EAFAF1'),
-    (XD,   2.8, "Feature Assembly",     '#FEF9E7'),
-    (XE,   2.4, "Fusion",               '#FEF9E7'),
-    (XF,   2.8, "MLP Forecaster",       '#FDEDEC'),
-    (XG,   1.6, "Output",               '#F5EEF8'),
-]:
-    banner = FancyBboxPatch((bx - bw/2, 0.3), bw, 12.2,
-                            boxstyle="round,pad=0.1",
-                            facecolor=col, edgecolor='#BFC9CA',
-                            linewidth=1.0, zorder=1, alpha=0.5)
-    ax.add_patch(banner)
-    ax.text(bx, 12.7, label, ha='center', va='center', fontsize=8.5,
-            color='#5D6D7E', fontweight='bold', zorder=4)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  A  –  DATA INPUTS
-# ═══════════════════════════════════════════════════════════════════════════
-box(XA, 10.5, 2.4, 0.9, C_DATA, ['df_wide', '(items × dates)'], fs=8, bold_first=True)
-box(XA, 9.0,  2.4, 0.9, C_IN,   ['Historical Sales', '(lookback × 1)'], fs=8, bold_first=True)
-box(XA, 7.4,  2.4, 0.9, C_IN,   ['Calendar Features', '(lookback × cal_dim)'], fs=8, bold_first=True)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  B  –  GRAPH CONSTRUCTION  (repeated for each of the L timesteps)
-# ═══════════════════════════════════════════════════════════════════════════
-box(XB, 10.5, 2.4, 1.0, C_GRAPH,
-    ['Node Feature', 'Computation',
-     '──────────────',
-     'raw 15-day window',
-     '+ 8 stats (mean, std,',
-     'slope, zero-ratio…)',
-     '→ dim = 23'], fs=7.5, bold_first=True)
-
-box(XB, 8.2, 2.4, 1.3, C_GRAPH,
-    ['Ego-Graph Building',
-     '──────────────────',
-     'Pairwise similarity/distance',
-     '(e.g. CID, Pearson …)',
-     'Threshold → edges',
-     'Star + within-star links',
-     'central_node_idx = 0'], fs=7.2, bold_first=True)
-
-box(XB, 5.8, 2.4, 0.7, C_GRAPH,
-    ['PyG Data',
-     '(x, edge_index,',
-     ' edge_attr)'], fs=7.5, bold_first=True)
-
-# Arrows inside B column
-arrow(XA+1.2, 10.5, XB-1.2, 10.5, label='window dates')
-arrow(XB, 9.95, XB, 9.05)            # feature → ego
-arrow(XB, 7.55, XB, 6.15)            # ego → pyg data
-arrow(XA+1.2, 9.0, XB-1.2, 8.8)     # history → ego
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  Loop annotation
-# ═══════════════════════════════════════════════════════════════════════════
-ax.text(XB, 4.75, '× L timesteps', ha='center', va='center', fontsize=7.5,
-        color='#7D6608', style='italic', zorder=6)
-loop_rect = FancyBboxPatch((XB-1.35, 4.95), 2.7, 6.35,
-                           boxstyle="round,pad=0.05",
-                           facecolor='none', edgecolor='#D4AC0D',
-                           linewidth=1.4, linestyle='--', zorder=2)
-ax.add_patch(loop_rect)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  Batch.from_data_list  (B×L graphs → PyG Batch)
-# ═══════════════════════════════════════════════════════════════════════════
-box(XB, 3.8, 2.4, 0.75, C_GRAPH,
-    ['Batch.from_data_list',
-     '(B×L graphs)'], fs=8, bold_first=True)
-
-arrow(XB, 5.45, XB, 4.2)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  C  –  GRAPHSAGE ENCODER
-# ═══════════════════════════════════════════════════════════════════════════
-arrow(XB+1.2, 3.8, XC-1.4, 3.8)
-
-box(XC, 9.5, 2.5, 0.85, C_GRAPH,
-    ['SAGEConv 1',
-     'in_ch → hidden_ch',
-     'Aggregates neighbors'], fs=8, bold_first=True)
-
-box(XC, 8.2, 2.5, 0.7, C_GRAPH,
-    ['ReLU + Dropout(p=0.2)'], fs=8)
-
-box(XC, 7.0, 2.5, 0.85, C_GRAPH,
-    ['SAGEConv 2',
-     'hidden_ch → out_ch',
-     'Aggregates neighbors'], fs=8, bold_first=True)
-
-box(XC, 5.5, 2.5, 0.85, C_GRAPH,
-    ['Node Embeddings',
-     '(total_nodes,',
-     ' sage_out_ch)'], fs=8, bold_first=True)
-
-box(XC, 3.8, 2.5, 0.85, C_GRAPH,
-    ['Central Node',
-     'Extraction',
-     '──────────────',
-     'ptr[:-1]  →  node_0',
-     'per graph',
-     'reshape →',
-     '(B, L, sage_out_ch)'], fs=7.5, bold_first=True)
-
-# Arrows inside C
-arrow(XC, 9.05, XC, 8.55)
-arrow(XC, 7.85, XC, 7.43)
-arrow(XC, 6.57, XC, 6.07)
-arrow(XC, 5.07, XC, 4.62)
-
-# Connect Batch → SAGEConv1
-ax.annotate('', xy=(XC-1.25, 9.5), xytext=(XC-1.25, 3.8),
-            arrowprops=dict(arrowstyle='-|>', color=ARROW, lw=1.4,
-                            connectionstyle='arc3,rad=0.0'), zorder=5)
-ax.text(XC-1.55, 6.65, 'PyG Batch', fontsize=7, color='#555',
-        rotation=90, va='center', style='italic', zorder=6)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  D  –  FEATURE ASSEMBLY  (TS + Cal + z_target arrive here)
-# ═══════════════════════════════════════════════════════════════════════════
-# z_target from C
-arrow(XC+1.25, 3.8, XD-1.4, 3.8)
-ax.text((XC+XD)/2, 4.05, 'z_target\n(B, L, sage_out_ch)', ha='center',
-        fontsize=7, color='#555', style='italic', zorder=6)
-
-# Historical sales → Feature assembly
-arrow(XA+1.2, 9.0, XD-1.4, 7.1)
-ax.text(5.9, 8.5, 'ts_seq\n(B, L, 1)', ha='left', fontsize=7, color='#555',
-        style='italic', zorder=6)
-
-# Calendar features → Feature assembly
-arrow(XA+1.2, 7.4, XD-1.4, 5.8)
-ax.text(4.5, 6.6, 'cal_seq\n(B, L, cal_dim)', ha='left', fontsize=7,
-        color='#555', style='italic', zorder=6)
-
-box(XD, 7.1, 2.5, 0.75, C_IN,
-    ['ts_seq',
-     '(B, L, ts_dim)'], fs=8, bold_first=True)
-
-box(XD, 5.8, 2.5, 0.75, C_IN,
-    ['cal_seq',
-     '(B, L, cal_dim)'], fs=8, bold_first=True)
-
-box(XD, 3.8, 2.5, 0.75, C_GRAPH,
-    ['z_target',
-     '(B, L, sage_out_ch)'], fs=8, bold_first=True)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  E  –  FUSION  (concatenation)
-# ═══════════════════════════════════════════════════════════════════════════
-box(XE, 5.5, 2.4, 1.1, C_FUS,
-    ['Concatenate',
-     '[ts | cal | z_target]',
-     '────────────────────',
-     '(B, L, ts_dim',
-     '   + cal_dim',
-     '   + sage_out_ch)'], fs=8, bold_first=True)
-
-# Arrows from D to E
-for yd in [7.1, 5.8, 3.8]:
-    arrow(XD+1.25, yd, XE-1.2, 5.5)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  F  –  MLP FORECASTER
-# ═══════════════════════════════════════════════════════════════════════════
-arrow(XE+1.2, 5.5, XF-1.4, 5.5)
-
-box(XF, 7.8, 2.6, 0.75, C_MLP,
-    ['Flatten',
-     '(B, L × concat_dim)'], fs=8, bold_first=True)
-
-box(XF, 6.4, 2.6, 1.0, C_MLP,
-    ['FC + ReLU + Dropout',
-     '(×  n_layers)',
-     'hidden_sizes = (64,32)'], fs=8, bold_first=True)
-
-box(XF, 5.0, 2.6, 0.9, C_MLP,
-    ['FC Output Layer',
-     '→ horizon × out_dim'], fs=8, bold_first=True)
-
-box(XF, 3.6, 2.6, 0.9, C_MLP,
-    ['Reshape',
-     '(B, horizon, 1)'], fs=8, bold_first=True)
-
-# Connect fusion to flatten
-ax.annotate('', xy=(XF-1.3, 7.8), xytext=(XF-1.3, 5.5),
-            arrowprops=dict(arrowstyle='-|>', color=ARROW, lw=1.4), zorder=5)
-ax.text(XF-1.6, 6.65, 'combined_seq', fontsize=7, color='#555',
-        rotation=90, va='center', style='italic', zorder=6)
-
-arrow(XF, 7.42, XF, 6.9)
-arrow(XF, 5.9, XF, 5.45)
-arrow(XF, 4.55, XF, 4.05)
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  G  –  OUTPUT
-# ═══════════════════════════════════════════════════════════════════════════
-arrow(XF+1.3, 3.6, XG-0.8, 3.6)
-
-box(XG, 3.6, 1.5, 0.85, C_OUT,
-    ['Predictions',
-     '(B, horizon, 1)'], fs=8.5, bold_first=True)
-
-# ── Recursive-inference annotation ──────────────────────────────────────────
-rec_rect = FancyBboxPatch((XE-1.25, 0.45), (XG+0.75-XE+1.25), 1.35,
-                          boxstyle="round,pad=0.08",
-                          facecolor='#FDFEFE', edgecolor='#884EA0',
-                          linewidth=1.3, linestyle=':', zorder=2)
-ax.add_patch(rec_rect)
-ax.text((XE + XG)/2, 1.12,
-        'Recursive Inference: output at step t  →  input target at step t+1\n'
-        '(graph rebuilt each autoregressive step with updated predictions)',
-        ha='center', va='center', fontsize=7.2, color='#6C3483', zorder=6)
-
-# ── Title ────────────────────────────────────────────────────────────────────
-ax.text(11, 12.3,
-        'GraphSAGE + MLP Forecaster — Architecture Block Diagram',
-        ha='center', va='center', fontsize=13, fontweight='bold',
-        color='#1A252F', zorder=6)
-
-plt.tight_layout(pad=0.4)
-out = r'c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GraphSAGE\MLP\architecture.png'
-plt.savefig(out, dpi=160, bbox_inches='tight', facecolor=fig.get_facecolor())
-print(f"Saved to {out}")
-plt.close()
+C_IN='#AED6F1'; C_FEAT='#FDEBD0'; C_GRAPH='#A9DFBF'; C_GAT='#D7BDE2'
+C_HEAD='#F1948A'; ARROW='#1A252F'; EDGE='#2C3E50'
+
+def draw():
+    fig, ax = plt.subplots(figsize=(20,11))
+    ax.set_xlim(0,20); ax.set_ylim(0,11); ax.axis('off')
+    fig.patch.set_facecolor('#FAFAFA')
+
+    def box(x,y,w,h,color,lines,fs=8.5,bold_first=False):
+        ax.add_patch(FancyBboxPatch((x-w/2,y-h/2),w,h,boxstyle="round,pad=0.12",
+            facecolor=color,edgecolor=EDGE,linewidth=1.6,zorder=3))
+        if isinstance(lines,str): lines=[lines]
+        n=len(lines)
+        for i,l in enumerate(lines):
+            dy=(i-(n-1)/2)*(fs+1.5)*0.014
+            ax.text(x,y-dy,l,ha='center',va='center',fontsize=fs,
+                fontweight='bold' if (bold_first and i==0) else 'normal',zorder=4,color='#1A252F')
+
+    def arr(x1,y1,x2,y2,lbl='',sty='arc3,rad=0.0'):
+        ax.annotate('',xy=(x2,y2),xytext=(x1,y1),
+            arrowprops=dict(arrowstyle='-|>',color=ARROW,lw=1.6,
+                connectionstyle=sty,mutation_scale=14),zorder=5)
+        if lbl:
+            ax.text((x1+x2)/2+0.05,(y1+y2)/2+0.1,lbl,fontsize=7,color='#555',zorder=6,style='italic')
+
+    XA,XB,XC,XD,XE,XF=1.7,4.7,8.0,11.5,15.2,18.5
+    for bx,bw,lbl,col in [
+        (XA,2.6,'Data Inputs','#EBF5FB'),(XB,2.7,'Node Features','#FEF9E7'),
+        (XC,3.0,'Ego-Graph (x1)','#EAFAF1'),(XD,3.0,'GAT Encoder','#EAFAF1'),
+        (XE,3.0,'Central Node z','#FEF9E7'),(XF,2.5,'Linear Head / Output','#F5EEF8')]:
+        ax.add_patch(FancyBboxPatch((bx-bw/2,0.3),bw,10.0,boxstyle="round,pad=0.1",
+            facecolor=col,edgecolor='#BFC9CA',linewidth=1.0,zorder=1,alpha=0.5))
+        ax.text(bx,10.5,lbl,ha='center',va='center',fontsize=8.5,color='#5D6D7E',fontweight='bold',zorder=4)
+
+    # A
+    box(XA,9.0,2.4,0.9,'#D5DBDB',['df_wide','(items x dates)'],fs=8,bold_first=True)
+    box(XA,7.2,2.4,0.9,C_IN,['Historical Sales (scaled)','lookback window'],fs=8,bold_first=True)
+    box(XA,5.5,2.4,0.9,C_IN,['Calendar Features','cal_dim = 31 cols'],fs=8,bold_first=True)
+
+    # B
+    box(XB,8.2,2.6,2.0,C_FEAT,['TARGET NODE','-----','ts_lookback (dims)','cal_next_step (31 dims)',
+        'stats_8: last, mean7, mean,','  std, zero_ratio, slope,','  min, max','feature_dim = total'],fs=7.5,bold_first=True)
+    box(XB,5.5,2.6,1.4,C_FEAT,['NEIGHBOR NODES','-----','ts_window right-aligned',
+        'cal=0  (unknown)','+ stats_8'],fs=7.5,bold_first=True)
+    arr(XA+1.2,7.2,XB-1.3,8.3,lbl='lookback ts')
+    arr(XA+1.2,5.5,XB-1.3,7.5,lbl='cal next')
+    arr(XA+1.2,9.0,XB-1.3,5.5,lbl='window data')
+
+    # C
+    box(XC,7.2,2.9,3.0,C_GRAPH,['Ego-Graph  (ONE per sample)','---------------------------',
+        'Pairwise similarity (Spearman)','Threshold -> edges',
+        'Star topology + within-star links','target_id -> node index 0',
+        'edge_attr = similarity weight','PyG Data(x, edge_index, edge_attr)'],fs=7.5,bold_first=True)
+    ax.text(XC,10.5,'edge_dim=1  (similarity weights)',ha='center',fontsize=7.5,color='#1A5276',fontweight='bold',zorder=6)
+    arr(XB+1.35,8.2,XC-1.45,7.8); arr(XB+1.35,5.5,XC-1.45,6.5)
+
+    # D – GAT
+    box(XD,9.2,2.9,0.9,C_GAT,['GATConv 1  (multi-head attention)','in_ch -> hidden_ch, heads=4, concat=True',
+        'edge_dim=1 (edge weights)  =>  out: hidden*4'],fs=7.4,bold_first=True)
+    box(XD,7.8,2.9,0.7,C_GAT,['ELU + Dropout(p=0.2)'],fs=8)
+    box(XD,6.8,2.9,0.9,C_GAT,['GATConv 2  (single-head)','hidden*4 -> out_ch, heads=1, concat=False',
+        'edge_dim=1  =>  out: out_ch'],fs=7.4,bold_first=True)
+    box(XD,5.3,2.9,0.85,C_GAT,['Node Embeddings','(total_nodes, out_ch)'],fs=8,bold_first=True)
+    ax.annotate('',xy=(XD-1.45,9.2),xytext=(XC+1.45,7.2),
+        arrowprops=dict(arrowstyle='-|>',color=ARROW,lw=1.4,connectionstyle='arc3,rad=-0.25'),zorder=5)
+    arr(XD,8.75,XD,8.15); arr(XD,7.45,XD,7.25); arr(XD,6.35,XD,5.72)
+
+    # E
+    box(XE,5.3,2.8,1.0,C_GAT,['Extract Central Node','idx = ptr[:-1]  (node 0 per graph)',
+        'z_target : (B, out_ch)'],fs=7.8,bold_first=True)
+    arr(XD+1.45,5.3,XE-1.4,5.3)
+    ax.text(XE,9.5,'No recurrence / no temporal loop',ha='center',fontsize=8,color='#1A5276',style='italic',fontweight='bold',zorder=6)
+    ax.text(XE,8.9,'Single embedding per sample',ha='center',fontsize=7.5,color='#555',style='italic',zorder=6)
+
+    # F
+    box(XF,6.8,2.4,0.9,C_HEAD,['Linear(out_ch -> horizon)','horizon = 1  (next step)'],fs=7.8,bold_first=True)
+    box(XF,5.2,2.4,0.9,'#A9DFBF',['Reshape','(B, horizon, 1)'],fs=8,bold_first=True)
+    box(XF,3.5,2.4,0.85,'#A9DFBF',['Predictions','(B, horizon, 1)'],fs=8.5,bold_first=True)
+    arr(XE+1.4,5.3,XF-1.2,6.8,lbl='z')
+    arr(XF,6.35,XF,5.65); arr(XF,4.75,XF,3.93)
+
+    ax.add_patch(FancyBboxPatch((XE-1.4,0.3),(XF+1.2-XE+1.4),1.4,boxstyle="round,pad=0.08",
+        facecolor='#FDFEFE',edgecolor='#884EA0',linewidth=1.3,linestyle=':',zorder=2))
+    ax.text((XE+XF)/2,1.05,
+        'Recursive Inference: forecast(t) -> appended to ts_lookback -> ego-graph rebuilt -> step t+1\n'
+        '(152 autoregressive steps for full horizon)',
+        ha='center',va='center',fontsize=7.2,color='#6C3483',zorder=6)
+
+    ax.text(10,10.5,'GAT + Linear Forecaster (GATEncoder) -- Architecture Block Diagram',
+        ha='center',va='center',fontsize=12,fontweight='bold',color='#1A252F',zorder=6)
+
+    plt.tight_layout(pad=0.4)
+    out=os.path.join(os.path.dirname(os.path.abspath(__file__)),'architecture_gat_linear.png')
+    plt.savefig(out,dpi=160,bbox_inches='tight',facecolor=fig.get_facecolor())
+    print(f'Saved -> {out}')
+    plt.show()
+
+if __name__=='__main__':
+    draw()

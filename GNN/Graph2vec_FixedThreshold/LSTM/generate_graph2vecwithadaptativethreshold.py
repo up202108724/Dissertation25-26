@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import time
 from tqdm.auto import tqdm
-from Graph2vec_FixedThreshold.LSTM.graph2vec import CustomGraph2Vec as Graph2Vec
+from graph2vec import CustomGraph2Vec as Graph2Vec
 
 DISTANCE_METRICS = {
     'euclidean', 'hamming', 'amplitude_offset', 'slope_consistency',
@@ -188,7 +188,10 @@ def load_or_generate_embeddings(product_id, metric, window_size, step_size, thre
                 utils_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'GraphAnalysis'))
                 if utils_path not in sys.path:
                     sys.path.append(utils_path)
-                from GNN.Graph2vec_FixedThreshold.LSTM.utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll
+                try:
+                    from utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll
+                except ImportError:
+                    from GNN.Graph2vec_FixedThreshold.LSTM.utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll
                 
                 compute_func = compute_distances_1vsAll if metric_type == 'distance' else compute_similarities_1vsAll
                 
