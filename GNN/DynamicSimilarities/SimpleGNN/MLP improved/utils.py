@@ -14,7 +14,7 @@ from tslearn.metrics import dtw
 import holidays
 # Graph construction utils
 
-from gat_pyg import generate_node_features
+from gnn_pyg import generate_node_features
 
 import os
 import numpy as np
