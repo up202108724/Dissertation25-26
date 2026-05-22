@@ -203,9 +203,14 @@ def plot_results(train, val, test, forecast,
     fig.update_yaxes(title_text='Loss', row=3, col=1)
     fig.update_xaxes(title_text='Epoch', row=3, col=1)
     
-    fig.update_layout(height=1200, width=1000, 
-                      hovermode="x unified",
-                      template="plotly_white")
+    fig.update_layout(
+        height=1400,
+        width=2200,
+        hovermode="x unified",
+        template="plotly_white",
+        legend=dict(font=dict(size=10), tracegroupgap=2),
+        margin=dict(l=60, r=20, t=80, b=60),
+    )
     
     if save_path:
         if save_path.endswith('.html'):

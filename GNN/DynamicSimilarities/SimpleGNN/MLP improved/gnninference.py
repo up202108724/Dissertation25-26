@@ -295,7 +295,15 @@ def recursive_inference_gcn_mlp(
             for node_idx in range(1, n_nodes):
                 orig_feat   = G_data.x[node_idx].numpy()
                 neighbor_ts = orig_feat[:graph_window_size]
-                
+
+                # Normalise to [0,1] to match the MinMax-scaled target node features.
+                n_min, n_max = neighbor_ts.min(), neighbor_ts.max()
+                n_range = n_max - n_min
+                if n_range > 1e-8:
+                    neighbor_ts = (neighbor_ts - n_min) / n_range
+                else:
+                    neighbor_ts = np.zeros_like(neighbor_ts)
+
                 selected_neighbor = node_features
                 x_new[node_idx] = torch.tensor(
                     generate_node_features(neighbor_ts, cal_next=_dummy_cal_next,

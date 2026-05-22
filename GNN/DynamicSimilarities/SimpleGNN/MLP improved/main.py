@@ -53,10 +53,7 @@ val_size = 153
 forecast_horizon = 152
 lookback_window = 30
 
-NODE_FEATURES = [
-    'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v',
-    
-]
+NODE_FEATURES = ['ts']
 EXOG_COLS = [
     "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
     "rolling_mean_excl_7",
@@ -85,7 +82,7 @@ dropout = 0.2
 EPOCHS = 1000
 LEARNING_RATE = 0.001
 SEEDS = [42]
-window_sizes = [15]     
+window_sizes = [lookback_window]     
 step_sizes = [1]
 enable_edges_opts = [True]
 enable_second_degree_opts = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
