@@ -32,7 +32,7 @@ TARGET_COL = 'value'
 
 train_size       = 455
 val_size         = 153
-forecast_horizon = 152
+forecast_horizon = 153
 lookback_window  = 30
 
 # ── Features ──────────────────────────────────────────────────────────────────
