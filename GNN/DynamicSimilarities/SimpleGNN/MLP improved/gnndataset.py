@@ -216,6 +216,15 @@ def make_single_windows(
             orig_feat   = base_graph.x[node_idx].numpy()            # (graph_window_size + 8,)
             neighbor_ts = orig_feat[:graph_window_size]              # raw values only
 
+            # Normalise neighbor ts to the same [0,1] range as the target node so
+            # that GCNConv aggregates features on a consistent scale.
+            n_min, n_max = neighbor_ts.min(), neighbor_ts.max()
+            n_range = n_max - n_min
+            if n_range > 1e-8:
+                neighbor_ts = (neighbor_ts - n_min) / n_range
+            else:
+                neighbor_ts = np.zeros_like(neighbor_ts)
+
             selected_neighbor = node_features
             x_new[node_idx] = torch.tensor(
                 generate_node_features(neighbor_ts, cal_next=_dummy_cal_next,

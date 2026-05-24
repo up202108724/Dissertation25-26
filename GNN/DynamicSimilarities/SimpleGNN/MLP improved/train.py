@@ -159,8 +159,8 @@ def train_gcn_mlp(
         ts_proj_dim=ts_proj_dim,
     ).to(cfg.device)
 
-    print(f"  GCN node feature dim: {gcn_in_channels}  "
-          f"(lookback={cfg.lookback} + cal_dim={cal_dim} + stats=8)")
+    _feat_desc = ", ".join(node_features) if node_features else "none"
+    print(f"  GCN node feature dim: {gcn_in_channels}  (features: [{_feat_desc}])")
 
     # ------------------------------------------------------------------ #
     #  Loss / optimiser                                                    #

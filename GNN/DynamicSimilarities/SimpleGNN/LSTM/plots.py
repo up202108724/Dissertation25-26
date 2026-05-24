@@ -72,7 +72,11 @@ def plot_results(train, val, test, forecast,
     if not is_multi:
         label = list(forecast.keys())[0]
         pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
-        full_title += f"RMSE: {rmse[label]:.4f} | MAE: {mae[label]:.4f} | Bias: {bias[label]:.4f} | Score: {score[label]:.4f} | POCID: {pocid_str}"
+        _cs = (0.5 * rmse[label] + 0.25 * mae[label] + 0.25 * abs(bias[label])
+               if None not in (rmse.get(label), mae.get(label), bias.get(label)) else None)
+        cs_str = f"{_cs:.4f}" if _cs is not None else "N/A"
+        full_title += (f"RMSE: {rmse[label]:.4f} | MAE: {mae[label]:.4f} | "
+                       f"BIAS: {bias[label]:.4f} | POCID: {pocid_str} | Score: {cs_str}")
         
     fig = make_subplots(rows=3, cols=1, 
                         subplot_titles=(full_title, 'Test vs Forecast', 'Training and Validation Loss'),
@@ -98,7 +102,11 @@ def plot_results(train, val, test, forecast,
         legend_name = label
         if is_multi:
              pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
-             legend_name = f"{label} (RMSE: {rmse[label]:.2f}, MAE: {mae[label]:.2f})"
+             _cs = (0.5 * rmse[label] + 0.25 * mae[label] + 0.25 * abs(bias[label])
+                    if None not in (rmse.get(label), mae.get(label), bias.get(label)) else None)
+             cs_str = f"{_cs:.4f}" if _cs is not None else "N/A"
+             legend_name = (f"{label} (RMSE: {rmse[label]:.2f} | MAE: {mae[label]:.2f} | "
+                            f"BIAS: {bias[label]:.2f} | POCID: {pocid_str} | Score: {cs_str})")
              
         fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), hovertemplate=hover_temp), row=1, col=1)
     
@@ -195,9 +203,14 @@ def plot_results(train, val, test, forecast,
     fig.update_yaxes(title_text='Loss', row=3, col=1)
     fig.update_xaxes(title_text='Epoch', row=3, col=1)
     
-    fig.update_layout(height=1200, width=1000, 
-                      hovermode="x unified",
-                      template="plotly_white")
+    fig.update_layout(
+        height=1400,
+        width=2200,
+        hovermode="x unified",
+        template="plotly_white",
+        legend=dict(font=dict(size=10), tracegroupgap=2),
+        margin=dict(l=60, r=20, t=80, b=60),
+    )
     
     if save_path:
         if save_path.endswith('.html'):
