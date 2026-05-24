@@ -144,12 +144,12 @@ def train_gcn_mlp(
     _dummy_cal = np.zeros(cal_dim, dtype=np.float32) if cal_dim > 0 else None
     _dummy_lb  = (np.zeros((cfg.lookback, cal_dim), dtype=np.float32)
                   if include_cal_lookback and cal_dim > 0 else None)
-    sage_in_channels = len(_gnf(
+    gcn_in_channels = len(_gnf(
         _dummy_ts, cal_next=_dummy_cal, cal_lookback=_dummy_lb,
         selected_features=node_features, cal_columns=cal_columns,
     ))
     model = GCNMLPForecaster(
-        in_channels=sage_in_channels,
+        in_channels=gcn_in_channels,
         hidden_channels=gcn_hidden_channels,
         out_channels=gcn_out_channels,
         ts_input_size=cfg.lookback * (1 + cal_dim),
@@ -159,7 +159,7 @@ def train_gcn_mlp(
         ts_proj_dim=ts_proj_dim,
     ).to(cfg.device)
 
-    print(f"  GCN node feature dim: {sage_in_channels}  "
+    print(f"  GCN node feature dim: {gcn_in_channels}  "
           f"(lookback={cfg.lookback} + cal_dim={cal_dim} + stats=8)")
 
     # ------------------------------------------------------------------ #
@@ -183,7 +183,7 @@ def train_gcn_mlp(
 
     model_dir       = f'best_models/seed_{seed}/{loss_type}'
     os.makedirs(model_dir, exist_ok=True)
-    best_model_path = f'{model_dir}/sage_product_{product_id}.pth'
+    best_model_path = f'{model_dir}/gcn_product_{product_id}.pth'
 
     # ------------------------------------------------------------------ #
     #  Training loop                                                       #

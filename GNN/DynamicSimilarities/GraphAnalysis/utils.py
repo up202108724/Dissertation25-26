@@ -228,8 +228,7 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
                     if i < j:
                         if metric_type == 'distance':
                             if val_sub <= current_threshold:
-                                edge_weight = 1.0 / (1.0 + float(val_sub)) 
-                                #edge_weight = val_sub
+                                edge_weight = float(val_sub)
                                 G.add_edge(item_ids[idx1], item_ids[idx2], weight=edge_weight)
                         else:
                             if val_sub >= current_threshold:
@@ -250,7 +249,7 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
                         if metric_type == 'distance':
                             if val_sub <= current_threshold:
                                 add_edge = True
-                                edge_weight = 1.0 / (1.0 + float(val_sub)) 
+                                edge_weight = float(val_sub)
                         else:
                             if val_sub >= current_threshold:
                                 add_edge = True

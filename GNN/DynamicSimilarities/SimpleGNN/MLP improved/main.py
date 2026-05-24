@@ -54,8 +54,7 @@ forecast_horizon = 152
 lookback_window = 30
 
 NODE_FEATURES = [
-    'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v',
-    
+    'ts',
 ]
 EXOG_COLS = [
     "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
