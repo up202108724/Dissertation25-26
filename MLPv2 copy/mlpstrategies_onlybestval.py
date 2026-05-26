@@ -35,10 +35,9 @@ lookback_window = 30
 EXOG_COLS = [
     "dom_sin","dom_cos", "wom_sin", "wom_cos",
     "dow_sin", "dow_cos", "doy_sin", "doy_cos", "is_weekend",
-    "lag_1", "lag_7", "lag_14","lag_28",
-    "rolling_mean_excl_3", 
-    #"rolling_mean_excl_5",
-    "rolling_mean_excl_7", "rolling_mean_excl_14", "rolling_mean_excl_28",
+    "lag_1", "lag_7", "lag_30",
+    #"rolling_mean_excl_3", "rolling_mean_excl_5",
+    #"rolling_mean_excl_7", "rolling_mean_excl_14",
     "month_sin", "month_cos", "quarter",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
     "is_holiday", "is_thanksgiving", "is_black_friday",

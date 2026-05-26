@@ -80,7 +80,7 @@ def train_mlp_forecaster(
     print(f"  Test Range:    {test_start_idx} to End")
     print(f"  Val Targets:   {y_val.shape[0]} windows created")
     print(f"Input Shape:  (Batch, {cfg.lookback}, {C_in})")
-    print("Output Shape: (Batch, 1)")
+    print(f"Output Shape: (Batch, {cfg.horizon}, 1)")
 
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=False)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
@@ -88,6 +88,8 @@ def train_mlp_forecaster(
     model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=C_in,
+        horizon=cfg.horizon,
+        out_dim=1, 
         hidden_sizes=hidden_sizes,
         dropout=0.2,
         activation="relu",
@@ -221,6 +223,8 @@ def train_model_best_train_loss(
     model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=C_in,
+        horizon=cfg.horizon,
+        out_dim=1, 
         hidden_sizes=hidden_sizes,
         dropout=0.2,
         activation="relu",
@@ -352,6 +356,8 @@ def train_model_combined(
     model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=C_in,
+        horizon=cfg.horizon,
+        out_dim=1, 
         hidden_sizes=hidden_sizes,
         dropout=0.2,
         activation="relu",
@@ -438,6 +444,8 @@ def train_model_expanding_window(
     model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=len(cols),
+        horizon=cfg.horizon,
+        out_dim=1, 
         hidden_sizes=hidden_sizes,
         dropout=0.2,
         activation="relu",
@@ -595,6 +603,8 @@ def train_model_sliding_window(
     model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=len(cols),
+        horizon=cfg.horizon,
+        out_dim=1, 
         hidden_sizes=hidden_sizes,
         dropout=0.2,
         activation="relu",
