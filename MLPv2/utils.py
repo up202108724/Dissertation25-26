@@ -147,29 +147,32 @@ def generate_exogenous_features(df, exog_cols, date_col='date', target_col='valu
         elif col.startswith("rolling_mean_excl_"):
             window = int(col.split("_")[-1])
             if group_cols:
-                df[col] = df.groupby(group_cols)[target_col].transform(lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()).fillna(0)
+                df[col] = df.groupby(group_cols)[target_col].transform(
+                    lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
+                ).fillna(0)
             else:
                 df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
-                
+
         elif col.startswith("rolling_mean_"):
+            # NOTE: leak-safe version — excludes the current observation by shifting one step.
+            # The previous implementation included y_t in the mean, which leaks the target at training time.
             window = int(col.split("_")[-1])
             if group_cols:
-                df[col] = df.groupby(group_cols)[target_col].transform(lambda x: x.rolling(window=window, min_periods=1).mean()).fillna(0)
+                df[col] = df.groupby(group_cols)[target_col].transform(
+                    lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
+                ).fillna(0)
             else:
-                df[col] = df[target_col].rolling(window=window, min_periods=1).mean().fillna(0)
+                df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
 
         elif col == "is_bridge_day":
             _, holiday_dates = get_holiday_dates()
-            holiday_set = set(holiday_dates)
-            
-            df[col] = 0
-            for idx in df.index:
-                d = df.at[idx, date_col]
-                prev_day = d - pd.Timedelta(days=1)
-                next_day = d + pd.Timedelta(days=1)
-                if ((prev_day in holiday_set and d.dayofweek == 4) or 
-                    (next_day in holiday_set and d.dayofweek == 0)):
-                    df.at[idx, col] = 1
+            holiday_set = set(pd.to_datetime(holiday_dates).normalize())
+
+            d = df[date_col].dt.normalize()
+            prev_is_holiday = (d - pd.Timedelta(days=1)).isin(holiday_set)
+            next_is_holiday = (d + pd.Timedelta(days=1)).isin(holiday_set)
+            dow = d.dt.dayofweek
+            df[col] = ((prev_is_holiday & (dow == 4)) | (next_is_holiday & (dow == 0))).astype(int)
 
         elif col in df.columns:
             # If the column exists in the dataset natively (e.g., store_id, cat_label) and isn't a builder key, just pass
@@ -180,81 +183,97 @@ def generate_exogenous_features(df, exog_cols, date_col='date', target_col='valu
 
     return df
 
-'''
 
 class ExogenousScaler:
     """
-    Um escalonador inteligente que aplica diferentes transformações 
-    baseadas na tipologia da variável exógena (nome da coluna).
+    Type-aware scaler for exogenous features.
+
+    - Binary features (e.g. `is_*`, `promo_type_*`): pass-through.
+    - Cyclical features (`*_sin`, `*_cos`): pass-through (already in [-1, 1]).
+    - Continuous features (lags, rolling means, time_idx, day_of_week, ...):
+      scaled with MinMaxScaler or StandardScaler.
+
+    This avoids squashing binary/cyclical features and changing their semantics.
     """
-    def __init__(self, continuous_strategy='minmax'):
-        self.scalers = {}        # Dicionário de escalonadores instanciados
-        self.feature_types = {}  # Registo do tipo de cada feature
+
+    def __init__(self, continuous_strategy: str = 'minmax'):
+        self.scalers = {}
+        self.feature_types = {}
         self.continuous_strategy = continuous_strategy
 
-    def _categorize_feature(self, col_name):
-        """Classifica a feature baseando-se no seu nome/sufixo/prefixo."""
-        if col_name.startswith("is_") or "type" in col_name:
-            return "binary"      # Pass-through (0 ou 1)
-        elif col_name.endswith("_sin") or col_name.endswith("_cos"):
-            return "cyclical"    # Pass-through (-1 a 1)
-        else:
-            return "continuous"  # Necessita de Escalonamento
+    @staticmethod
+    def _categorize_feature(col_name: str) -> str:
+        if col_name.startswith("is_") or col_name.startswith("promo_type_"):
+            return "binary"
+        if col_name.endswith("_sin") or col_name.endswith("_cos") \
+                or col_name.endswith("_sin2") or col_name.endswith("_cos2"):
+            return "cyclical"
+        return "continuous"
 
     def fit(self, df, columns):
-        """Itera sobre as colunas, descobre o tipo e fita o scaler se necessário."""
         for col in columns:
             ftype = self._categorize_feature(col)
             self.feature_types[col] = ftype
-
             if ftype == "continuous":
                 if self.continuous_strategy == 'minmax':
-                    scaler = MinMaxScaler() # Mapeia para [0, 1]
+                    scaler = MinMaxScaler()
                 elif self.continuous_strategy == 'standard':
-                    scaler = StandardScaler() # Média 0, Desvio Padrão 1
+                    scaler = StandardScaler()
                 else:
-                    raise ValueError("strategy deve ser 'minmax' ou 'standard'")
-                
-                # Fit precisa de array 2D
-                scaler.fit(df[[col]])
+                    raise ValueError("continuous_strategy must be 'minmax' or 'standard'")
+                scaler.fit(np.asarray(df[col]).reshape(-1, 1))
                 self.scalers[col] = scaler
-                
         return self
 
     def transform(self, df, columns):
-        """Aplica os escalonadores guardados no dicionário."""
-        df_scaled = df.copy()
-        
-        # Iterar sobre colunas (suporta NumPy arrays se passados como DataFrame)
-        if isinstance(df_scaled, np.ndarray):
-            df_scaled = pd.DataFrame(df_scaled, columns=columns)
-            return_numpy = True
+        return_numpy = isinstance(df, np.ndarray)
+        if return_numpy:
+            df = pd.DataFrame(df, columns=columns)
         else:
-            return_numpy = False
+            df = df.copy()
 
         for col in columns:
-            ftype = self.feature_types.get(col, self._categorize_feature(col))
-            
-            if ftype == "continuous" and col in self.scalers:
-                df_scaled[col] = self.scalers[col].transform(df_scaled[[col]])
-            # Se for binary ou cyclical, passa reto (pass-through)
-            
-        return df_scaled.values if return_numpy else df_scaled
+            if self.feature_types.get(col, self._categorize_feature(col)) == "continuous" \
+                    and col in self.scalers:
+                df[col] = self.scalers[col].transform(np.asarray(df[col]).reshape(-1, 1)).ravel()
+        return df.values if return_numpy else df
+
+    def fit_transform(self, df, columns):
+        return self.fit(df, columns).transform(df, columns)
 
     def inverse_transform(self, df, columns):
-        """Reverte o escalonamento (útil para logs e debugging na inferência)."""
-        df_unscaled = df.copy()
-        
-        if isinstance(df_unscaled, np.ndarray):
-            df_unscaled = pd.DataFrame(df_unscaled, columns=columns)
-            return_numpy = True
+        return_numpy = isinstance(df, np.ndarray)
+        if return_numpy:
+            df = pd.DataFrame(df, columns=columns)
         else:
-            return_numpy = False
+            df = df.copy()
 
         for col in columns:
-            if col in self.scalers: # Apenas contínuas estão no dicionário
-                df_unscaled[col] = self.scalers[col].inverse_transform(df_unscaled[[col]])
-                
-        return df_unscaled.values if return_numpy else df_unscaled
-        
-        '''
+            if col in self.scalers:
+                df[col] = self.scalers[col].inverse_transform(
+                    np.asarray(df[col]).reshape(-1, 1)
+                ).ravel()
+        return df.values if return_numpy else df
+
+
+def parse_dynamic_exog_cols(exog_cols):
+    """
+    Identify dynamic exogenous columns that depend on the target series.
+    Returns:
+        lag_cols: dict {col_name: k}
+        roll_cols: dict {col_name: window}  (treated as leak-safe: mean of previous `window` targets)
+    Other columns are considered "static" (calendar/holiday/promo) and pass through unchanged.
+    """
+    lag_cols, roll_cols = {}, {}
+    for c in exog_cols:
+        if c.startswith("lag_"):
+            try:
+                lag_cols[c] = int(c.split("_")[-1])
+            except ValueError:
+                pass
+        elif c.startswith("rolling_mean_excl_") or c.startswith("rolling_mean_"):
+            try:
+                roll_cols[c] = int(c.split("_")[-1])
+            except ValueError:
+                pass
+    return lag_cols, roll_cols

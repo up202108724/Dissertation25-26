@@ -55,8 +55,10 @@ lookback_window = 30
 
 NODE_FEATURES = ['ts']
 EXOG_COLS = [
+    "day_of_week", "day_of_month", "week_of_year", "week_of_month",
     "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    "rolling_mean_excl_7",
+    "lag_1", "lag_7", "lag_30",
+    "rolling_mean_3", "rolling_mean_5", "rolling_mean_7","rolling_mean_14",
     "month", "quarter",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
     "is_monday", "is_friday",
@@ -64,7 +66,6 @@ EXOG_COLS = [
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day",
 ]
-
 grid_configs = [
     # Distâncias Robustas e Lock-step
     #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},

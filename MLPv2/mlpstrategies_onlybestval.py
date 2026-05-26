@@ -14,9 +14,9 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir, '..', 'LSTM'))
 
 from plots import plot_results
-from utils import generate_exogenous_features
+from utils import generate_exogenous_features, ExogenousScaler
 from train import TrainConfig, train_mlp_forecaster, train_model_best_train_loss, train_model_combined, train_model_expanding_window, train_model_sliding_window
-from inference import recursive_inference
+from inference import recursive_inference_dynamic_exog
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -29,16 +29,19 @@ val_size = 154
 forecast_horizon = 152
 lookback_window = 30
 
+# Trimmed: removed redundant ordinal duplicates of cyclical encodings
+# (day_of_week vs dow_*, month vs month_*, is_monday/is_friday vs dow_*).
+# Rolling means use the leak-safe "_excl_" variant — see utils.py.
 EXOG_COLS = [
-    "day_of_week", "day_of_month", "week_of_year", "week_of_month",
-    "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    "month", "quarter", "is_weekend",
+    "dom_sin","dom_cos", "wom_sin", "wom_cos",
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos", "is_weekend",
+    "lag_1", "lag_7", "lag_30",
+    "rolling_mean_excl_3", "rolling_mean_excl_5",
+    "rolling_mean_excl_7", "rolling_mean_excl_14",
+    "month_sin", "month_cos", "quarter",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
-    "is_monday", "is_friday",
     "is_holiday", "is_thanksgiving", "is_black_friday",
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
-    #"is_pre_holiday_1", "is_pre_holiday_2", "is_pre_holiday_3", "is_pre_holiday_7",
-    #"is_post_holiday_1", "is_post_holiday_2", "is_post_holiday_3", "is_post_holiday_7",
     "is_bridge_day",
 ]
 
@@ -70,8 +73,8 @@ def main():
     
     target_products = [26008, 907969, 907967, 213626]
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
-    
-    strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
+    strategies= ['best_val']
+    #strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
     results = []
     
     os.makedirs('best_models', exist_ok=True)
@@ -103,14 +106,29 @@ def main():
             train_scaled = scaler.fit_transform(train.reshape(-1, 1)).flatten()
             val_scaled = scaler.transform(val.reshape(-1, 1)).flatten()
 
-            exog_train = df_product[EXOG_COLS][train_slice].values
-            exog_val = df_product[EXOG_COLS][val_slice].values
-            exog_test = df_product[EXOG_COLS][test_slice].values
-            
-            exog_scaler = MinMaxScaler()
-            exog_train_scaled = exog_scaler.fit_transform(exog_train)
-            exog_val_scaled = exog_scaler.transform(exog_val)
-            exog_test_scaled = exog_scaler.transform(exog_test)
+            # Keep an UNSCALED copy of the exog block — needed by the dynamic
+            # inference loop to recompute lag/rolling features from predictions.
+            exog_train_unscaled = df_product[EXOG_COLS].iloc[train_slice].copy()
+            exog_val_unscaled = df_product[EXOG_COLS].iloc[val_slice].copy()
+            exog_test_unscaled = df_product[EXOG_COLS].iloc[test_slice].copy()
+
+            if len(EXOG_COLS) > 0:
+                # Type-aware scaler: pass-through for binary/cyclical, MinMax for continuous.
+                exog_scaler = ExogenousScaler(continuous_strategy='minmax')
+                exog_scaler.fit(exog_train_unscaled, EXOG_COLS)
+
+                exog_train_scaled = exog_scaler.transform(exog_train_unscaled.copy(), EXOG_COLS)
+                exog_val_scaled = exog_scaler.transform(exog_val_unscaled.copy(), EXOG_COLS)
+                exog_test_scaled = exog_scaler.transform(exog_test_unscaled.copy(), EXOG_COLS)
+
+                # Write the SCALED exog values back into df_product so train.py
+                # (which reads df_product directly) sees the scaled features.
+                exog_col_idx = df_product.columns.get_indexer(EXOG_COLS)
+                df_product.iloc[train_slice, exog_col_idx] = exog_train_scaled[EXOG_COLS].values
+                df_product.iloc[val_slice, exog_col_idx] = exog_val_scaled[EXOG_COLS].values
+                df_product.iloc[test_slice, exog_col_idx] = exog_test_scaled[EXOG_COLS].values
+            else:
+                exog_scaler = None
             
             input_size = 1 + len(EXOG_COLS)
             
@@ -196,11 +214,29 @@ def main():
                 if os.path.exists(model_path):
                     model.load_state_dict(torch.load(model_path))
                 
-                # Inference
-                forecast, infer_time = recursive_inference(
-                    model, test_start_idx, lookback_window, val_scaled, exog_val_scaled, exog_test_scaled, exog_test,
-                    scaler, exog_scaler, df_product, device, EXOG_COLS, forecast_horizon, seed, strategy, item_id, store_id, loss_type, script_dir
+                # Leak-safe recursive inference:
+                #   - history uses the last `lookback` UNSCALED target & exog values
+                #     (their lag/rolling cols were generated from ground-truth
+                #      train+val data, which is allowed),
+                #   - future_exog is passed UNSCALED so the inference loop can
+                #     OVERWRITE lag_*/rolling_mean_* per step using the running
+                #     prediction buffer (no peek at the true test target).
+                recent_target_unscaled = val[-lookback_window:].astype(np.float32)
+                recent_exog_unscaled_df = exog_val_unscaled.iloc[-lookback_window:].reset_index(drop=True)
+
+                start_infer = time.time()
+                forecast = recursive_inference_dynamic_exog(
+                    model=model,
+                    target_scaler=scaler,
+                    exog_scaler=exog_scaler,
+                    exog_cols=EXOG_COLS,
+                    history_target_unscaled=recent_target_unscaled,
+                    history_exog_unscaled=recent_exog_unscaled_df,
+                    future_exog_unscaled=exog_test_unscaled.reset_index(drop=True),
+                    target_channel=0,
+                    device=str(device),
                 )
+                infer_time = time.time() - start_infer
                 
                 # Metrics
                 rmse = np.sqrt(mean_squared_error(test, forecast))

@@ -1,0 +1,2 @@
+product_id,store_id,seed,metric,window_size,step_size,threshold,percentile,enable_edges,enable_second_degree,rmse,mae,bias,r2_score,pocid
+26008,6269,42,lstm_baseline,15,1,,,,,45.642002397051996,25.068328857421875,2.4449527138157894,0.35258740186691284,0.6821192052980133
