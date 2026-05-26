@@ -47,14 +47,16 @@ EXOG_COLS = [
 ]
 
 batch_size = 32
-hidden_sizes = (64, 32)
+hidden_sizes = (256,64)
 dropout = 0.2
 EPOCHS = 1000
 LEARNING_RATE = 0.001
+WEIGHT_DECAY = 1e-4
 seeds = [42]
 #seeds = [42, 1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
 
-loss_type = 'MSELoss'
+loss_type = 'quantile'
+
 
 # -----------------------------------------------------------------------------
 # Main Loop
@@ -72,7 +74,8 @@ def main():
     df = df.sort_values([DATE_COL, "item_id", "store_id"]).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     
-    target_products = [26008, 907969, 907967, 213626]
+    target_products = [26008, 907969, 907967, 213626,911753]
+    #target_products = [911753] # Select first 5 unique products for testing
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
     strategies= ['best_val']
     #strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
@@ -82,8 +85,8 @@ def main():
     os.makedirs('grid_search_plots', exist_ok=True)
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    criterion = nn.MSELoss()
-    criterion2 = nn.MSELoss()
+    #criterion = nn.MSELoss()
+    #criterion2 = nn.MSELoss()
 
     for seed in seeds:
         for item_id, store_id in products:
@@ -167,6 +170,7 @@ def main():
                     val_size=val_size,
                     lr=LEARNING_RATE,
                     epochs=EPOCHS,
+                    weight_decay=WEIGHT_DECAY,
                     device=str(device)
                 )
 

@@ -13,6 +13,7 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
 from dataset import make_windows, WindowDataset
+from losses import get_loss 
 @dataclass
 class TrainConfig:
     lookback: int = 30
@@ -23,6 +24,7 @@ class TrainConfig:
     lr: float = 1e-4
     epochs: int = 30
     weight_decay: float = 1e-3
+    patience: int = 150
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 def train_mlp_forecaster(
@@ -101,12 +103,17 @@ def train_mlp_forecaster(
         loss_fn = nn.L1Loss()
     elif loss_type.lower() == 'huber':
         loss_fn = nn.HuberLoss()
+    elif loss_type.lower() == 'tweedie':
+        loss_fn = get_loss('tweedie')
+    elif loss_type.lower() == 'quantile':
+        loss_fn = get_loss('quantile')
     else:
-        raise ValueError(f"Unsupported loss_type: {loss_type}. Choose 'mse', 'mae', or 'huber'.")
+        raise ValueError(f"Unsupported loss_type: {loss_type}. Choose 'mse', 'mae', 'huber', 'tweedie', or 'quantile'.")
 
     best_val = float("inf")
     best_state = None
-    
+    patience_counter = 0
+
     train_losses = []
     val_losses = []
 
@@ -151,7 +158,13 @@ def train_mlp_forecaster(
                 best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
                 torch.save(best_state, best_model_path)
                 best_epoch = epoch
-                print (f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
+                patience_counter = 0
+                print(f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
+            else:
+                patience_counter += 1
+                if patience_counter >= cfg.patience:
+                    print(f"Early stopping at epoch {epoch} (no val improvement for {cfg.patience} epochs).")
+                    break
         else:
             print("WARNING: Validation set is too small to form windows!")
 
