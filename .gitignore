@@ -14,3 +14,4 @@ GNN/FixedGraphs/GraphAnalysis/FixedGraphPkls
 GNN/FixedGraphs/GraphAnalysis/FixedGraphPlots
 inference_logs/
 OverallDistributions*/
+MLP_Results/
