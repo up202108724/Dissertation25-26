@@ -16,7 +16,7 @@ _parent_dir = os.path.normpath(os.path.join(script_dir, '..', '..'))
 if _parent_dir not in sys.path:
     sys.path.insert(0, _parent_dir)
 from lstm import LSTM, TimeSeriesDataset, train_lstm, recursive_inference_lstm
-from mlp import train_mlp_forecaster, recursive_inference_mlp
+from mlp import train_mlp_forecaster, recursive_inference_mlp, recursive_inference_mlp_dynamic_exog
 
 from plots import plot_results
 from utils import generate_exogenous_features
@@ -31,7 +31,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score
 
 from lstm import LSTM, TimeSeriesDataset, train_lstm, recursive_inference_lstm
-from mlp import MLPForecaster, WindowDataset, train_mlp_forecaster, recursive_inference_mlp
+from mlp import MLPForecaster, WindowDataset, train_mlp_forecaster, recursive_inference_mlp, recursive_inference_mlp_dynamic_exog
 #from GNN.DynamicSimilarities.utils import infer_metric_type
 
 def infer_metric_type(metric):
@@ -48,21 +48,22 @@ DATA_PATH = os.path.join(script_dir, '..', '..', '..', '..', 'dataset', 'data_an
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
+
 train_size = 455
 val_size = 153
-forecast_horizon = 152
+forecast_horizon = 153
 lookback_window = 30
 
-NODE_FEATURES = [
-    'mean7', 'mean_all', 'std_all', 'zero_ratio', 'slope', 'min_v', 'max_v',
-    
-]
+NODE_FEATURES = ['ts']
 EXOG_COLS = [
-    "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    "rolling_mean_excl_7",
-    "month", "quarter",
+    "dom_sin","dom_cos", "wom_sin", "wom_cos",
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos", "is_weekend",
+    "lag_1", "lag_7", "lag_14","lag_28",
+    "rolling_mean_excl_3", 
+    #"rolling_mean_excl_5",
+    "rolling_mean_excl_7", "rolling_mean_excl_14", "rolling_mean_excl_28",
+    "month_sin", "month_cos", "quarter",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
-    "is_monday", "is_friday",
     "is_holiday", "is_thanksgiving", "is_black_friday",
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day",
@@ -80,10 +81,11 @@ grid_configs = [
 
 
 batch_size = 32
-hidden_sizes = (256, 128)
+hidden_sizes = (256, 64)
 dropout = 0.2
 EPOCHS = 1000
 LEARNING_RATE = 0.001
+WEIGHT_DECAY = 1e-4
 SEEDS = [42]
 window_sizes = [15]     
 step_sizes = [1]
@@ -143,6 +145,7 @@ def main():
     
     df_wide_scaled = df_wide_global.copy()
     product_scalers = {}
+    product_minmax_scalers = {}
     for item_id_iter in df_wide_global.index:
         z_scaler = StandardScaler()
         train_ts = train_df_wide.loc[item_id_iter].values.reshape(-1, 1)
@@ -150,6 +153,14 @@ def main():
         product_scalers[item_id_iter] = z_scaler
         full_ts = df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         df_wide_scaled.loc[item_id_iter] = z_scaler.transform(full_ts).flatten()
+
+        # MinMax scaler per product fit on the same train slice. Used to scale
+        # neighbor (and target) node rows so every node fed to the GAT lives on
+        # a consistent train-fit [0,1] frame (same family as the per-product
+        # target `scaler` built later inside the product loop).
+        mm_scaler = MinMaxScaler()
+        mm_scaler.fit(train_ts)
+        product_minmax_scalers[item_id_iter] = mm_scaler
 
     os.makedirs('best_models', exist_ok=True)
     os.makedirs('grid_search_plots', exist_ok=True)
@@ -185,6 +196,12 @@ def main():
             exog_val = df_product[EXOG_COLS][val_slice].values
             exog_test = df_product[EXOG_COLS][test_slice].values
 
+            # Keep UNSCALED copies of val/test exog for leak-safe recursive
+            # inference (the lag_*/rolling_mean_excl_* columns will be
+            # recomputed from predicted targets and re-scaled per step).
+            exog_val_raw = exog_val.copy()
+            exog_test_raw = exog_test.copy()
+
             exog_scaler = MinMaxScaler()
             exog_train_scaled = exog_scaler.fit_transform(exog_train)
             exog_val_scaled = exog_scaler.transform(exog_val)
@@ -199,6 +216,8 @@ def main():
             exog_train_scaled = None
             exog_val_scaled = None
             exog_test_scaled = None
+            exog_val_raw = None
+            exog_test_raw = None
 
         for seed in SEEDS:
             os.environ['PYTHONHASHSEED'] = str(seed)
@@ -289,11 +308,27 @@ def main():
                         _mlp_recent = np.column_stack([
                             val[-lookback_window:].reshape(-1, 1), exog_val_scaled[-lookback_window:]
                         ]) if EXOG_COLS else val[-lookback_window:].reshape(-1, 1)
-                        mlp_forecast_bl = recursive_inference_mlp(
-                            model=mlp_model_bl, scaler=_mlp_scaler, recent_history=_mlp_recent,
-                            future_exog=exog_test_scaled if EXOG_COLS else np.zeros((forecast_horizon, 0)),
-                            target_channel=0, device=str(device),
-                        )
+                        if EXOG_COLS:
+                            # Leak-safe: recompute lag_*/rolling_mean_excl_* each step from the
+                            # running buffer of past+predicted UNSCALED targets, mirroring the
+                            # GAT path so the baseline does not peek at the true test target.
+                            mlp_forecast_bl = recursive_inference_mlp_dynamic_exog(
+                                model=mlp_model_bl,
+                                target_scaler=_mlp_scaler,
+                                exog_scaler=exog_scaler,
+                                exog_cols=EXOG_COLS,
+                                history_target_unscaled=val[-lookback_window:],
+                                history_exog_unscaled=exog_val_raw[-lookback_window:],
+                                future_exog_unscaled=exog_test_raw,
+                                target_channel=0,
+                                device=str(device),
+                            )
+                        else:
+                            mlp_forecast_bl = recursive_inference_mlp(
+                                model=mlp_model_bl, scaler=_mlp_scaler, recent_history=_mlp_recent,
+                                future_exog=np.zeros((forecast_horizon, 0)),
+                                target_channel=0, device=str(device),
+                            )
                         _vm = ~np.isnan(mlp_forecast_bl)
                         _vt, _vf     = test[_vm], np.array(mlp_forecast_bl)[_vm]
                         mlp_rmse_bl  = np.sqrt(mean_squared_error(_vt, _vf)) if len(_vt) > 0 else None
@@ -406,7 +441,8 @@ def main():
                         enable_edges_within_star=enable_edges,
                         enable_second_degree=enable_second_degree,
                         train_end_idx=val_start_idx,
-                        node_features=SELECTED_NODE_FEATURES
+                        node_features=SELECTED_NODE_FEATURES,
+                        node_scalers=product_minmax_scalers,
                     )
                     print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                     results_by_w_s[key]['threshold'] = fixed_threshold
@@ -460,6 +496,10 @@ def main():
                         include_cal_lookback=INCLUDE_CAL_LOOKBACK,
                         node_features=SELECTED_NODE_FEATURES,
                         cal_columns=EXOG_COLS,
+                        node_scalers=product_minmax_scalers,
+                        exog_scaler=exog_scaler if EXOG_COLS else None,
+                        exog_cols=EXOG_COLS if EXOG_COLS else None,
+                        future_exog_unscaled=exog_test_raw if EXOG_COLS else None,
                     )
                     infer_time = time.time() - start_infer
                         

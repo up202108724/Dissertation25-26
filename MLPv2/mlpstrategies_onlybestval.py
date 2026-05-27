@@ -55,7 +55,7 @@ WEIGHT_DECAY = 1e-4
 seeds = [42]
 #seeds = [42, 1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
 
-loss_type = 'quantile'
+loss_type = 'huber'
 
 
 # -----------------------------------------------------------------------------
@@ -74,7 +74,7 @@ def main():
     df = df.sort_values([DATE_COL, "item_id", "store_id"]).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     
-    target_products = [26008, 907969, 907967, 213626,911753]
+    target_products = [26008]
     #target_products = [911753] # Select first 5 unique products for testing
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
     strategies= ['best_val']

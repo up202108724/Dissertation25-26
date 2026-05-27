@@ -101,7 +101,8 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
 
 def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func, 
                         threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
-                        enable_edges_within_star=True, enable_second_degree=False, num_plots=None, train_end_idx=None, node_features=None):
+                        enable_edges_within_star=True, enable_second_degree=False, num_plots=None, train_end_idx=None, node_features=None,
+                        node_scalers=None):
     """
     Constructs a graph by iterating over sliding time windows of the time series data.
     Finds items within the specified metric thresholds or percentiles to product_id.
@@ -322,7 +323,13 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
         _storage_feats = ['ts'] + [f for f in _feats if f != 'ts']
         for n_id in graph_nodes:
             # Locate node row in the window
-            row = window_data.loc[n_id].values
+            row = window_data.loc[n_id].values.reshape(-1, 1)
+            # Per-product MinMax scaling so every node lives on the same [0,1]
+            # frame as the target's `scaler` (avoids the train-time scale
+            # mismatch between target MinMax and neighbor z-score / raw counts).
+            if node_scalers is not None and n_id in node_scalers:
+                row = node_scalers[n_id].transform(row)
+            row = row.ravel()
             features = generate_node_features(row, selected_features=_storage_feats)
             x_matrix.append(features)
             

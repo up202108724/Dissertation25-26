@@ -302,3 +302,108 @@ def recursive_inference_mlp(
     
     preds = scaler.inverse_transform(preds_scaled).flatten()
     return preds
+
+
+def _parse_dynamic_exog_cols(exog_cols):
+    """Return ({col: lag_k}, {col: window_w}) for `lag_*` and `rolling_mean_excl_*` columns."""
+    lag_cols, roll_cols = {}, {}
+    for col in exog_cols:
+        if col.startswith('lag_'):
+            try:
+                lag_cols[col] = int(col.split('_')[1])
+            except ValueError:
+                pass
+        elif col.startswith('rolling_mean_excl_'):
+            try:
+                roll_cols[col] = int(col.split('_')[-1])
+            except ValueError:
+                pass
+    return lag_cols, roll_cols
+
+
+def recursive_inference_mlp_dynamic_exog(
+    model: torch.nn.Module,
+    target_scaler,
+    exog_scaler,
+    exog_cols,
+    history_target_unscaled: np.ndarray,   # (lookback,) unscaled past target
+    history_exog_unscaled: np.ndarray,     # (lookback, n_exog) unscaled exog
+    future_exog_unscaled: np.ndarray,      # (horizon, n_exog) unscaled exog -- lag/rolling cols WILL BE OVERWRITTEN
+    target_channel: int = 0,
+    device: Optional[str] = None,
+) -> np.ndarray:
+    """Leak-safe recursive 1-step MLP inference.
+
+    For each forecast step, `lag_k` and `rolling_mean_excl_w` exog columns
+    are recomputed from the running buffer of (past + predicted) UNSCALED
+    target values, then the resulting row is re-scaled with `exog_scaler`
+    before being fed to the model. Mirrors the GAT branch's leak-safe
+    behaviour so the MLP baseline does not see the true test target via
+    pre-baked lag/rolling features.
+    """
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    exog_cols = list(exog_cols)
+    n_exog = len(exog_cols)
+    lookback = len(history_target_unscaled)
+    horizon = len(future_exog_unscaled)
+
+    lag_cols_d, roll_cols_d = _parse_dynamic_exog_cols(exog_cols)
+    col_idx = {c: i for i, c in enumerate(exog_cols)}
+
+    # Running buffer of UNSCALED past targets (history + predictions so far).
+    target_buffer = list(np.asarray(history_target_unscaled, dtype=np.float64).ravel())
+
+    # Pre-scale history exog (assumed leak-safe: came from training-time generation).
+    history_exog_scaled = exog_scaler.transform(
+        np.asarray(history_exog_unscaled, dtype=np.float64)
+    ).astype(np.float32)
+
+    # Scaled history target.
+    history_target_scaled = target_scaler.transform(
+        np.asarray(history_target_unscaled, dtype=np.float32).reshape(-1, 1)
+    ).ravel().astype(np.float32)
+
+    C_in = 1 + n_exog
+    exog_indices = [i for i in range(C_in) if i != target_channel]
+
+    # Assemble initial scaled (lookback, C_in) window with the same +1 exog
+    # shift used in `make_windows`: the last exog row corresponds to step t.
+    input_window = np.zeros((lookback, C_in), dtype=np.float32)
+    input_window[:, target_channel] = history_target_scaled
+    if exog_indices:
+        input_window[:-1, exog_indices] = history_exog_scaled[1:]
+        # last row's exog is filled at iter i=0 below
+
+    future_exog_unscaled = np.asarray(future_exog_unscaled, dtype=np.float64).copy()
+
+    preds_unscaled = []
+    model = model.to(device).eval()
+
+    with torch.no_grad():
+        for i in range(horizon):
+            row = future_exog_unscaled[i].copy()
+            for col, k in lag_cols_d.items():
+                idx = col_idx[col]
+                row[idx] = target_buffer[-k] if k <= len(target_buffer) else 0.0
+            for col, w in roll_cols_d.items():
+                idx = col_idx[col]
+                vals = target_buffer[-w:] if w <= len(target_buffer) else target_buffer
+                row[idx] = float(np.mean(vals)) if len(vals) > 0 else 0.0
+
+            row_scaled = exog_scaler.transform(row.reshape(1, -1)).ravel().astype(np.float32)
+            if exog_indices:
+                input_window[-1, exog_indices] = row_scaled
+
+            x_tensor = torch.from_numpy(input_window).float().unsqueeze(0).to(device)
+            y_pred = model(x_tensor)
+            val_pred_scaled = float(y_pred.view(-1)[0].item())
+            val_pred_unscaled = float(target_scaler.inverse_transform(
+                np.array([[val_pred_scaled]], dtype=np.float32)
+            ).ravel()[0])
+            preds_unscaled.append(val_pred_unscaled)
+            target_buffer.append(val_pred_unscaled)
+
+            input_window = np.roll(input_window, -1, axis=0)
+            input_window[-1, target_channel] = val_pred_scaled
+
+    return np.asarray(preds_unscaled, dtype=np.float32)

@@ -5,7 +5,24 @@ from utils import compute_distances_1vsAll, compute_similarities_1vsAll
 import networkx as nx
 import pandas as pd
 from torch_geometric.data import Data
-def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wide, cat_labels, date_cols, metric, fixed_threshold, enable_edges_within_star=True, enable_second_degree=False, node_features: list = None):
+
+
+def _parse_dynamic_exog_cols(exog_cols):
+    """Return ({col: lag_k}, {col: window_w}) for `lag_*` and `rolling_mean_excl_*` columns."""
+    lag_cols, roll_cols = {}, {}
+    for col in exog_cols:
+        if col.startswith('lag_'):
+            try:
+                lag_cols[col] = int(col.split('_')[-1])
+            except ValueError:
+                pass
+        elif col.startswith('rolling_mean_excl_'):
+            try:
+                roll_cols[col] = int(col.split('_')[-1])
+            except ValueError:
+                pass
+    return lag_cols, roll_cols
+def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wide, cat_labels, date_cols, metric, fixed_threshold, enable_edges_within_star=True, enable_second_degree=False, node_features: list = None, node_scalers: dict = None):
     
     from gat_pyg import generate_node_features
     
@@ -153,10 +170,16 @@ def build_dynamic_graph_with_calculated_threshold(target_id, target_preds, df_wi
     for n_id in graph_nodes:
         # Special logic for the central node because its current values are predictions
         if n_id == target_id:
-            features = generate_node_features(target_ts, selected_features=_storage_feats)
+            row = np.asarray(target_ts, dtype=float).reshape(-1, 1)
         else:
-            row = window_data.loc[n_id].values
-            features = generate_node_features(row, selected_features=_storage_feats)
+            row = window_data.loc[n_id].values.reshape(-1, 1)
+        # Per-product MinMax scaling so every node lives on the same [0,1]
+        # frame as the target's `scaler` (avoids the train-time scale mismatch
+        # between target MinMax and neighbor z-score / raw counts).
+        if node_scalers is not None and n_id in node_scalers:
+            row = node_scalers[n_id].transform(row)
+        row = row.ravel()
+        features = generate_node_features(row, selected_features=_storage_feats)
         x_matrix.append(features)
         
     x = torch.tensor(np.array(x_matrix), dtype=torch.float)
@@ -189,6 +212,11 @@ def recursive_inference_gat_mlp(
     include_cal_lookback: bool = False,
     node_features: list = None,
     cal_columns: list = None,
+    node_scalers: dict = None,
+    # --- Leak-safe dynamic exog (optional) ---
+    exog_scaler=None,
+    exog_cols: list = None,
+    future_exog_unscaled: np.ndarray = None,    # (horizon, n_exog) UNSCALED
 ) -> np.ndarray:
     """
     Recursive 1-step-ahead inference for the GATMLPForecaster.
@@ -198,11 +226,25 @@ def recursive_inference_gat_mlp(
       2. Override the target node's features with the full rolling lookback
          window (scaled) + next-step calendar features.
       3. Forward pass → 1-step prediction → unscale → append → shift window.
+
+    If `exog_scaler`, `exog_cols` and `future_exog_unscaled` are provided, the
+    function operates in LEAK-SAFE mode: every `lag_*` and
+    `rolling_mean_excl_*` column is recomputed each step from the running
+    buffer of (past + predicted) UNSCALED target values and re-scaled with
+    `exog_scaler`. In that mode the `future_exog` argument is ignored.
     """
     from torch_geometric.data import Batch
     from gat_pyg import generate_node_features
 
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+
+    dynamic_mode = (exog_scaler is not None and exog_cols is not None
+                    and future_exog_unscaled is not None)
+    if dynamic_mode:
+        exog_cols = list(exog_cols)
+        lag_cols_d, roll_cols_d = _parse_dynamic_exog_cols(exog_cols)
+        col_idx = {c: i for i, c in enumerate(exog_cols)}
+        future_exog_unscaled = np.asarray(future_exog_unscaled, dtype=np.float64).copy()
 
     recent_history = np.asarray(recent_history, dtype=np.float32)
     if recent_history.ndim == 1:
@@ -212,7 +254,13 @@ def recursive_inference_gat_mlp(
     lookback        = recent_history.shape[0]
     exog_indices    = [i for i in range(C_in) if i != target_channel]
     cal_dim         = len(exog_indices)
-    horizon         = len(future_exog)
+    horizon         = (len(future_exog_unscaled) if dynamic_mode else len(future_exog))
+
+    # Running buffer of UNSCALED past targets (history + preds). Used in
+    # dynamic mode to recompute lag/rolling features each step.
+    target_buffer_unscaled = list(
+        recent_history[:, target_channel].astype(np.float64).ravel()
+    )
 
     # Scale the target channel; keep exog as-is (already scaled by caller)
     x_scaled = recent_history.copy()
@@ -272,15 +320,36 @@ def recursive_inference_gat_mlp(
                 enable_edges_within_star=enable_edges_within_star,
                 enable_second_degree=enable_second_degree,
                 node_features=node_features,
+                node_scalers=node_scalers,
             )
 
             # ---- 2. Override node features with enhanced representations ----
             n_nodes = G_data.x.shape[0]
             x_new   = torch.zeros((n_nodes, feature_dim), dtype=torch.float32)
 
-            # Target node: full scaled lookback + [cal_lookback] + next-step calendar + stats
-            cal_next = (future_exog[i] if future_exog.ndim > 1
-                        else np.array([future_exog[i]], dtype=np.float32))
+            # Build next-step calendar features:
+            #   - dynamic mode: recompute lag/rolling from target_buffer_unscaled
+            #     and re-scale with exog_scaler.
+            #   - static mode: use the precomputed future_exog row as-is
+            #     (assumed already scaled by caller).
+            if dynamic_mode:
+                row_unscaled = future_exog_unscaled[i].copy()
+                for col, k in lag_cols_d.items():
+                    idx = col_idx[col]
+                    row_unscaled[idx] = (target_buffer_unscaled[-k]
+                                          if k <= len(target_buffer_unscaled) else 0.0)
+                for col, w in roll_cols_d.items():
+                    idx = col_idx[col]
+                    vals = (target_buffer_unscaled[-w:]
+                            if w <= len(target_buffer_unscaled) else target_buffer_unscaled)
+                    row_unscaled[idx] = float(np.mean(vals)) if len(vals) > 0 else 0.0
+                cal_next = exog_scaler.transform(
+                    row_unscaled.reshape(1, -1)
+                ).ravel().astype(np.float32)
+            else:
+                cal_next = (future_exog[i] if future_exog.ndim > 1
+                            else np.array([future_exog[i]], dtype=np.float32))
+
             cal_lb   = cal_window if include_cal_lookback else None
             
             selected_target = node_features 
@@ -323,6 +392,7 @@ def recursive_inference_gat_mlp(
 
             unscaled_val = scaler.inverse_transform([[val_pred]])[0, 0]
             preds_unscaled.append(unscaled_val)
+            target_buffer_unscaled.append(float(unscaled_val))
 
             # ---- 4. Shift rolling windows ----
             target_window_scaled = np.roll(target_window_scaled, -1)
@@ -336,80 +406,3 @@ def recursive_inference_gat_mlp(
     return np.array(preds_unscaled).flatten()
 
 
-def recursive_inference_no_graph(
-    model: torch.nn.Module,
-    scaler,
-    recent_history: np.ndarray,
-    future_exog: np.ndarray,
-    target_channel: int = 0,
-    device: Optional[str] = None,
-) -> np.ndarray:
-    """
-    Recursive inference for GATMLPForecaster with no graph (dummy single-node graph).
-    Mirrors the no-graph training path: a single isolated node with no edges is used
-    so the GATConv passes through only the self-loop, and the MLP branch drives predictions.
-    """
-    from torch_geometric.data import Batch, Data
-
-    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-
-    horizon = len(future_exog)
-    recent_history = np.asarray(recent_history, dtype=np.float32)
-    if recent_history.ndim == 1:
-        recent_history = recent_history[:, None]
-
-    C_in         = recent_history.shape[1]
-    lookback     = recent_history.shape[0]
-    exog_indices = [idx for idx in range(C_in) if idx != target_channel]
-    cal_dim      = len(exog_indices)
-
-    x_scaled = recent_history.copy()
-    x_scaled[:, target_channel:target_channel+1] = scaler.transform(
-        recent_history[:, target_channel:target_channel+1]
-    )
-
-    target_window_scaled = x_scaled[:, target_channel].copy()              # (lookback,)
-    cal_window           = x_scaled[:, exog_indices].copy() if cal_dim > 0 else None  # (lookback, cal_dim)
-
-    # Infer node feature dimension from the model's first GATConv layer
-    node_feat_dim = model.conv1.in_channels
-
-    preds_unscaled = []
-    model = model.to(device).eval()
-
-    with torch.no_grad():
-        for i in range(horizon):
-            # ---- Build ts_seq: (1, lookback, 1 + cal_dim) ----
-            _ts_t = torch.tensor(target_window_scaled, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
-            if cal_dim > 0 and cal_window is not None:
-                _ts_c = torch.tensor(cal_window, dtype=torch.float32).unsqueeze(0)
-                ts_seq = torch.cat([_ts_t, _ts_c], dim=-1).to(device)
-            else:
-                ts_seq = _ts_t.to(device)
-
-            # ---- Dummy single-node graph (no edges) ----
-            dummy_x    = torch.zeros((1, node_feat_dim), dtype=torch.float32)
-            dummy_graph = Data(
-                x=dummy_x,
-                edge_index=torch.empty((2, 0), dtype=torch.long),
-                edge_attr=torch.empty((0, 1), dtype=torch.float),
-            )
-            pyg_batch           = Batch.from_data_list([dummy_graph]).to(device)
-            target_node_indices = torch.tensor([0], dtype=torch.long, device=device)
-
-            y_pred   = model(pyg_batch, target_node_indices, ts_seq)
-            val_pred = y_pred.view(-1)[0].item()
-
-            unscaled_val = scaler.inverse_transform([[val_pred]])[0, 0]
-            preds_unscaled.append(unscaled_val)
-
-            # ---- Shift rolling windows ----
-            target_window_scaled = np.roll(target_window_scaled, -1)
-            target_window_scaled[-1] = val_pred
-            if cal_dim > 0 and cal_window is not None:
-                cal_next   = (future_exog[i] if future_exog.ndim > 1
-                              else np.array([future_exog[i]], dtype=np.float32))
-                cal_window = np.roll(cal_window, -1, axis=0)
-                cal_window[-1] = cal_next
-
-    return np.array(preds_unscaled).flatten()

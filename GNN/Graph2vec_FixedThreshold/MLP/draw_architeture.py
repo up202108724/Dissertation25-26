@@ -1,156 +1,170 @@
+"""
+Draws the Graph2Vec + MLP architecture diagram used in the dissertation.
+
+Two parallel pipelines feed a sliding-window construction block consumed by
+a fully-connected MLP:
+    1) Offline Graph2Vec pipeline (all-items -> sliding windows -> similarity
+       graphs -> Graph2Vec -> per-window graph embeddings).
+    2) Online inputs (target series + exogenous calendar features) that are
+       concatenated with the embeddings, flattened and passed through dense
+       layers to produce a direct multi-step forecast.
+
+Run:
+    python draw_architeture.py
+Produces:
+    graph2vec_mlp_architecture.png
+    graph2vec_mlp_architecture.pdf
+"""
+
 import os
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch
-
-# ─── colour palette ───────────────────────────────────────────────────────────
-C_DATA   = "#D6EAF8"   # light blue   – raw data
-C_GRAPH  = "#D5F5E3"   # light green  – graph construction
-C_G2V    = "#FADBD8"   # light red    – Graph2Vec
-C_EMB    = "#FEF9E7"   # pale yellow  – embeddings / features
-C_EXOG   = "#EBF5FB"   # very light blue – exogenous
-C_FLAT   = "#E8DAEF"   # lavender     – flatten
-C_HIDDEN = "#D7BDE2"   # purple       – hidden layers
-C_OUT    = "#FCF3CF"   # soft yellow  – output head
-C_FORE   = "#A9DFBF"   # mint green   – forecast
-EDGE     = "#2C3E50"
-# ──────────────────────────────────────────────────────────────────────────────
+from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 
-def fbox(ax, x, y, w, h, text, fc, fontsize=9.5, bold=False):
-    ax.add_patch(FancyBboxPatch(
+# ----------------------------- style ----------------------------------------
+COLORS = {
+    "input":   "#DCE9F7",   # light blue   - raw inputs
+    "process": "#D6ECD2",   # light green  - preprocessing
+    "model":   "#F4CCCC",   # light red    - learned model (Graph2Vec)
+    "embed":   "#FFF2CC",   # light yellow - embeddings / projections
+    "concat":  "#E0CFEE",   # light purple - feature fusion
+    "mlp":     "#C8A2DA",   # purple       - dense layers
+    "output":  "#B6D7A8",   # green        - forecast
+}
+EDGE = "#444444"
+
+
+def box(ax, xy, w, h, text, color, fontsize=10, bold=False):
+    x, y = xy
+    patch = FancyBboxPatch(
         (x, y), w, h,
-        boxstyle="round,pad=0.08",
-        facecolor=fc, edgecolor=EDGE, linewidth=1.6, zorder=3
-    ))
-    ax.text(x + w / 2, y + h / 2, text,
-            ha="center", va="center",
-            fontsize=fontsize, fontweight="bold" if bold else "normal",
-            zorder=4, multialignment="center")
+        boxstyle="round,pad=0.02,rounding_size=0.12",
+        linewidth=1.2, edgecolor=EDGE, facecolor=color,
+    )
+    ax.add_patch(patch)
+    ax.text(
+        x + w / 2, y + h / 2, text,
+        ha="center", va="center",
+        fontsize=fontsize,
+        fontweight="bold" if bold else "normal",
+        wrap=True,
+    )
+    return (x + w / 2, y, x + w / 2, y + h)  # cx, ybottom, cx, ytop
 
 
-def arr(ax, x0, y0, x1, y1, style="arc3,rad=0.0"):
-    ax.annotate("", xy=(x1, y1), xytext=(x0, y0),
-                arrowprops=dict(
-                    arrowstyle="-|>", color=EDGE, lw=1.6,
-                    connectionstyle=style, mutation_scale=14
-                ), zorder=2)
+def arrow(ax, p1, p2, style="-", curve=0.0):
+    ax.add_patch(
+        FancyArrowPatch(
+            p1, p2,
+            arrowstyle="-|>", mutation_scale=14,
+            linewidth=1.2, color=EDGE,
+            connectionstyle=f"arc3,rad={curve}",
+            linestyle=style,
+        )
+    )
 
 
-def draw_architecture():
-    fig, ax = plt.subplots(figsize=(17, 14))
-    ax.set_xlim(0, 17)
-    ax.set_ylim(-1.4, 15.5)
+def main():
+    fig, ax = plt.subplots(figsize=(13, 12))
+    ax.set_xlim(0, 13)
+    ax.set_ylim(-1.5, 11.5)
     ax.axis("off")
-    fig.patch.set_facecolor("#FDFEFE")
-    ax.set_facecolor("#FDFEFE")
 
-    ax.text(8.5, 15.0, "Graph2Vec  +  MLP  Architecture",
-            ha="center", va="center", fontsize=16,
-            fontweight="bold", color=EDGE)
+    # ----------- column headers ---------------------------------------------
+    ax.text(2.0, 11.05, "Graph2Vec\npipeline", ha="center", va="center",
+            fontsize=10, style="italic", color="#555")
+    ax.text(6.5, 11.05, "Temporal\ninput", ha="center", va="center",
+            fontsize=10, style="italic", color="#555")
+    ax.text(11.0, 11.05, "Exogenous\ninput", ha="center", va="center",
+            fontsize=10, style="italic", color="#555")
 
-    # ── box geometry ─────────────────────────────────────────────────────────
-    BW  = 3.3    # standard box width
-    BH  = 0.85   # standard box height
-    CBW = 8.8    # central wide box width
-    CBX = 4.1    # x-start of central blocks
-    MCX = CBX + CBW / 2   # ≈ 8.5  – centre x of central column
+    # Title
+    ax.text(6.5, 11.4, "Graph2Vec + MLP Architecture",
+            ha="center", va="center", fontsize=14, fontweight="bold")
 
-    # ── LEFT COLUMN  (Graph2Vec pipeline) ────────────────────────────────────
-    LX  = 0.15
-    LC  = LX + BW / 2
+    # ----------- LEFT column: Graph2Vec pipeline ----------------------------
+    b1 = box(ax, (0.6, 9.6), 2.8, 0.8,
+             "All-Items\nTime Series", COLORS["input"])
+    b2 = box(ax, (0.6, 8.4), 2.8, 0.8,
+             "Sliding Windows\n(width = 15, step = 1)", COLORS["process"])
+    b3 = box(ax, (0.6, 7.2), 2.8, 0.8,
+             "Similarity Graphs\n(Spearman / DTW / CID ...)", COLORS["process"])
+    b4 = box(ax, (0.6, 6.0), 2.8, 0.8,
+             "Graph2Vec Model\n(WL Kernel + Doc2Vec)",
+             COLORS["model"], bold=True)
+    b5 = box(ax, (0.6, 4.8), 2.8, 0.8,
+             "Graph Embeddings\n(dim = 20 per window)", COLORS["embed"])
 
-    left_ys   = [13.3, 11.5, 9.7, 7.9, 6.1]
-    left_meta = [
-        ("All-Items\nTime Series",                   C_DATA,  False),
-        ("Sliding Windows\n(width=15, step=1)",       C_GRAPH, False),
-        ("Similarity Graphs\n(Spearman / DTW / CID …)", C_GRAPH, False),
-        ("Graph2Vec Model\n(WL Kernel  +  Doc2Vec)",  C_G2V,   True),
-        ("Graph Embeddings\n(dim = 20 per window)",   C_EMB,   False),
-    ]
+    for a, b in [(b1, b2), (b2, b3), (b3, b4), (b4, b5)]:
+        arrow(ax, (a[0], a[1]), (b[2], b[3]))
 
-    for (txt, col, bold), y in zip(left_meta, left_ys):
-        fbox(ax, LX, y, BW, BH, txt, fc=col, bold=bold)
+    # ----------- MIDDLE column: Target series -------------------------------
+    t1 = box(ax, (5.0, 9.6), 3.0, 0.8,
+             "Target Time Series  (MinMax Scaled)", COLORS["input"])
 
-    for i in range(len(left_ys) - 1):
-        arr(ax, LC, left_ys[i], LC, left_ys[i + 1] + BH)
+    # ----------- RIGHT column: Exogenous ------------------------------------
+    e1 = box(ax, (9.6, 9.6), 3.0, 0.8,
+             "Exogenous Features\n(Calendar, Holidays — 28 cols)",
+             COLORS["input"])
 
-    # ── CENTRE COLUMN  (Target time series) ──────────────────────────────────
-    TC = CBX + 1.5 + (BW + 0.2) / 2    # ≈ 7.75
-    fbox(ax, CBX + 1.5, 13.3, BW + 0.2, BH,
-         "Target Time Series  (MinMax Scaled)", C_DATA)
+    # ----------- Sliding-window construction (fusion) ----------------------
+    concat = box(
+        ax, (3.2, 3.3), 6.6, 1.0,
+        "Sliding-Window Construction\n"
+        "[ Target  |  Exog. Features  |  Graph Embeddings ]\n"
+        "Window shape:  (lookback = 15,  1 + 28 + 20 = 49 channels)",
+        COLORS["concat"],
+    )
 
-    # ── RIGHT COLUMN  (Exogenous features) ───────────────────────────────────
-    RX = 12.9
-    RC = RX + BW / 2
-    fbox(ax, RX, 13.3, BW + 0.4, BH,
-         "Exogenous Features\n(Calendar, Holidays — 28 cols)", C_EXOG)
+    # arrows into the fusion block
+    arrow(ax, (b5[0], b5[1]), (4.2, 4.3), curve=-0.1)
+    arrow(ax, (t1[0], t1[1]), (6.5, 4.3))
+    arrow(ax, (e1[0], e1[1]), (8.8, 4.3), curve=0.15)
 
-    # ── WINDOW CONSTRUCTION (merge point) ────────────────────────────────────
-    WIN_Y = 4.5
-    fbox(ax, CBX, WIN_Y, CBW, BH + 0.3,
-         "Sliding-Window Construction\n"
-         "[ Target  |  Exog. Features  |  Graph Embeddings ]\n"
-         "Window shape:  (lookback=15,  1 + 28 + 20 = 49  channels)",
-         C_FLAT, fontsize=9, bold=True)
+    # ----------- MLP head ---------------------------------------------------
+    flat = box(ax, (3.8, 2.3), 5.4, 0.65,
+               "Flatten  →  (15 × 49 = 735 features)",
+               COLORS["concat"])
+    arrow(ax, (concat[0], concat[1]), (flat[2], flat[3]))
 
-    arr(ax, LC,  left_ys[-1],  CBX + 0.3,        WIN_Y + (BH + 0.3) / 2,  style="arc3,rad=-0.25")
-    arr(ax, TC,  13.3,         CBX + CBW / 2,    WIN_Y + BH + 0.3,         style="arc3,rad=0.0")
-    arr(ax, RC,  13.3,         CBX + CBW - 0.3,  WIN_Y + (BH + 0.3) / 2,  style="arc3,rad=0.25")
+    h1 = box(ax, (3.8, 1.4), 5.4, 0.7,
+             "Linear(735 → 64)  +  ReLU  +  Dropout",
+             COLORS["mlp"], bold=False)
+    arrow(ax, (flat[0], flat[1]), (h1[2], h1[3]))
 
-    # ── FLATTEN ───────────────────────────────────────────────────────────────
-    FLAT_Y = 3.0
-    fbox(ax, CBX, FLAT_Y, CBW, BH,
-         "Flatten   →   (15 × 49 = 735  features)",
-         C_FLAT, bold=False)
-    arr(ax, MCX, WIN_Y, MCX, FLAT_Y + BH)
+    h2 = box(ax, (3.8, 0.5), 5.4, 0.7,
+             "Linear(64 → 32)  +  ReLU  +  Dropout",
+             COLORS["mlp"], bold=False)
+    arrow(ax, (h1[0], h1[1]), (h2[2], h2[3]))
 
-    # ── HIDDEN LAYER 1 ────────────────────────────────────────────────────────
-    H1_Y = 1.7
-    fbox(ax, CBX, H1_Y, CBW, BH,
-         "Linear(735 → 64)   +   ReLU   +   Dropout",
-         C_HIDDEN, bold=False)
-    arr(ax, MCX, FLAT_Y, MCX, H1_Y + BH)
+    head = box(ax, (3.5, -0.5), 6.0, 0.7,
+               "Linear(32 → horizon × 1)  →  reshape (horizon, 1)",
+               COLORS["embed"])
+    arrow(ax, (h2[0], h2[1]), (head[2], head[3]))
 
-    # ── HIDDEN LAYER 2 ────────────────────────────────────────────────────────
-    H2_Y = 0.4
-    fbox(ax, CBX, H2_Y, CBW, BH,
-         "Linear(64 → 32)   +   ReLU   +   Dropout",
-         C_HIDDEN, bold=False)
-    arr(ax, MCX, H1_Y, MCX, H2_Y + BH)
+    # Forecast caption
+    ax.text(6.5, -1.05, "Forecast  (inverse-scaled)",
+            ha="center", va="center", fontsize=11,
+            fontweight="bold", color="#2a4d9b")
 
-    # ── OUTPUT HEAD ───────────────────────────────────────────────────────────
-    OUT_Y = -0.9
-    fbox(ax, CBX, OUT_Y, CBW, BH,
-         "Linear(32 → horizon × 1)   →   reshape  (horizon, 1)",
-         C_OUT, bold=False)
-    arr(ax, MCX, H2_Y, MCX, OUT_Y + BH)
+    # ----------- Stage separator -------------------------------------------
+    ax.plot([0.3, 12.7], [4.55, 4.55], linestyle=(0, (4, 4)),
+            color="#888", linewidth=0.8)
+    ax.text(0.35, 4.65, "Offline pre-processing  (Graph2Vec)",
+            fontsize=8, color="#666")
+    ax.text(0.35, 4.35, "Online training / inference  (MLP)",
+            fontsize=8, color="#666")
 
-    # ── FORECAST ─────────────────────────────────────────────────────────────
-    FORE_W = 3.6
-    FORE_X = MCX - FORE_W / 2
-    # no extra box below – label on the arrow
-    ax.text(MCX, OUT_Y - 0.45, "Forecast  (inverse-scaled)",
-            ha="center", va="center",
-            fontsize=10.5, fontweight="bold", color="#1A5276", zorder=4)
+    plt.tight_layout()
 
-    # ── SECTION LABELS ────────────────────────────────────────────────────────
-    for sx, stxt in [(LC, "Graph2Vec\nPipeline"), (TC, "Temporal\nInput"), (RC, "Exogenous\nInput")]:
-        ax.text(sx, 14.5, stxt, ha="center", va="center",
-                fontsize=8.5, color="#7F8C8D", style="italic")
-
-    # dashed separator: offline vs online
-    ax.axhline(y=5.85, xmin=0.01, xmax=0.99, color="#BDC3C7", lw=1, linestyle="--", zorder=1)
-    ax.text(0.05, 6.0,  "↑  Offline pre-processing  (Graph2Vec)", fontsize=7.5, color="#95A5A6")
-    ax.text(0.05, 5.55, "↓  Online training / inference  (MLP)",  fontsize=7.5, color="#95A5A6")
-
-    # ── SAVE ─────────────────────────────────────────────────────────────────
-    plt.tight_layout(pad=0.5)
-    out_dir  = os.path.dirname(os.path.abspath(__file__))
-    out_path = os.path.join(out_dir, "architecture_graph2vec_mlp.png")
-    plt.savefig(out_path, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
-    print(f"Saved → {out_path}")
-    plt.show()
+    out_dir = os.path.dirname(os.path.abspath(__file__))
+    png_path = os.path.join(out_dir, "graph2vec_mlp_architecture.png")
+    pdf_path = os.path.join(out_dir, "graph2vec_mlp_architecture.pdf")
+    plt.savefig(png_path, dpi=220, bbox_inches="tight")
+    plt.savefig(pdf_path, bbox_inches="tight")
+    print(f"Saved: {png_path}")
+    print(f"Saved: {pdf_path}")
 
 
 if __name__ == "__main__":
-    draw_architecture()
+    main()

@@ -166,7 +166,7 @@ if graphs:
     if 'Date' in df_stats.columns and not df.empty:
         df_stats['Date'] = pd.to_datetime(df_stats['Date'])
         
-    display(df_stats.head())
+    
 
 
 import matplotlib.dates as mdates
