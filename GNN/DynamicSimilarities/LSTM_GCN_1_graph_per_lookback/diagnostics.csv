@@ -1,0 +1,1 @@
+product_id,store_id,seed,metric,window_size,step_size,threshold,percentile,enable_edges,enable_second_degree,ablate_z,num_edges_mean,epoch,train_loss,val_loss,z_norm_mean,z_var_mean,grad_norm_gcn,grad_norm_lstm,grad_ratio_gcn_lstm
