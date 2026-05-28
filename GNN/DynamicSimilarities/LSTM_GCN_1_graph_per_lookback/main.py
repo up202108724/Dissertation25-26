@@ -101,7 +101,7 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.50, 0.70, 0.85, 0.95, 0.99]},
+    {'metric': 'spearman', 'thresholds': [0.70, 0.85, 0.95, 0.99]},
 ]
 
 window_sizes              = [15]
@@ -121,6 +121,7 @@ SAVE_MODELS    = False
 SAVE_PLOTS     = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
+GCN_NODE_FEATURES = 8           # output width of _window_node_features(); used for ablation dummy graphs
 
 # ── Diagnostic switches ───────────────────────────────────────────────────
 # Grid of ablation modes to run in a single execution:
@@ -337,60 +338,78 @@ def main():
                           f"2nd_degree={enable_second_degree}")
                     print(f"{'='*60}")
 
-                    # ── 1. Build per-window NX graphs ────────────────────────
+                    # ── 1 & 2. Graph pipeline (skipped for ablation) ─────────
                     metric_type = infer_metric_type(metric)
-                    distance_metrics = ['euclidean', 'manhattan', 'hamming', 'amplitude_offset',
-                                        'slope_consistency', 'phase_invariance', 'dtw', 'cid',
-                                        'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
-                    current_df_wide = df_wide_scaled if metric in distance_metrics else df_wide_global
-                    compute_func = (compute_distances_1vsAll if metric_type == 'distance'
-                                    else compute_similarities_1vsAll)
+                    if ablate_z:
+                        # GCN output is zeroed in forward(); building hundreds of
+                        # sliding-window graphs would be pure waste.  Pass dummy
+                        # single-node placeholder graphs instead.
+                        fixed_threshold = None
+                        results_by_w_s[key]['threshold'] = fixed_threshold
+                        _dummy = Data(
+                            x=torch.zeros(1, GCN_NODE_FEATURES, dtype=torch.float32),
+                            edge_index=torch.tensor([[0], [0]], dtype=torch.long),
+                            edge_attr=torch.zeros(1, 1, dtype=torch.float32),
+                            num_nodes=1,
+                        )
+                        pyg_train         = [_dummy] * (val_start_idx  - train_start_idx)
+                        pyg_val           = [_dummy] * (test_start_idx - val_start_idx)
+                        pyg_seed_graphs   = [_dummy] * seq_length
+                        pyg_future_graphs = [_dummy] * forecast_horizon
+                    else:
+                        # ── 1. Build per-window NX graphs ────────────────────
+                        distance_metrics = ['euclidean', 'manhattan', 'hamming', 'amplitude_offset',
+                                            'slope_consistency', 'phase_invariance', 'dtw', 'cid',
+                                            'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
+                        current_df_wide = df_wide_scaled if metric in distance_metrics else df_wide_global
+                        compute_func = (compute_distances_1vsAll if metric_type == 'distance'
+                                        else compute_similarities_1vsAll)
 
-                    nx_graphs, fixed_threshold = neighbourhood_graph(
-                        product_id=product_id,
-                        df=current_df_wide,
-                        metric=metric,
-                        metric_type=metric_type,
-                        window_size=window_size,
-                        compute_func=compute_func,
-                        threshold=current_threshold if is_threshold_mode else None,
-                        percentile=current_percentile if not is_threshold_mode else None,
-                        step_size=step_size,
-                        cat_labels=cat_labels_dict,
-                        plot_dir=None,
-                        residuals=USE_RESIDUALS,
-                        enable_edges_within_star=enable_edges,
-                        enable_second_degree=enable_second_degree,
-                        train_end_idx=global_val_start_idx,
-                    )
-                    print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
-                    results_by_w_s[key]['threshold'] = fixed_threshold
+                        nx_graphs, fixed_threshold = neighbourhood_graph(
+                            product_id=product_id,
+                            df=current_df_wide,
+                            metric=metric,
+                            metric_type=metric_type,
+                            window_size=window_size,
+                            compute_func=compute_func,
+                            threshold=current_threshold if is_threshold_mode else None,
+                            percentile=current_percentile if not is_threshold_mode else None,
+                            step_size=step_size,
+                            cat_labels=cat_labels_dict,
+                            plot_dir=None,
+                            residuals=USE_RESIDUALS,
+                            enable_edges_within_star=enable_edges,
+                            enable_second_degree=enable_second_degree,
+                            train_end_idx=global_val_start_idx,
+                        )
+                        print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
+                        results_by_w_s[key]['threshold'] = fixed_threshold
 
-                    # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
-                    pyg_windows = build_pyg_graphs_from_nx_windows(
-                        nx_graphs, current_df_wide, product_id,
-                        window_size=window_size, step_size=step_size,
-                    )
-                    T_global = current_df_wide.shape[1]
-                    pyg_aligned_global = _align_pyg_windows_to_timeline(
-                        pyg_windows, window_size=window_size,
-                        step_size=step_size, T=T_global,
-                    )
-                    product_offset = T_global - len(df_p)
-                    pyg_train = pyg_aligned_global[product_offset + train_start_idx:
-                                                   product_offset + val_start_idx]
-                    pyg_val   = pyg_aligned_global[product_offset + val_start_idx:
-                                                   product_offset + test_start_idx]
+                        # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
+                        pyg_windows = build_pyg_graphs_from_nx_windows(
+                            nx_graphs, current_df_wide, product_id,
+                            window_size=window_size, step_size=step_size,
+                        )
+                        T_global = current_df_wide.shape[1]
+                        pyg_aligned_global = _align_pyg_windows_to_timeline(
+                            pyg_windows, window_size=window_size,
+                            step_size=step_size, T=T_global,
+                        )
+                        product_offset = T_global - len(df_p)
+                        pyg_train = pyg_aligned_global[product_offset + train_start_idx:
+                                                       product_offset + val_start_idx]
+                        pyg_val   = pyg_aligned_global[product_offset + val_start_idx:
+                                                       product_offset + test_start_idx]
 
-                    # Inference seed: the L per-day graphs ending at the last validation day.
-                    seed_start = product_offset + test_start_idx - seq_length
-                    seed_end   = product_offset + test_start_idx
-                    pyg_seed_graphs = pyg_aligned_global[seed_start:seed_end]
+                        # Inference seed: the L per-day graphs ending at the last validation day.
+                        seed_start = product_offset + test_start_idx - seq_length
+                        seed_end   = product_offset + test_start_idx
+                        pyg_seed_graphs = pyg_aligned_global[seed_start:seed_end]
 
-                    # Future graphs aligned to each forecast day t in [test_start, test_start+H)
-                    fut_start = product_offset + test_start_idx
-                    fut_end   = fut_start + forecast_horizon
-                    pyg_future_graphs = pyg_aligned_global[fut_start:fut_end]
+                        # Future graphs aligned to each forecast day t in [test_start, test_start+H)
+                        fut_start = product_offset + test_start_idx
+                        fut_end   = fut_start + forecast_horizon
+                        pyg_future_graphs = pyg_aligned_global[fut_start:fut_end]
 
                     # ── 3. Datasets / loaders (PER-STEP) ─────────────────────
                     use_pin_memory = torch.cuda.is_available()

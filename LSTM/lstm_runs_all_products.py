@@ -30,14 +30,14 @@ from plots import plot_results
 from utils import generate_exogenous_features
 from lstm import LSTM
 from dataset import TimeSeriesDataset
-from train import (
+from LSTM.lstm_train import (
     train_model,
     train_model_best_train_loss,
     train_model_combined,
     train_model_expanding_window,
     train_model_sliding_window,
 )
-from inference import recursive_inference
+from LSTM.lstm_inference import recursive_inference
 
 # -----------------------------------------------------------------------------
 # Configuration

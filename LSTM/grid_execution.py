@@ -20,7 +20,7 @@ from lstm import LSTM
 from dataset import TimeSeriesDataset
 from model_utils.utils import generate_exogenous_features, compute_metrics 
 from plots import plot_results
-from train import train_model
+from LSTM.lstm_train import train_model
 
 # Constants
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
