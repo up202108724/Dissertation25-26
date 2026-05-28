@@ -1,0 +1,2 @@
+product_id,store_id,seed,metric,window_size,step_size,threshold,percentile,enable_edges,enable_second_degree,ablate_z,rmse,mae,bias,r2_score,pocid
+26008,6269,42,spearman,15,1,0.5,,True,False,True,49.85020775172983,26.8818416595459,-5.929514193067364,33.12794283901823,0.6842105263157895

@@ -61,12 +61,17 @@ def select_best_seasonal_smooth(df, top_n=100, max_zero_rate=0.2, sales_col='val
 # Example usage:
 # subset_rows, top_summary = select_best_seasonal_smooth(df_classified, top_n=50, max_zero_rate=0.15)
 
-def generate_exogenous_features(df, exog_cols, date_col='date'):
+def generate_exogenous_features(df, exog_cols, date_col='date', target_col='value', group_cols=None):
     """
     Generates specific calendar, cyclical, and holiday exogenous features for a DataFrame
     based on the provided `exog_cols` list.
     """
     df = df.copy()
+    
+    if group_cols is None:
+        group_cols = [c for c in ['item_id', 'store_id'] if c in df.columns]
+        if not group_cols:
+            group_cols = None
     
     # -----------------------------------------------------------------------------
     # FEATURE BUILDER DICTIONARY
@@ -190,18 +195,42 @@ def generate_exogenous_features(df, exog_cols, date_col='date'):
                 target_date = h - pd.Timedelta(days=lag) if is_pre else h + pd.Timedelta(days=lag)
                 df.loc[df[date_col] == target_date, col] = 1
                 
+        elif col.startswith("lag_"):
+            lag = int(col.split("_")[-1])
+            if group_cols:
+                df[col] = df.groupby(group_cols)[target_col].shift(lag).fillna(0)
+            else:
+                df[col] = df[target_col].shift(lag).fillna(0)
+                
+        elif col.startswith("rolling_mean_excl_"):
+            window = int(col.split("_")[-1])
+            if group_cols:
+                df[col] = df.groupby(group_cols)[target_col].transform(
+                    lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
+                ).fillna(0)
+            else:
+                df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
+
+        elif col.startswith("rolling_mean_"):
+            # NOTE: leak-safe version — excludes the current observation by shifting one step.
+            # The previous implementation included y_t in the mean, which leaks the target at training time.
+            window = int(col.split("_")[-1])
+            if group_cols:
+                df[col] = df.groupby(group_cols)[target_col].transform(
+                    lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
+                ).fillna(0)
+            else:
+                df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
+
         elif col == "is_bridge_day":
             _, holiday_dates = get_holiday_dates()
-            holiday_set = set(holiday_dates)
-            
-            df[col] = 0
-            for idx in df.index:
-                d = df.at[idx, date_col]
-                prev_day = d - pd.Timedelta(days=1)
-                next_day = d + pd.Timedelta(days=1)
-                if ((prev_day in holiday_set and d.dayofweek == 4) or 
-                    (next_day in holiday_set and d.dayofweek == 0)):
-                    df.at[idx, col] = 1
+            holiday_set = set(pd.to_datetime(holiday_dates).normalize())
+
+            d = df[date_col].dt.normalize()
+            prev_is_holiday = (d - pd.Timedelta(days=1)).isin(holiday_set)
+            next_is_holiday = (d + pd.Timedelta(days=1)).isin(holiday_set)
+            dow = d.dt.dayofweek
+            df[col] = ((prev_is_holiday & (dow == 4)) | (next_is_holiday & (dow == 0))).astype(int)
 
         elif col in df.columns:
             # If the column exists in the dataset natively (e.g., store_id, cat_label) and isn't a builder key, just pass
@@ -211,5 +240,3 @@ def generate_exogenous_features(df, exog_cols, date_col='date'):
             print(f"Warning: Builder for feature '{col}' not found.")
 
     return df
-
-
