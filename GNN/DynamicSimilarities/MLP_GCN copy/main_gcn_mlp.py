@@ -109,7 +109,7 @@ EXOG_COLS = [
 
 
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.70, 0.75, 0.82, 0.85, 0.88, 0.91]},
+    {'metric': 'spearman', 'thresholds': [0.70,0.75, 0.82, 0.85, 0.88, 0.91]},
 ]
 
 window_sizes              = [15]
@@ -134,6 +134,11 @@ GCN_NODE_FEATURES = None     # set dynamically to window_size (raw sequence feat
 # Grid of ablation modes — True: zero-out z (no GCN signal); False: full model.
 ABLATE_Z_VALUES = [True, False]
 DIAG_CSV_NAME  = "diagnostics.csv"
+
+# Node feature mode for GCN graphs.
+# 'raw'   — full window sequence as node features (shape: n_nodes × window_size)
+# 'stats' — 8-dim statistical summary per node (mean, std, min, max, first, last, slope, sum)
+NODE_FEATURE_MODE = 'raw'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -326,8 +331,9 @@ def main():
                         # graphs would be pure waste.  Dummy placeholder graphs.
                         fixed_threshold = None
                         results_by_w_s[key]['threshold'] = fixed_threshold
+                        _dummy_in_channels = 8 if NODE_FEATURE_MODE == 'stats' else window_size
                         _dummy = Data(
-                            x=torch.zeros(1, window_size, dtype=torch.float32),
+                            x=torch.zeros(1, _dummy_in_channels, dtype=torch.float32),
                             edge_index=torch.tensor([[0], [0]], dtype=torch.long),
                             edge_attr=torch.zeros(1, 1, dtype=torch.float32),
                             num_nodes=1,
@@ -338,10 +344,11 @@ def main():
                         pyg_future_graphs = [_dummy] * forecast_horizon
                     else:
                         # ── 1. Build per-window NX graphs ────────────────────
-                        distance_metrics = ['euclidean', 'manhattan', 'hamming', 'amplitude_offset',
-                                            'slope_consistency', 'phase_invariance', 'dtw', 'cid',
-                                            'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
-                        current_df_wide = df_wide_scaled if metric in distance_metrics else df_wide_global
+                        # Always use df_wide_scaled (per-product z-score, fit on train only).
+                        # Distance metrics need scaling; similarity metrics (Spearman/Pearson)
+                        # are scale-invariant so topology is unchanged.  Node features are
+                        # already normalised, so node_scalers is never needed.
+                        current_df_wide = df_wide_scaled
                         compute_func = (compute_distances_1vsAll if metric_type == 'distance'
                                         else compute_similarities_1vsAll)
 
@@ -369,6 +376,7 @@ def main():
                         pyg_windows = build_pyg_graphs_from_nx_windows(
                             nx_graphs, current_df_wide, product_id,
                             window_size=window_size, step_size=step_size,
+                            node_feature_mode=NODE_FEATURE_MODE,
                         )
                         T_global = current_df_wide.shape[1]
                         pyg_aligned_global = _align_pyg_windows_to_timeline(
@@ -473,30 +481,6 @@ def main():
                             val_losses   = history['val_losses']
                     else:
                         print("Training new per-step GCN+MLP model...")
-                        diag_suffix = "_ablation" if ablate_z else ""
-                        diag_csv_path = os.path.join(
-                            SCRIPT_DIR,
-                            DIAG_CSV_NAME.replace(".csv", f"{diag_suffix}.csv"),
-                        )
-                        num_edges_per_window = [
-                            int(g.edge_index.shape[1] // 2) for g in pyg_train
-                        ]
-                        num_edges_mean = (
-                            float(np.mean(num_edges_per_window))
-                            if num_edges_per_window else 0.0
-                        )
-                        diag_meta = {
-                            "product_id": product_id,
-                            "store_id": store_id,
-                            "metric": metric,
-                            "window_size": window_size,
-                            "step_size": step_size,
-                            "threshold": current_threshold,
-                            "percentile": current_percentile,
-                            "enable_edges": enable_edges,
-                            "enable_second_degree": enable_second_degree,
-                            "num_edges_mean": num_edges_mean,
-                        }
                         model, train_losses, val_losses, best_epoch, train_time = train_model(
                             seed=seed, epochs=EPOCHS, model=model,
                             train_loader=train_loader, val_loader=val_loader,
@@ -504,7 +488,6 @@ def main():
                             optimizer=optimizer, device=device,
                             best_model_path=best_model_path if SAVE_MODELS else None,
                             scheduler=scheduler, patience=PATIENCE,
-                            diag_csv_path=diag_csv_path, diag_meta=diag_meta,
                         )
                         if SAVE_MODELS:
                             with open(history_path, 'wb') as f:

@@ -109,7 +109,7 @@ EXOG_COLS = [
 
 
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.70, 0.75, 0.82, 0.85, 0.88, 0.91]},
+    {'metric': 'spearman', 'thresholds': [0.70,0.75, 0.82, 0.85, 0.88, 0.91]},
 ]
 
 window_sizes              = [15]
@@ -134,6 +134,13 @@ GCN_NODE_FEATURES = None     # set dynamically to window_size (raw sequence feat
 # Grid of ablation modes — True: zero-out z (no GCN signal); False: full model.
 ABLATE_Z_VALUES = [True, False]
 DIAG_CSV_NAME  = "diagnostics.csv"
+# Set True to emit inference_graph_log.csv with per-step neighbourhood data.
+RECORD_INFERENCE_GRAPHS = False
+
+# Node feature mode for GCN graphs.
+# 'raw'   — full window sequence as node features (shape: n_nodes × window_size)
+# 'stats' — 8-dim statistical summary per node (mean, std, min, max, first, last, slope, sum)
+NODE_FEATURE_MODE = 'raw'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -326,8 +333,9 @@ def main():
                         # graphs would be pure waste.  Dummy placeholder graphs.
                         fixed_threshold = None
                         results_by_w_s[key]['threshold'] = fixed_threshold
+                        _dummy_in_channels = 8 if NODE_FEATURE_MODE == 'stats' else window_size
                         _dummy = Data(
-                            x=torch.zeros(1, window_size, dtype=torch.float32),
+                            x=torch.zeros(1, _dummy_in_channels, dtype=torch.float32),
                             edge_index=torch.tensor([[0], [0]], dtype=torch.long),
                             edge_attr=torch.zeros(1, 1, dtype=torch.float32),
                             num_nodes=1,
@@ -370,6 +378,7 @@ def main():
                         pyg_windows = build_pyg_graphs_from_nx_windows(
                             nx_graphs, current_df_wide, product_id,
                             window_size=window_size, step_size=step_size,
+                            node_feature_mode=NODE_FEATURE_MODE,
                         )
                         T_global = current_df_wide.shape[1]
                         pyg_aligned_global = _align_pyg_windows_to_timeline(
@@ -474,30 +483,6 @@ def main():
                             val_losses   = history['val_losses']
                     else:
                         print("Training new per-step GCN+MLP model...")
-                        diag_suffix = "_ablation" if ablate_z else ""
-                        diag_csv_path = os.path.join(
-                            SCRIPT_DIR,
-                            DIAG_CSV_NAME.replace(".csv", f"{diag_suffix}.csv"),
-                        )
-                        num_edges_per_window = [
-                            int(g.edge_index.shape[1] // 2) for g in pyg_train
-                        ]
-                        num_edges_mean = (
-                            float(np.mean(num_edges_per_window))
-                            if num_edges_per_window else 0.0
-                        )
-                        diag_meta = {
-                            "product_id": product_id,
-                            "store_id": store_id,
-                            "metric": metric,
-                            "window_size": window_size,
-                            "step_size": step_size,
-                            "threshold": current_threshold,
-                            "percentile": current_percentile,
-                            "enable_edges": enable_edges,
-                            "enable_second_degree": enable_second_degree,
-                            "num_edges_mean": num_edges_mean,
-                        }
                         model, train_losses, val_losses, best_epoch, train_time = train_model(
                             seed=seed, epochs=EPOCHS, model=model,
                             train_loader=train_loader, val_loader=val_loader,
@@ -505,7 +490,6 @@ def main():
                             optimizer=optimizer, device=device,
                             best_model_path=best_model_path if SAVE_MODELS else None,
                             scheduler=scheduler, patience=PATIENCE,
-                            diag_csv_path=diag_csv_path, diag_meta=diag_meta,
                         )
                         if SAVE_MODELS:
                             with open(history_path, 'wb') as f:
@@ -552,6 +536,7 @@ def main():
                             rolling_mean_excl_col_indices[i] = W
                     target_history_unscaled = np.concatenate([train, val]).astype(np.float32)
 
+                    graph_log = [] if RECORD_INFERENCE_GRAPHS else None
                     forecast = _recursive_forecast_gcn_perstep(
                         model=model,
                         ts_seed=ts_seed,
@@ -565,7 +550,31 @@ def main():
                         lag_col_indices=lag_col_indices if EXOG_COLS else None,
                         rolling_mean_excl_col_indices=rolling_mean_excl_col_indices if EXOG_COLS else None,
                         exog_scaler=exog_scaler if EXOG_COLS else None,
+                        graph_log_out=graph_log,
                     )
+
+                    if RECORD_INFERENCE_GRAPHS and graph_log:
+                        _igcsv = os.path.join(SCRIPT_DIR, "inference_graph_log.csv")
+                        _igexists = os.path.exists(_igcsv)
+                        with open(_igcsv, 'a', newline='') as _gf:
+                            _gw = csv.writer(_gf)
+                            if not _igexists:
+                                _gw.writerow([
+                                    "product_id", "store_id", "seed", "metric",
+                                    "window_size", "step_size",
+                                    "threshold", "percentile", "ablate_z",
+                                    "step", "n_nodes", "src_node", "tgt_node", "edge_weight",
+                                ])
+                            for _row in graph_log:
+                                _gw.writerow([
+                                    product_id, store_id, seed, metric,
+                                    window_size, step_size,
+                                    current_threshold if current_threshold is not None else "",
+                                    current_percentile if current_percentile is not None else "",
+                                    ablate_z,
+                                    _row['step'], _row['n_nodes'],
+                                    _row['src_node'], _row['tgt_node'], _row['edge_weight'],
+                                ])
 
                     valid_mask     = ~np.isnan(forecast)
                     valid_test     = test[valid_mask]

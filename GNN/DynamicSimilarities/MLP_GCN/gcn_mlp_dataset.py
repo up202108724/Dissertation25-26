@@ -75,6 +75,7 @@ def build_pyg_graphs_from_nx_windows(
     step_size: int = 1,
     max_neighbours: Optional[int] = None,
     node_scalers: Optional[dict] = None,
+    node_feature_mode: str = 'raw',
 ):
     """
     Convert the list of per-window NetworkX graphs produced by the Graph2Vec
@@ -100,6 +101,10 @@ def build_pyg_graphs_from_nx_windows(
                      values are normalised with its own scaler before feature
                      extraction, removing cross-node scale heterogeneity.  Nodes
                      absent from the dict fall back to per-window z-score.
+    node_feature_mode : ``'raw'``   — full window sequence as node features
+                        (shape n_nodes × window_size);
+                        ``'stats'`` — 8-dim statistical summary per node
+                        (mean, std, min, max, first, last, slope, sum).
 
     Returns
     -------
@@ -155,7 +160,11 @@ def build_pyg_graphs_from_nx_windows(
         # restrict G to node_order so nx_window_to_pyg only sees relevant edges
         H = G.subgraph(node_order).copy() if product_id in G else G.__class__()
         H.add_nodes_from(node_order)
-        pyg_list.append(nx_window_to_pyg(H, node_order, window_values, product_id))
+        pyg_list.append(
+            nx_window_to_pyg(H, node_order, window_values, product_id,
+                             node_feature_mode=node_feature_mode,
+                             node_labels=node_order)
+        )
 
     return pyg_list
 
@@ -165,15 +174,18 @@ def nx_window_to_pyg(
     node_order: Sequence,
     window_values: np.ndarray,
     target_node,
+    node_feature_mode: str = 'raw',
+    node_labels: Optional[Sequence] = None,
 ) -> Data:
     """
     Build a PyG Data object from a NetworkX graph + raw window slice.
 
-    G              : networkx.Graph with edge attr 'weight' (similarity score)
-    node_order     : ordered iterable of node labels (defines row 0..N-1)
-                     **the first entry MUST be the target node**
-    window_values  : (n_nodes, window_size) aligned to node_order
-    target_node    : the label of the target (should equal node_order[0])
+    G                 : networkx.Graph with edge attr 'weight' (similarity score)
+    node_order        : ordered iterable of node labels (defines row 0..N-1)
+                        **the first entry MUST be the target node**
+    window_values     : (n_nodes, window_size) aligned to node_order
+    target_node       : the label of the target (should equal node_order[0])
+    node_feature_mode : 'raw' (full sequence) or 'stats' (8-dim summary)
     """
     if node_order[0] != target_node:
         raise ValueError("target_node must be node_order[0]")
@@ -195,9 +207,18 @@ def nx_window_to_pyg(
 
     edge_index = torch.tensor([src, dst], dtype=torch.long)
     edge_attr  = torch.tensor(w, dtype=torch.float32).unsqueeze(-1)
-    x          = torch.from_numpy(_window_node_features(window_values))
+    if node_feature_mode == 'stats':
+        x = torch.from_numpy(_window_node__stats_features(window_values))
+    elif node_feature_mode == 'raw':
+        x = torch.from_numpy(_window_node_features(window_values))
+    else:
+        raise ValueError(f"node_feature_mode must be 'raw' or 'stats', got {node_feature_mode!r}")
 
-    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, num_nodes=n)
+    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, num_nodes=n)
+    # Store node labels (item_ids) so callers can map local indices back to
+    # original product identifiers during inference graph logging.
+    data.node_labels = list(node_labels) if node_labels is not None else list(node_order)
+    return data
 
 
 # ── dataset ─────────────────────────────────────────────────────────────────

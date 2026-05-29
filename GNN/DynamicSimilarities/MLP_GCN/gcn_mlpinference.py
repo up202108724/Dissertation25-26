@@ -97,7 +97,8 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
                                     target_history_unscaled=None,
                                     lag_col_indices: Optional[Dict[int, int]] = None,
                                     rolling_mean_excl_col_indices: Optional[Dict[int, int]] = None,
-                                    exog_scaler=None):
+                                    exog_scaler=None,
+                                    graph_log_out: Optional[list] = None):
     """
     One-step-at-a-time inference for the per-step GCN + MLP.
 
@@ -198,6 +199,25 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
         out   = model(batch, tidx, ts_t)                                # (1, H, 1)
         y_hat = float(out[0, -1, 0].detach().cpu().item())
         preds_scaled.append(y_hat)
+
+        # ── record neighbourhood / adjacency for this step ────────────────
+        if graph_log_out is not None:
+            g = graphs[-1]  # most recent graph used in this prediction
+            ei = g.edge_index.cpu().numpy()           # (2, n_edges)
+            ea = g.edge_attr.cpu().numpy().flatten()  # (n_edges,)
+            labels = getattr(g, 'node_labels', None)
+            n_nodes = int(g.num_nodes)
+            for eidx in range(ei.shape[1]):
+                s_idx, t_idx = int(ei[0, eidx]), int(ei[1, eidx])
+                src_label = labels[s_idx] if labels is not None else s_idx
+                tgt_label = labels[t_idx] if labels is not None else t_idx
+                graph_log_out.append({
+                    'step': step,
+                    'n_nodes': n_nodes,
+                    'src_node': src_label,
+                    'tgt_node': tgt_label,
+                    'edge_weight': float(ea[eidx]),
+                })
 
         # roll lookback window: shift left, append a new last row carrying ŷ
         ts = np.vstack([ts[1:], ts[-1:].copy()])

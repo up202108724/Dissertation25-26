@@ -133,8 +133,6 @@ GCN_NODE_FEATURES = None     # set dynamically to window_size (raw sequence feat
 # Grid of ablation modes — True: zero-out z (no GCN signal); False: full model.
 ABLATE_Z_VALUES = [True, False]
 DIAG_CSV_NAME  = "diagnostics.csv"
-# Set True to emit inference_graph_log.csv with per-step neighbourhood data.
-RECORD_INFERENCE_GRAPHS = False
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -539,7 +537,6 @@ def main():
                             rolling_mean_excl_col_indices[i] = W
                     target_history_unscaled = np.concatenate([train, val]).astype(np.float32)
 
-                    graph_log = [] if RECORD_INFERENCE_GRAPHS else None
                     forecast = _recursive_forecast_gcn_perstep(
                         model=model,
                         ts_seed=ts_seed,
@@ -553,32 +550,8 @@ def main():
                         lag_col_indices=lag_col_indices if EXOG_COLS else None,
                         rolling_mean_excl_col_indices=rolling_mean_excl_col_indices if EXOG_COLS else None,
                         exog_scaler=exog_scaler if EXOG_COLS else None,
-                        graph_log_out=graph_log,
                     )
                     inference_time = time.time() - _inf_start
-
-                    if RECORD_INFERENCE_GRAPHS and graph_log:
-                        _igcsv = os.path.join(SCRIPT_DIR, "inference_graph_log.csv")
-                        _igexists = os.path.exists(_igcsv)
-                        with open(_igcsv, 'a', newline='') as _gf:
-                            _gw = csv.writer(_gf)
-                            if not _igexists:
-                                _gw.writerow([
-                                    "product_id", "store_id", "seed", "metric",
-                                    "window_size", "step_size",
-                                    "threshold", "percentile", "ablate_z",
-                                    "step", "n_nodes", "src_node", "tgt_node", "edge_weight",
-                                ])
-                            for _row in graph_log:
-                                _gw.writerow([
-                                    product_id, store_id, seed, metric,
-                                    window_size, step_size,
-                                    current_threshold if current_threshold is not None else "",
-                                    current_percentile if current_percentile is not None else "",
-                                    ablate_z,
-                                    _row['step'], _row['n_nodes'],
-                                    _row['src_node'], _row['tgt_node'], _row['edge_weight'],
-                                ])
 
                     valid_mask     = ~np.isnan(forecast)
                     valid_test     = test[valid_mask]

@@ -108,10 +108,13 @@ EXOG_COLS = [
 
 
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.70, 0.75, 0.82, 0.85, 0.88, 0.91]},
+    {'metric': 'spearman', 'thresholds': [0.75, 0.82, 0.85, 0.88, 0.91]},
 ]
 
-window_sizes              = [15]
+#window_sizes              = [15, 21, 28, 45, 60]
+#SEQ_LENGTHS               = [30, 60, 90] 
+window_sizes = [28]
+SEQ_LENGTHS = [60]  # lookback grid
 step_sizes                = [1]
 enable_edges_opts         = [True]
 enable_second_degree_opts = [False]
@@ -234,10 +237,14 @@ def main():
         )
 
         forecast_horizon = 153
-        seq_length       = 30
         train_size       = 455
         val_size         = 153
         BATCH_SIZE       = 32
+
+        # NOTE: seq_length is grid-searched (see SEQ_LENGTHS); slicing below
+        # uses the maximum so all configurations share the same train/val/test
+        # absolute boundaries.
+        max_seq_length   = max(SEQ_LENGTHS)
 
         required_rows = forecast_horizon + val_size + train_size
         if len(df_p) < required_rows:
@@ -299,13 +306,18 @@ def main():
                 is_threshold_mode = thresholds is not None and thresholds != [None]
                 params   = thresholds if is_threshold_mode else percentiles
                 iterator = itertools.product(
-                    ABLATE_Z_VALUES, params, window_sizes, step_sizes,
+                    ABLATE_Z_VALUES, params, SEQ_LENGTHS, window_sizes, step_sizes,
                     enable_edges_opts, enable_second_degree_opts,
                 )
 
                 metric_type = infer_metric_type(metric)
 
-                for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
+                for ablate_z, param_val, seq_length, window_size, step_size, enable_edges, enable_second_degree in iterator:
+                    # Per-step ego-graph alignment requires window_size <= seq_length
+                    # (otherwise the last lookback day's graph would need future values).
+                    if window_size > seq_length:
+                        print(f"Skipping combo (L={seq_length}, W={window_size}): W must be <= L.")
+                        continue
                     # When ablating, z is zeroed so the threshold has no effect.
                     if ablate_z and param_val != params[0]:
                         continue
@@ -313,7 +325,7 @@ def main():
                     current_threshold  = param_val if is_threshold_mode else None
                     current_percentile = param_val if not is_threshold_mode else None
 
-                    key = (ablate_z, param_val, window_size, step_size)
+                    key = (ablate_z, param_val, seq_length, window_size, step_size)
                     if key not in results_by_w_s:
                         results_by_w_s[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -454,7 +466,8 @@ def main():
                     model_dir_label = (f"th{current_threshold}" if is_threshold_mode
                                        else f"pct{current_percentile}")
                     best_models_dir = os.path.join(
-                        best_models_seed_dir, str(window_size), str(step_size),
+                        best_models_seed_dir, f"L{seq_length}",
+                        str(window_size), str(step_size),
                         metric, model_dir_label,
                     )
                     os.makedirs(best_models_dir, exist_ok=True)
@@ -467,7 +480,7 @@ def main():
                                    else f"pct_{current_percentile}")
                     base_name = (
                         f"best_gcnmlp_perstep_{prefix_star}{product_id}_{metric}"
-                        f"_w{window_size}_s{step_size}_{param_label}{res_tag}_seed_{seed}"
+                        f"_L{seq_length}_w{window_size}_s{step_size}_{param_label}{res_tag}_seed_{seed}"
                     )
                     best_model_path = os.path.join(best_models_dir, f"{base_name}.pth")
                     history_path    = os.path.join(best_models_dir, f"{base_name}_history.pkl")
@@ -565,14 +578,14 @@ def main():
                             if not _igexists:
                                 _gw.writerow([
                                     "product_id", "store_id", "seed", "metric",
-                                    "window_size", "step_size",
+                                    "seq_length", "window_size", "step_size",
                                     "threshold", "percentile", "ablate_z",
                                     "step", "n_nodes", "src_node", "tgt_node", "edge_weight",
                                 ])
                             for _row in graph_log:
                                 _gw.writerow([
                                     product_id, store_id, seed, metric,
-                                    window_size, step_size,
+                                    seq_length, window_size, step_size,
                                     current_threshold if current_threshold is not None else "",
                                     current_percentile if current_percentile is not None else "",
                                     ablate_z,
@@ -598,7 +611,7 @@ def main():
                     param_str_label = (f"th:{current_threshold}" if is_threshold_mode
                                        else f"pct:{current_percentile} (val:{th_str})")
                     az_str = "ablation" if ablate_z else "full"
-                    label_name = (f"{param_str_label}|w:{window_size}|st:{step_size}"
+                    label_name = (f"{param_str_label}|L:{seq_length}|w:{window_size}|st:{step_size}"
                                   f"|e:{enable_edges}|2nd:{enable_second_degree}|az:{az_str}")
 
                     results_by_w_s[key]['forecasts'][label_name]    = forecast
@@ -620,14 +633,14 @@ def main():
                         if not timing_exists:
                             tw.writerow([
                                 "product_id", "store_id", "seed", "metric",
-                                "window_size", "step_size", "threshold", "percentile",
+                                "seq_length", "window_size", "step_size", "threshold", "percentile",
                                 "ablate_z", "best_epoch",
                                 "train_time_s", "inference_time_s",
                                 "rmse", "mae",
                             ])
                         tw.writerow([
                             product_id, store_id, seed, metric,
-                            window_size, step_size,
+                            seq_length, window_size, step_size,
                             current_threshold if current_threshold is not None else "",
                             current_percentile if current_percentile is not None else "",
                             ablate_z,
@@ -645,13 +658,13 @@ def main():
                         if not file_exists:
                             writer.writerow([
                                 "product_id", "store_id", "seed", "metric",
-                                "window_size", "step_size", "threshold", "percentile",
+                                "seq_length", "window_size", "step_size", "threshold", "percentile",
                                 "enable_edges", "enable_second_degree", "ablate_z",
                                 "rmse", "mae", "bias", "r2_score", "pocid",
                             ])
                         writer.writerow([
                             product_id, store_id, seed, metric,
-                            window_size, step_size,
+                            seq_length, window_size, step_size,
                             current_threshold if current_threshold is not None else "",
                             current_percentile if current_percentile is not None else "",
                             enable_edges, enable_second_degree, ablate_z,
@@ -664,8 +677,8 @@ def main():
                 test_index  = df_p[DATE_COL][test_slice].values
 
                 grouped_results = {}
-                for (az, p, w, s), res_dicts in results_by_w_s.items():
-                    key = (w, s)
+                for (az, p, L, w, s), res_dicts in results_by_w_s.items():
+                    key = (L, w, s)
                     if key not in grouped_results:
                         grouped_results[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -674,14 +687,15 @@ def main():
                     for k in grouped_results[key]:
                         grouped_results[key][k].update(res_dicts[k])
 
-                for (w, s), res_dicts in grouped_results.items():
+                for (L, w, s), res_dicts in grouped_results.items():
                     raw_str = ("_".join(map(str, thresholds))
                                if thresholds is not None and len(thresholds) > 0 and percentiles is None
                                else "_".join(map(str, percentiles)))
                     values_str = hashlib.md5(raw_str.encode()).hexdigest()[:8]
 
                     sub_dir = os.path.join(
-                        grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}',
+                        grid_search_plots_dir, metric_type,
+                        f'seq_{L}', f'window_{w}', f'step_{s}',
                         f'item_{product_id}', values_str,
                     )
                     os.makedirs(sub_dir, exist_ok=True)
@@ -690,7 +704,7 @@ def main():
                         f"item_{product_id}_{metric}_seed_{seed}_all_configs.html",
                     )
                     emb_title = (
-                        f'GCN+MLP (per-step) Forecasts + Ablation ({metric} | Seed={seed} | W={w} | S={s})'
+                        f'GCN+MLP (per-step) Forecasts + Ablation ({metric} | Seed={seed} | L={L} | W={w} | S={s})'
                     )
 
                     if SAVE_PLOTS:
