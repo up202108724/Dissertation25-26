@@ -97,14 +97,8 @@ def plot_results(train, val, test, forecast,
         
         legend_name = label
         if is_multi:
-             pocid_str  = f"{pocid.get(label):.4f}"  if pocid  and pocid.get(label)  is not None else "N/A"
-             bias_str   = f"{bias.get(label):.4f}"   if bias   and bias.get(label)   is not None else "N/A"
-             score_str  = f"{score.get(label):.4f}"  if score  and score.get(label)  is not None else "N/A"
-             legend_name = (
-                 f"{label} "
-                 f"(RMSE: {rmse[label]:.2f} | MAE: {mae[label]:.2f} | "
-                 f"Bias: {bias_str} | Score: {score_str} | POCID: {pocid_str})"
-             )
+             pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
+             legend_name = f"{label} (RMSE: {rmse[label]:.2f}, MAE: {mae[label]:.2f})"
              
         fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), hovertemplate=hover_temp), row=1, col=1)
     

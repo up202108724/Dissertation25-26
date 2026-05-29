@@ -89,6 +89,7 @@ SEEDS = [42]
 
 PRODUCTS_TO_TEST = [
     (26008, 6269),
+    (911753, 6269),
     (907967, 6269),
 ]
 
@@ -108,7 +109,7 @@ EXOG_COLS = [
 
 
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.50, 0.70, 0.85, 0.95, 0.99]},
+    {'metric': 'spearman', 'thresholds': [0.70, 0.75, 0.82, 0.85, 0.88, 0.91]},
 ]
 
 window_sizes              = [15]
@@ -128,7 +129,7 @@ SAVE_MODELS    = False
 SAVE_PLOTS     = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
-GCN_NODE_FEATURES = 8        # output width of _window_node_features
+GCN_NODE_FEATURES = None     # set dynamically to window_size (raw sequence features)
 
 # Grid of ablation modes — True: zero-out z (no GCN signal); False: full model.
 ABLATE_Z_VALUES = [True, False]
@@ -326,7 +327,7 @@ def main():
                         fixed_threshold = None
                         results_by_w_s[key]['threshold'] = fixed_threshold
                         _dummy = Data(
-                            x=torch.zeros(1, GCN_NODE_FEATURES, dtype=torch.float32),
+                            x=torch.zeros(1, window_size, dtype=torch.float32),
                             edge_index=torch.tensor([[0], [0]], dtype=torch.long),
                             edge_attr=torch.zeros(1, 1, dtype=torch.float32),
                             num_nodes=1,
@@ -337,10 +338,11 @@ def main():
                         pyg_future_graphs = [_dummy] * forecast_horizon
                     else:
                         # ── 1. Build per-window NX graphs ────────────────────
-                        distance_metrics = ['euclidean', 'manhattan', 'hamming', 'amplitude_offset',
-                                            'slope_consistency', 'phase_invariance', 'dtw', 'cid',
-                                            'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
-                        current_df_wide = df_wide_scaled if metric in distance_metrics else df_wide_global
+                        # Always use df_wide_scaled (per-product z-score, fit on train only).
+                        # Distance metrics need scaling; similarity metrics (Spearman/Pearson)
+                        # are scale-invariant so topology is unchanged.  Node features are
+                        # already normalised, so node_scalers is never needed.
+                        current_df_wide = df_wide_scaled
                         compute_func = (compute_distances_1vsAll if metric_type == 'distance'
                                         else compute_similarities_1vsAll)
 
@@ -625,7 +627,7 @@ def main():
 
                 grouped_results = {}
                 for (az, p, w, s), res_dicts in results_by_w_s.items():
-                    key = (az, w, s)
+                    key = (w, s)
                     if key not in grouped_results:
                         grouped_results[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -634,7 +636,7 @@ def main():
                     for k in grouped_results[key]:
                         grouped_results[key][k].update(res_dicts[k])
 
-                for (az, w, s), res_dicts in grouped_results.items():
+                for (w, s), res_dicts in grouped_results.items():
                     raw_str = ("_".join(map(str, thresholds))
                                if thresholds is not None and len(thresholds) > 0 and percentiles is None
                                else "_".join(map(str, percentiles)))
@@ -645,15 +647,12 @@ def main():
                         f'item_{product_id}', values_str,
                     )
                     os.makedirs(sub_dir, exist_ok=True)
-                    ablation_suffix = "_ablation" if az else ""
                     save_plot_path = os.path.join(
                         sub_dir,
-                        f"item_{product_id}_{metric}_seed_{seed}_all_configs{ablation_suffix}.html",
+                        f"item_{product_id}_{metric}_seed_{seed}_all_configs.html",
                     )
                     emb_title = (
-                        f'GCN+MLP Ablation (z=0) ({metric} | Seed={seed} | W={w} | S={s})'
-                        if az else
-                        f'GCN+MLP (per-step) Forecasts ({metric} | Seed={seed} | W={w} | S={s})'
+                        f'GCN+MLP (per-step) Forecasts + Ablation ({metric} | Seed={seed} | W={w} | S={s})'
                     )
 
                     if SAVE_PLOTS:

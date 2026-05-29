@@ -702,6 +702,55 @@ def main():
                             pocid=res_dicts['pocid'],
                         )
 
+                # ── Merged overlay: GCN+LSTM vs Ablation on the same plot ────
+                if SAVE_PLOTS:
+                    ws_combos = set((w, s) for (az, w, s) in grouped_results.keys())
+                    for (w, s) in ws_combos:
+                        full_key = (False, w, s)
+                        abl_key  = (True,  w, s)
+                        if full_key not in grouped_results or abl_key not in grouped_results:
+                            continue
+
+                        raw_str = ("_".join(map(str, thresholds))
+                                   if thresholds is not None and len(thresholds) > 0 and percentiles is None
+                                   else "_".join(map(str, percentiles)))
+                        values_str = hashlib.md5(raw_str.encode()).hexdigest()[:8]
+                        sub_dir = os.path.join(
+                            grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}',
+                            f'item_{product_id}', values_str,
+                        )
+                        os.makedirs(sub_dir, exist_ok=True)
+
+                        # Merge forecasts/losses/metrics from both sides, prefixing labels
+                        merged = {k: {} for k in ('forecasts', 'train_losses', 'val_losses',
+                                                   'rmse', 'mae', 'bias', 'score', 'pocid')}
+                        for prefix, src_key in [("GCN", full_key), ("Ablation", abl_key)]:
+                            src = grouped_results[src_key]
+                            for lbl in src['forecasts']:
+                                new_lbl = f"{prefix}/{lbl}"
+                                for k in merged:
+                                    merged[k][new_lbl] = src[k].get(lbl)
+
+                        merged_path = os.path.join(
+                            sub_dir,
+                            f"item_{product_id}_{metric}_seed_{seed}_all_configs_merged.html",
+                        )
+                        print(f"Saving merged overlay plot to: {os.path.abspath(merged_path)}")
+                        plot_results(
+                            train, val, test, merged['forecasts'],
+                            train_index, val_index, test_index,
+                            merged['train_losses'], merged['val_losses'],
+                            metric=metric, embedding_strategy='gcn_perstep',
+                            window_size=w, step_size=s, threshold=None, percentile=None,
+                            target_col=TARGET_COL,
+                            title=(f'GCN+LSTM vs Ablation (z=0) — '
+                                   f'{metric} | Seed={seed} | W={w} | S={s} | Item={product_id}'),
+                            seed=seed, save_path=merged_path,
+                            rmse=merged['rmse'], mae=merged['mae'],
+                            bias=merged['bias'], score=merged['score'],
+                            pocid=merged['pocid'],
+                        )
+
     # ── Correlation plots from accumulated CSVs ───────────────────────────
     if SAVE_PLOTS:
         import matplotlib.pyplot as plt

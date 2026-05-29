@@ -74,7 +74,6 @@ def build_pyg_graphs_from_nx_windows(
     window_size: int,
     step_size: int = 1,
     max_neighbours: Optional[int] = None,
-    node_scalers: Optional[dict] = None,
 ):
     """
     Convert the list of per-window NetworkX graphs produced by the Graph2Vec
@@ -95,11 +94,6 @@ def build_pyg_graphs_from_nx_windows(
     step_size      : stride between consecutive windows (default 1)
     max_neighbours : optional cap on the number of neighbours kept per window
                      (top-weight kept first); ``None`` = keep all neighbours.
-    node_scalers   : optional dict mapping node label → fitted sklearn scaler
-                     (e.g. StandardScaler).  When provided, each node's window
-                     values are normalised with its own scaler before feature
-                     extraction, removing cross-node scale heterogeneity.  Nodes
-                     absent from the dict fall back to per-window z-score.
 
     Returns
     -------
@@ -135,22 +129,7 @@ def build_pyg_graphs_from_nx_windows(
             t1 = values_full.shape[1]
             t0 = max(t1 - window_size, 0)
         rows = [label_to_row[lbl] for lbl in node_order]
-        window_values = values_full[rows, t0:t1].astype(np.float64)
-
-        # ── per-node scale normalisation ─────────────────────────────────
-        # Removes cross-product magnitude differences before GCN aggregation.
-        normed = np.empty_like(window_values, dtype=np.float32)
-        for j, lbl in enumerate(node_order):
-            row = window_values[j]
-            if node_scalers is not None and lbl in node_scalers:
-                normed[j] = node_scalers[lbl].transform(
-                    row.reshape(-1, 1)
-                ).flatten()
-            else:
-                # fallback: local z-score within the window
-                mu, sigma = row.mean(), row.std()
-                normed[j] = (row - mu) / (sigma + 1e-8)
-        window_values = normed
+        window_values = values_full[rows, t0:t1]
 
         # restrict G to node_order so nx_window_to_pyg only sees relevant edges
         H = G.subgraph(node_order).copy() if product_id in G else G.__class__()

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from time import time
 import time
 from typing import Tuple, Optional, List
-from mlp import MLPForecaster, build_forecaster
+from mlp import MLPForecaster
 import numpy as np
 import torch
 import torch.nn as nn
@@ -39,8 +39,7 @@ def train_mlp_forecaster(
     hidden_sizes,
     target_col,
     exog_cols,
-    test_size,
-    model_type: str = "mlp",
+    test_size
 ):
 
     
@@ -88,8 +87,7 @@ def train_mlp_forecaster(
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=False)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
         
-    model = build_forecaster(
-        model_type=model_type,
+    model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=C_in,
         hidden_sizes=hidden_sizes,
@@ -189,8 +187,7 @@ def train_model_best_train_loss(
     hidden_sizes,
     target_col,
     exog_cols,
-    test_size,
-    model_type: str = "mlp",
+    test_size
 ):
     """
     Strategy 1: Records the epoch of the best validation model, but saves the model 
@@ -234,8 +231,7 @@ def train_model_best_train_loss(
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=False)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
         
-    model = build_forecaster(
-        model_type=model_type,
+    model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=C_in,
         hidden_sizes=hidden_sizes,
@@ -335,8 +331,7 @@ def train_model_combined(
     hidden_sizes,
     target_col,
     exog_cols,
-    test_size,
-    model_type: str = "mlp",
+    test_size
 ):
     """
     Strategy 2: Train an existing model further (such as when combining Train + Val).
@@ -367,8 +362,7 @@ def train_model_combined(
 
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=False)
         
-    model = build_forecaster(
-        model_type=model_type,
+    model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=C_in,
         hidden_sizes=hidden_sizes,
@@ -432,8 +426,7 @@ def train_model_expanding_window(
     hidden_sizes,
     target_col,
     exog_cols,
-    test_size,
-    model_type: str = "mlp",
+    test_size
 ):
     """
     Strategy 3: Expanding Window (Growing Window) Training using TrainConfig parameters.
@@ -455,8 +448,7 @@ def train_model_expanding_window(
     
     current_train_end = initial_train_size
     
-    model = build_forecaster(
-        model_type=model_type,
+    model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=len(cols),
         hidden_sizes=hidden_sizes,
@@ -590,8 +582,7 @@ def train_model_sliding_window(
     hidden_sizes,
     target_col,
     exog_cols,
-    test_size,
-    model_type: str = "mlp",
+    test_size
 ):
     """
     Strategy 4: Sliding Window Training using TrainConfig parameters.
@@ -614,8 +605,7 @@ def train_model_sliding_window(
     current_train_start = 0
     current_train_end = initial_train_size
     
-    model = build_forecaster(
-        model_type=model_type,
+    model = MLPForecaster(
         lookback=cfg.lookback,
         in_channels=len(cols),
         hidden_sizes=hidden_sizes,

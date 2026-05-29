@@ -14,6 +14,8 @@ import random
 import sys
 import pickle
 import itertools
+import time
+import csv as _csv_mod
 import numpy as np
 import pandas as pd
 import torch
@@ -73,19 +75,16 @@ def infer_metric_type(metric, metric_type=None):
 
 
 # ── Constants (same defaults as LSTM_GCN/main.py) ──────────────────────────
-DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
+DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/df_smooth.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
 SEEDS = [42]
 
-PRODUCTS_TO_TEST = [
-    
-    (26008, 6269),
-    (907967, 6269),
-    #(907969, 6269),
-    #(911753, 6269),
-]
+# Leave as None to run all (item_id, store_id) pairs found in DATA_PATH.
+# Override with a list of tuples to run only a subset, e.g.:
+#   PRODUCTS_TO_TEST = [(26008, 6269), (907967, 6269)]
+PRODUCTS_TO_TEST = None
 
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
@@ -204,6 +203,18 @@ def main():
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     full_df = df.copy()
 
+    # Build the list of (item_id, store_id) pairs to iterate over
+    global PRODUCTS_TO_TEST
+    if PRODUCTS_TO_TEST is None:
+        PRODUCTS_TO_TEST = (
+            full_df[["item_id", "store_id"]]
+            .drop_duplicates()
+            .sort_values(["item_id", "store_id"])
+            .apply(lambda r: (int(r["item_id"]), int(r["store_id"])), axis=1)
+            .tolist()
+        )
+        print(f"Running all {len(PRODUCTS_TO_TEST)} (item_id, store_id) pairs from dataset.")
+
     cat_labels_dict = (
         full_df.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
         if 'cat_label' in full_df.columns else {}
@@ -231,6 +242,12 @@ def main():
         df_wide_scaled.loc[item_id_iter] = z_scaler.transform(
             df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         ).flatten()
+
+    # ── Timing bookkeeping ───────────────────────────────────────────────
+    timings_csv_path = os.path.join(SCRIPT_DIR, "timings.csv")
+    seed_times = {}                  # seed -> cumulative seconds across products
+    product_seed_times = []          # (product_id, store_id, seed, seconds)
+    total_t0 = time.time()
 
     for product_id, store_id in PRODUCTS_TO_TEST:
         print(f"\n{'='*80}")
@@ -290,6 +307,7 @@ def main():
                 torch.cuda.manual_seed_all(seed)
 
             print(f"\n--- RUNNING WITH SEED {seed} ---\n")
+            seed_t0 = time.time()
 
             grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots', f'seed_{seed}')
             best_models_seed_dir  = os.path.join(SCRIPT_DIR, 'best_models',       f'seed_{seed}')
@@ -496,8 +514,14 @@ def main():
                     else:
                         print("Training new per-step GCN+LSTM model...")
                         diag_suffix = "_ablation" if ablate_z else ""
+                        # Per-product diagnostics folder:
+                        # diagnostics/<product_id>/diagnostics[_ablation].csv
+                        product_diag_dir = os.path.join(
+                            SCRIPT_DIR, "diagnostics", str(product_id),
+                        )
+                        os.makedirs(product_diag_dir, exist_ok=True)
                         diag_csv_path = os.path.join(
-                            SCRIPT_DIR,
+                            product_diag_dir,
                             DIAG_CSV_NAME.replace(".csv", f"{diag_suffix}.csv"),
                         )
                         # Mean number of edges per training window — characterises
@@ -702,6 +726,79 @@ def main():
                             pocid=res_dicts['pocid'],
                         )
 
+                # ── Merged overlay: GCN+LSTM vs Ablation on the same plot ────
+                if SAVE_PLOTS:
+                    ws_combos = set((w, s) for (az, w, s) in grouped_results.keys())
+                    for (w, s) in ws_combos:
+                        full_key = (False, w, s)
+                        abl_key  = (True,  w, s)
+                        if full_key not in grouped_results or abl_key not in grouped_results:
+                            continue
+
+                        raw_str = ("_".join(map(str, thresholds))
+                                   if thresholds is not None and len(thresholds) > 0 and percentiles is None
+                                   else "_".join(map(str, percentiles)))
+                        values_str = hashlib.md5(raw_str.encode()).hexdigest()[:8]
+                        sub_dir = os.path.join(
+                            grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}',
+                            f'item_{product_id}', values_str,
+                        )
+                        os.makedirs(sub_dir, exist_ok=True)
+
+                        # Merge forecasts/losses/metrics from both sides, prefixing labels
+                        merged = {k: {} for k in ('forecasts', 'train_losses', 'val_losses',
+                                                   'rmse', 'mae', 'bias', 'score', 'pocid')}
+                        for prefix, src_key in [("GCN", full_key), ("Ablation", abl_key)]:
+                            src = grouped_results[src_key]
+                            for lbl in src['forecasts']:
+                                new_lbl = f"{prefix}/{lbl}"
+                                for k in merged:
+                                    merged[k][new_lbl] = src[k].get(lbl)
+
+                        merged_path = os.path.join(
+                            sub_dir,
+                            f"item_{product_id}_{metric}_seed_{seed}_all_configs_merged.html",
+                        )
+                        print(f"Saving merged overlay plot to: {os.path.abspath(merged_path)}")
+                        plot_results(
+                            train, val, test, merged['forecasts'],
+                            train_index, val_index, test_index,
+                            merged['train_losses'], merged['val_losses'],
+                            metric=metric, embedding_strategy='gcn_perstep',
+                            window_size=w, step_size=s, threshold=None, percentile=None,
+                            target_col=TARGET_COL,
+                            title=(f'GCN+LSTM vs Ablation (z=0) — '
+                                   f'{metric} | Seed={seed} | W={w} | S={s} | Item={product_id}'),
+                            seed=seed, save_path=merged_path,
+                            rmse=merged['rmse'], mae=merged['mae'],
+                            bias=merged['bias'], score=merged['score'],
+                            pocid=merged['pocid'],
+                        )
+            # ── Per-seed timing (this product) ─────────────────────────────────────
+            seed_elapsed = time.time() - seed_t0
+            seed_times[seed] = seed_times.get(seed, 0.0) + seed_elapsed
+            product_seed_times.append((product_id, store_id, seed, seed_elapsed))
+            print(f"\n[TIMING] Product {product_id} | seed {seed}: {seed_elapsed:.1f} s "
+                  f"({seed_elapsed/60:.2f} min)")
+
+    # ── Total timing & persist ────────────────────────────────────────────────
+    total_elapsed = time.time() - total_t0
+    print("\n" + "=" * 80)
+    print("TIMING SUMMARY")
+    print("=" * 80)
+    for s, t in sorted(seed_times.items()):
+        print(f"  Seed {s}: total {t:.1f} s  ({t/60:.2f} min)  across {len(PRODUCTS_TO_TEST)} products")
+    print(f"  TOTAL    : {total_elapsed:.1f} s  ({total_elapsed/60:.2f} min)")
+
+    with open(timings_csv_path, "w", newline="") as fh:
+        w = _csv_mod.writer(fh)
+        w.writerow(["product_id", "store_id", "seed", "seconds"])
+        for pid, sid, sd, sec in product_seed_times:
+            w.writerow([pid, sid, sd, f"{sec:.3f}"])
+        for sd, sec in sorted(seed_times.items()):
+            w.writerow(["TOTAL_SEED", "", sd, f"{sec:.3f}"])
+        w.writerow(["TOTAL_ALL", "", "", f"{total_elapsed:.3f}"])
+    print(f"  Timings written to: {timings_csv_path}")
     # ── Correlation plots from accumulated CSVs ───────────────────────────
     if SAVE_PLOTS:
         import matplotlib.pyplot as plt

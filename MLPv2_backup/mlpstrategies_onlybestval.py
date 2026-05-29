@@ -57,14 +57,6 @@ seeds = [42]
 
 loss_type = 'huber'
 
-# Architecture switch consumed by train.py via build_forecaster().
-# 'mlp'   -> original flatten MLP (legacy baseline).
-# 'tdmlp' -> shared per-step Linear(C -> hidden_sizes[0]) then small head over
-#            hidden_sizes[1:]. Preserves which-lag-is-which without sharing
-#            weights across time.
-# 'tcn'   -> small causal dilated TCN, hidden_sizes = per-block channel counts.
-MODEL_TYPE = 'mlp'
-
 
 # -----------------------------------------------------------------------------
 # Main Loop
@@ -186,44 +178,38 @@ def main():
                     model, _, t_losses, v_losses, best_epoch = train_mlp_forecaster(
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                         product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon,
-                        model_type=MODEL_TYPE)
+                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
                     train_time = 0.0 # Time block removed from baseline signature
                 elif strategy == 'best_train_early_val':
                     model, _, t_losses, v_losses, best_epoch = train_model_best_train_loss(
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                         product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon,
-                        model_type=MODEL_TYPE)
+                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
                     train_time = 0.0
                 elif strategy == 'combined':
                     model, _, _, v_losses, optimal_epoch = train_mlp_forecaster(
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                         product_id=f"{item_id}_{store_id}_temp", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon,
-                        model_type=MODEL_TYPE)
+                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
                     
                     cfg.epochs = optimal_epoch if optimal_epoch > 0 else EPOCHS
                     model, _, t_losses, train_time = train_model_combined(
                          df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                          product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                         hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon,
-                         model_type=MODEL_TYPE)
+                         hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
                     v_losses = []
                     best_epoch = optimal_epoch
                 elif strategy == 'expanding_window':
                     model, _, t_losses, v_losses, best_epoch = train_model_expanding_window(
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                         product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon,
-                        model_type=MODEL_TYPE)
+                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
                     train_time = 0.0
                 elif strategy == 'sliding_window':
                     model, _, t_losses, v_losses, best_epoch = train_model_sliding_window(
                         df=df_product, cfg=cfg, seed=seed, loss_type='mse', 
                         product_id=f"{item_id}_{store_id}", scaler=scaler, target_channel=0, val_ratio=0.2, 
-                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon,
-                        model_type=MODEL_TYPE)
+                        hidden_sizes=hidden_sizes, target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon)
                     train_time = 0.0
 
                 strategy_train_losses[strategy] = t_losses

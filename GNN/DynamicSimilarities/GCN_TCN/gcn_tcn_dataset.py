@@ -1,28 +1,55 @@
 """
-PyG-aware dataset for the GCN + LSTM forecaster.
+PyG-aware dataset for the GCN + TCN forecaster.
 
-Mirrors the layout of ``Graph2vec_FixedThreshold/LSTM/graph2vecdataset.py``
-but yields a *trainable* graph (a ``torch_geometric.data.Data`` ego-graph)
-instead of a precomputed Graph2Vec embedding.
+This is the *per-step ego-graph* loading strategy: for every lookback day
+``t`` consumed by the TCN we feed one small ego-graph (target item +
+top-weight neighbours) computed on the ``graph_window_size`` days that
+end at ``t``.  The TCN therefore sees a sequence of length ``L`` with
+feature width ``1 + n_exog + d_g`` where ``d_g`` is the size of the GCN
+embedding produced for the target node.
 
-Per sample (idx) we return three tensors:
-    pyg_graph : torch_geometric.data.Data
-        Ego-graph aligned to the most recent window seen by the LSTM,
-        i.e. the graph computed on days ``idx + seq_length - graph_window_size
-        .. idx + seq_length - 1`` (one graph per sliding window).
+Per sample (idx) we return:
+    graphs    : list[torch_geometric.data.Data]  (length = seq_length)
+                One ego-graph per lookback step.  graphs[i] is the graph
+                built on the ``graph_window_size`` days preceding day
+                ``idx + 1 + i``.
     ts_seq    : FloatTensor  (seq_length, 1 + n_exog)
-        [target ‖ exog] sequence consumed by the LSTM.
+                Per-step temporal features [target ‖ exog_t] consumed by
+                the TCN (after concatenation with the GCN embeddings).
     y         : FloatTensor  (1,)
-        Target value at step ``idx + seq_length``.
+                Target value at day ``idx + seq_length``.
 
-The list ``pyg_graphs`` is expected to have one entry per sliding-window
-position.  As in the Graph2Vec dataset we zero-pad the first
-``graph_window_size`` days so that ``pyg_graphs[t]`` represents the
-graph built from the ``graph_window_size`` days preceding ``t``.
+The companion ``collate_pyg_ts`` packs a mini-batch of B samples into:
+    pyg_batch  : ``Batch`` of ``B*L`` ego-graphs (row-major: sample0_step0,
+                  …, sample0_step{L-1}, sample1_step0, …).  A single sparse
+                  GCN forward processes the whole batch.
+    ts_batch   : (B, L, F)
+    y_batch    : (B, 1)
+    target_idx : (B*L,) absolute indices of each ego's target node inside
+                 the batched node-feature matrix (= ``pyg_batch.ptr[:-1]``).
+    L          : int – lookback length, needed by the TCN to reshape ``z``
+                  from (B*L, d_g) to (B, L, d_g) before concatenation.
 
-A helper ``nx_window_to_pyg`` is provided to build a ``Data`` ego-graph
-from a NetworkX graph + the raw window slice (used by callers that
-already have the dynamic-graph pickles from the Graph2Vec pipeline).
+This module is intentionally a near-duplicate of
+``MLP_GCN/gcn_mlp_dataset.py`` and ``LSTM_GCN_*/dataset.py``: the GCN
+encoder + per-step ego-graph contract is shared between the three
+temporal heads (MLP, LSTM, TCN), so keeping a self-contained copy here
+avoids cross-folder coupling.
+
+────────────────────────────────────────────────────────────────────────
+TCN-SPECIFIC NOTES
+────────────────────────────────────────────────────────────────────────
+* The TCN's receptive field grows as ``1 + 2 * (k-1) * (2**N - 1)`` for
+  N stacked dilated blocks with kernel size ``k``.  Pick ``seq_length``
+  ≥ this number so the last-step activation can "see" the entire window;
+  otherwise the early steps fall outside the cone and the GCN signal at
+  those steps is silently discarded.
+  - k=3, N=3 (default in the model) → RF = 1 + 2·2·7 = 29  → L ≥ 30 ✓
+  - k=3, N=4                        → RF = 1 + 2·2·15 = 61 → L ≥ 64
+  - k=3, N=5                        → RF = 1 + 2·2·31 = 125
+* TCNs are happy with longer lookbacks than LSTMs (no vanishing-gradient
+  pressure).  If you push ``seq_length`` past ~60, also raise the number
+  of TCN blocks so the receptive field still covers it.
 """
 
 from __future__ import annotations
@@ -37,16 +64,6 @@ from torch_geometric.data import Batch, Data
 
 # ── node feature builder ───────────────────────────────────────────────────
 def _window_node_features(window_values: np.ndarray) -> np.ndarray:
-    """
-    window_values : (n_nodes, window_size) raw values per node over the window
-    Returns       : (n_nodes, window_size) — the raw sequence itself.
-    """
-    if window_values.ndim != 2:
-        raise ValueError("window_values must be 2D (n_nodes, window_size)")
-
-    return window_values.astype(np.float32)
-# ── node feature builder ───────────────────────────────────────────────────
-def _window_node__stats_features(window_values: np.ndarray) -> np.ndarray:
     """
     window_values : (n_nodes, window_size) raw values per node over the window
     Returns       : (n_nodes, 8) feature matrix
@@ -67,99 +84,8 @@ def _window_node__stats_features(window_values: np.ndarray) -> np.ndarray:
     feats = np.stack([mean, std, mn, mx, first, last, slope, s], axis=1)
     return feats.astype(np.float32)
 
-def build_pyg_graphs_from_nx_windows(
-    graphs,
-    df_wide,
-    product_id,
-    window_size: int,
-    step_size: int = 1,
-    max_neighbours: Optional[int] = None,
-    node_scalers: Optional[dict] = None,
-):
-    """
-    Convert the list of per-window NetworkX graphs produced by the Graph2Vec
-    pipeline (``generate_graph2vecwithadaptativethreshold``) into the list of
-    per-window PyG ego-graphs consumed by ``GCNTimeSeriesDataset``.
 
-    Each entry ``graphs[i]`` is the graph built on days
-    ``i*step_size .. i*step_size + window_size - 1`` of ``df_wide``.
-
-    Parameters
-    ----------
-    graphs         : list of networkx.Graph (one per sliding-window position)
-    df_wide        : pandas.DataFrame  (item_id × date)  — the full pivot of
-                     the target column, must contain ``product_id`` and every
-                     neighbour label that appears in the graphs.
-    product_id     : label of the target item (must be a node in the graphs)
-    window_size    : width of each window in days
-    step_size      : stride between consecutive windows (default 1)
-    max_neighbours : optional cap on the number of neighbours kept per window
-                     (top-weight kept first); ``None`` = keep all neighbours.
-    node_scalers   : optional dict mapping node label → fitted sklearn scaler
-                     (e.g. StandardScaler).  When provided, each node's window
-                     values are normalised with its own scaler before feature
-                     extraction, removing cross-node scale heterogeneity.  Nodes
-                     absent from the dict fall back to per-window z-score.
-
-    Returns
-    -------
-    list[Data] of length ``len(graphs)``, target node is row 0 of each Data.
-    """
-    if product_id not in df_wide.index:
-        raise KeyError(f"product_id {product_id} not in df_wide.index")
-
-    values_full = df_wide.values            # (n_items, T)
-    label_to_row = {lbl: i for i, lbl in enumerate(df_wide.index)}
-
-    pyg_list = []
-    for i, G in enumerate(graphs):
-        # neighbours of the target node in this window's graph
-        if product_id in G:
-            nbrs = list(G.neighbors(product_id))
-            if max_neighbours is not None and len(nbrs) > max_neighbours:
-                # keep top-weight neighbours
-                nbrs = sorted(
-                    nbrs,
-                    key=lambda u: float(G[product_id][u].get("weight", 0.0)),
-                    reverse=True,
-                )[:max_neighbours]
-        else:
-            nbrs = []
-
-        node_order = [product_id] + [n for n in nbrs if n in label_to_row]
-
-        # window slice for these nodes (aligned to graphs[i] convention)
-        t0 = i * step_size
-        t1 = t0 + window_size
-        if t1 > values_full.shape[1]:
-            t1 = values_full.shape[1]
-            t0 = max(t1 - window_size, 0)
-        rows = [label_to_row[lbl] for lbl in node_order]
-        window_values = values_full[rows, t0:t1].astype(np.float64)
-
-        # ── per-node scale normalisation ─────────────────────────────────
-        # Removes cross-product magnitude differences before GCN aggregation.
-        normed = np.empty_like(window_values, dtype=np.float32)
-        for j, lbl in enumerate(node_order):
-            row = window_values[j]
-            if node_scalers is not None and lbl in node_scalers:
-                normed[j] = node_scalers[lbl].transform(
-                    row.reshape(-1, 1)
-                ).flatten()
-            else:
-                # fallback: local z-score within the window
-                mu, sigma = row.mean(), row.std()
-                normed[j] = (row - mu) / (sigma + 1e-8)
-        window_values = normed
-
-        # restrict G to node_order so nx_window_to_pyg only sees relevant edges
-        H = G.subgraph(node_order).copy() if product_id in G else G.__class__()
-        H.add_nodes_from(node_order)
-        pyg_list.append(nx_window_to_pyg(H, node_order, window_values, product_id))
-
-    return pyg_list
-
-
+# ── nx → PyG helpers ───────────────────────────────────────────────────────
 def nx_window_to_pyg(
     G,
     node_order: Sequence,
@@ -200,23 +126,93 @@ def nx_window_to_pyg(
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, num_nodes=n)
 
 
+def build_pyg_graphs_from_nx_windows(
+    graphs,
+    df_wide,
+    product_id,
+    window_size: int,
+    step_size: int = 1,
+    max_neighbours: Optional[int] = None,
+):
+    """
+    Convert the list of per-window NetworkX graphs produced by the dynamic
+    similarities pipeline into the list of per-window PyG ego-graphs
+    consumed by ``GCNTimeSeriesDataset``.
+
+    Each entry ``graphs[i]`` is the graph built on days
+    ``i*step_size .. i*step_size + window_size - 1`` of ``df_wide``.
+
+    Parameters
+    ----------
+    graphs         : list of networkx.Graph (one per sliding-window position)
+    df_wide        : pandas.DataFrame  (item_id × date)  — the full pivot of
+                     the target column, must contain ``product_id`` and every
+                     neighbour label that appears in the graphs.
+    product_id     : label of the target item (must be a node in the graphs)
+    window_size    : width of each window in days
+    step_size      : stride between consecutive windows (default 1)
+    max_neighbours : optional cap on the number of neighbours kept per window
+                     (top-weight kept first); ``None`` = keep all neighbours.
+
+    Returns
+    -------
+    list[Data] of length ``len(graphs)``, target node is row 0 of each Data.
+    """
+    if product_id not in df_wide.index:
+        raise KeyError(f"product_id {product_id} not in df_wide.index")
+
+    values_full = df_wide.values            # (n_items, T)
+    label_to_row = {lbl: i for i, lbl in enumerate(df_wide.index)}
+
+    pyg_list = []
+    for i, G in enumerate(graphs):
+        if product_id in G:
+            nbrs = list(G.neighbors(product_id))
+            if max_neighbours is not None and len(nbrs) > max_neighbours:
+                nbrs = sorted(
+                    nbrs,
+                    key=lambda u: float(G[product_id][u].get("weight", 0.0)),
+                    reverse=True,
+                )[:max_neighbours]
+        else:
+            nbrs = []
+
+        node_order = [product_id] + [n for n in nbrs if n in label_to_row]
+
+        t0 = i * step_size
+        t1 = t0 + window_size
+        if t1 > values_full.shape[1]:
+            t1 = values_full.shape[1]
+            t0 = max(t1 - window_size, 0)
+        rows = [label_to_row[lbl] for lbl in node_order]
+        window_values = values_full[rows, t0:t1]
+
+        H = G.subgraph(node_order).copy() if product_id in G else G.__class__()
+        H.add_nodes_from(node_order)
+        pyg_list.append(nx_window_to_pyg(H, node_order, window_values, product_id))
+
+    return pyg_list
+
+
 # ── dataset ─────────────────────────────────────────────────────────────────
 class GCNTimeSeriesDataset(Dataset):
     """
-    Drop-in analogue of ``TimeSeriesDataset`` (Graph2Vec variant) that
-    feeds a trainable GCN instead of frozen embeddings.
+    Per-step ego-graph dataset feeding the GCN + TCN forecaster.
 
     Parameters
     ----------
     target_data       : (T,) scaled target series
     exog_data         : (T, n_exog) scaled exogenous matrix (or None)
-    seq_length        : LSTM lookback (L)
-    pyg_graphs        : list of length T (after padding) of ``Data`` ego-graphs
-                        — entry ``t`` is built on days ``t - graph_window_size
-                        .. t - 1``.  Pass the unpadded list and we'll zero-pad.
-    graph_window_size : window width used to build the graphs
-    target_node_idx   : index of the target node inside every graph (default 0,
-                        i.e. ego at row 0 by ``nx_window_to_pyg`` convention)
+    seq_length        : TCN lookback (L) — pick L ≥ TCN receptive field
+    pyg_graphs        : list of length ≤ T of ``Data`` ego-graphs.  Entry
+                        ``t`` is built on days ``t - graph_window_size
+                        .. t - 1``.  Pass the unpadded list and we'll
+                        zero-pad on the left so ``pyg_graphs[t]`` aligns
+                        to day ``t`` of ``target_data``.
+    graph_window_size : window width used to build the graphs (only used
+                        to compute the zero-pad length).
+    target_node_idx   : index of the target node inside every graph
+                        (default 0 — ``nx_window_to_pyg`` convention).
     """
 
     def __init__(
@@ -240,7 +236,6 @@ class GCNTimeSeriesDataset(Dataset):
         # ─── zero-pad the graph list so pyg_graphs[t] is aligned to day t ───
         T = len(self.target_data)
         if len(pyg_graphs) < T:
-            # build a tiny empty graph with the right node-feature width
             sample = pyg_graphs[0]
             n_nodes  = sample.num_nodes
             in_feats = sample.x.shape[1]
@@ -273,10 +268,10 @@ class GCNTimeSeriesDataset(Dataset):
         else:
             ts = target_seq.reshape(-1, 1)
 
-        # ONE GRAPH PER LOOKBACK STEP.
-        # Step i in [0, L)  ->  pyg_graphs[idx + 1 + i], the graph built on the
-        # `graph_window_size` days preceding day idx + 1 + i.  This matches the
-        # Graph2Vec per-timestep concatenation convention.
+        # ONE GRAPH PER LOOKBACK STEP.  Step i in [0, L) is the graph built
+        # on the ``graph_window_size`` days preceding day ``idx + 1 + i``,
+        # exactly matching the per-step concatenation contract expected by
+        # ``SimpleGCNTCNForecaster.forward``.
         L   = self.seq_length
         end = len(self.pyg_graphs) - 1
         graphs = [
@@ -295,15 +290,14 @@ def collate_pyg_ts(batch):
     PER-STEP collation.  Batches a list of (list[Data] of length L, ts_seq, y)
     tuples into:
 
-        pyg_batch  : torch_geometric.data.Batch of B*L ego-graphs
-                     (flattened row-major: sample0_step0, sample0_step1, ...,
-                      sample0_step{L-1}, sample1_step0, ...)
+        pyg_batch  : torch_geometric.data.Batch of B*L ego-graphs (row-major:
+                     sample0_step0, ..., sample0_step{L-1}, sample1_step0, ...).
         ts_batch   : (B, L, F)
         y_batch    : (B, 1)
         target_idx : (B*L,) absolute indices of each subgraph's target node
                      inside the batched node-feature matrix (= ptr[:-1]).
-                     The model reshapes ``z`` to (B, L, d_g) using L.
-        L          : int — lookback length (needed for the reshape)
+        L          : int — lookback length, needed by the TCN to reshape
+                     ``z`` from (B*L, d_g) back to (B, L, d_g).
     """
     graph_lists, ts_seqs, ys = zip(*batch)
     L = len(graph_lists[0])
