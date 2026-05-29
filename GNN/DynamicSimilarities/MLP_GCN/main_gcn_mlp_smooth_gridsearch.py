@@ -113,8 +113,8 @@ grid_configs = [
 
 #window_sizes              = [15, 21, 28, 45, 60]
 #SEQ_LENGTHS               = [30, 60, 90] 
-window_sizes = [28]
-SEQ_LENGTHS = [60]  # lookback grid
+window_sizes = [15]
+SEQ_LENGTHS = [30,60,90]  # lookback grid
 step_sizes                = [1]
 enable_edges_opts         = [True]
 enable_second_degree_opts = [False]
@@ -129,7 +129,6 @@ DROPOUT        = 0.0
 D_G            = 16          # per-step graph embedding dim
 SAVE_MODELS    = False
 SAVE_PLOTS     = True
-USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 GCN_NODE_FEATURES = None     # set dynamically to window_size (raw sequence features)
 

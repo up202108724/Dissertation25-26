@@ -380,15 +380,15 @@ def plot_per_item_comparison(per_item, metric, metric_type, window_size,
 if __name__ == "__main__":
     # ---------------- Configuration ----------------
     # MODE: 'none' | 'threshold' | 'percentile'
-    MODE = "threshold"
+    MODE = "percentile"
 
     #ITEM_IDS = [26008, 907969, 907967, 213626, 213628,
     #            213625, 26862, 156753, 53682, 34497]
-    ITEM_IDS = [213626]
-    METRIC = "cid"               # 'pearson' | 'spearman' | 'kendall' |
+    ITEM_IDS = [26008]
+    METRIC = "spearman"               # 'pearson' | 'spearman' | 'kendall' |
                                  # 'cid' | 'dtw' | 'manhattan' | ...
-    METRIC_TYPE = "distance"     # 'similarity' or 'distance'
-    WINDOW_SIZE = 15
+    METRIC_TYPE = "similarity"     # 'similarity' or 'distance'
+    WINDOW_SIZE = 30
     STEP_SIZE = 1
 
     THRESHOLD = 2.5              # used iff MODE == 'threshold'
