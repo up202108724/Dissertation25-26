@@ -82,7 +82,10 @@ def infer_metric_type(metric, metric_type=None):
 
 
 # ── Constants ──────────────────────────────────────────────────────────────
+# Products to EVALUATE — only smooth items
 DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_smooth.feather'))
+# Full catalogue used for GRAPH CONSTRUCTION (neighbours can be any product)
+GRAPH_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
@@ -174,7 +177,8 @@ ROLLING_MEAN_EXCL_PREFIX = "rolling_mean_excl_"
 # Main runner
 # ──────────────────────────────────────────────────────────────────────────
 def main():
-    print(f"Loading data from {DATA_PATH}...")
+    # ── Load smooth data (products to EVALUATE) ───────────────────────────
+    print(f"Loading evaluation data from {DATA_PATH}...")
     df = pd.read_feather(DATA_PATH)
     if DATE_COL in df.index.names:
         if DATE_COL in df.columns:
@@ -188,13 +192,20 @@ def main():
     df[DATE_COL] = pd.to_datetime(df[DATE_COL])
     df = df.sort_values([DATE_COL, 'item_id', 'store_id']).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
-    full_df = df.copy()
+    full_df = df.copy()  # smooth products only — used for forecasting
+
+    # ── Load full catalogue (all products) for GRAPH CONSTRUCTION ─────────
+    print(f"Loading graph construction data from {GRAPH_DATA_PATH}...")
+    df_graph = pd.read_feather(GRAPH_DATA_PATH)
+    df_graph[DATE_COL] = pd.to_datetime(df_graph[DATE_COL])
+    df_graph = df_graph.sort_values([DATE_COL, 'item_id']).reset_index(drop=True)
 
     cat_labels_dict = (
-        full_df.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
-        if 'cat_label' in full_df.columns else {}
+        df_graph.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
+        if 'cat_label' in df_graph.columns else {}
     )
-    df_wide_global = full_df.pivot_table(
+    # df_wide_global contains ALL products — neighbours are drawn from the full catalogue
+    df_wide_global = df_graph.pivot_table(
         index='item_id', columns=DATE_COL, values=TARGET_COL, aggfunc='sum'
     ).fillna(0)
     df_wide_global.columns = pd.to_datetime(df_wide_global.columns).strftime('%Y-%m-%d')
@@ -217,6 +228,7 @@ def main():
             df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         ).flatten()
 
+    # Iterate only over smooth products for evaluation
     products_iter = (
         full_df[['item_id', 'store_id']]
         .drop_duplicates()

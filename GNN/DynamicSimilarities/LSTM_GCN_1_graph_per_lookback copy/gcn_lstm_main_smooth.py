@@ -1,59 +1,52 @@
 """
-Grid-search runner for the PER-STEP GCN + MLP forecaster
-(one ego-graph per lookback day, jointly trained with the MLP head).
+Grid-search runner for the PER-STEP GCN + LSTM forecaster
+(one ego-graph per lookback day).
 
-Direct analogue of ``LSTM_GCN_1_graph_per_lookback/main.py`` but with a flat
-MLP head instead of an LSTM.  Reuses:
-
-    * ``GCNTimeSeriesDataset`` + ``collate_pyg_ts`` + ``build_pyg_graphs_from_nx_windows``
-      from the LSTM sibling (model-agnostic per-step pipeline)
-    * ``_recursive_forecast_gcn_perstep`` from the LSTM sibling (signature
-      ``model(pyg_batch, target_idx, ts_seq) -> (B, H, 1)`` is identical for
-      our MLP-headed model)
-    * ``neighbourhood_graph`` from GraphAnalysis
-    * Local ``SimpleGCNMLPForecaster`` and ``train_model`` (this folder)
-    * Local ``plots.plot_results``
+Mirrors ``GNN/DynamicSimilarities/LSTM_GCN/main.py`` (single-graph variant)
+but adapted to the per-step model: the recursive-inference seed is a
+deque of L ego-graphs, and an aligned sequence of per-day ``future_graphs``
+is fed to the rollout so each forecast step sees the correct graph for the
+day it is predicting.
 """
 
+import csv
+import hashlib
 import os
 import random
 import sys
+import time
 import pickle
 import itertools
-import hashlib
-import csv
-import time
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+from collections import deque
 from torch.utils.data import DataLoader
-from torch_geometric.data import Data
+from torch_geometric.data import Batch, Data
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-# ── Paths & sys.path setup ─────────────────────────────────────────────────
+# ── Paths & sys.path setup (same convention as the single-graph runner) ────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '../../..')))                                  # repo root
 sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..')))                                        # DynamicSimilarities/
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'GraphAnalysis')))                       # neighbourhood_graph
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'LSTM_GCN_1_graph_per_lookback')))       # reusable GCN dataset/inference
+sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'GraphAnalysis')))                       # for neighbourhood_graph
+sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'Graph2vec_FixedThreshold', 'LSTM')))    # for plots
 
 from model_utils.utils import generate_exogenous_features, compute_metrics
+from plots import plot_results  # from sibling Graph2vec_FixedThreshold/LSTM/plots.py
+
 from utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll  # GraphAnalysis/utils.py
 
-# Reused per-step GCN pipeline (model-agnostic)
-from GNN.DynamicSimilarities.MLP_GCN.gcn_mlp_dataset import (
+# Local (per-step) GCN+LSTM modules
+from gcn_lstm_dataset import (
     GCNTimeSeriesDataset,
     collate_pyg_ts,
     build_pyg_graphs_from_nx_windows,
 )
-from gcn_mlpinference import _recursive_forecast_gcn_perstep
-
-# Local MLP-headed model + training loop + plotting
-from gcn_mlp_model import SimpleGCNMLPForecaster
-from gcn_mlp_train import train_model
-from plots import plot_results
+from gcn_lstm_model import SimpleGCNLSTMForecaster
+from train import train_model
 
 
 # ── Metric typing ──────────────────────────────────────────────────────────
@@ -81,37 +74,38 @@ def infer_metric_type(metric, metric_type=None):
     )
 
 
-# ── Constants ──────────────────────────────────────────────────────────────
+# ── Constants (same defaults as LSTM_GCN/main.py) ──────────────────────────
+# Products to EVALUATE — only smooth items
 DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_smooth.feather'))
+# Full catalogue used for GRAPH CONSTRUCTION (neighbours can be any product)
+GRAPH_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
-SEEDS = [42]
+SEEDS = [42, 1000, 26008, 213626]
 
 # Set to None to run all (item_id, store_id) pairs found in the data,
 # or provide an explicit list e.g. [(26008, 6269), (911753, 6269)]
 PRODUCTS_TO_TEST = None
 
 EXOG_COLS = [
-    "dom_sin","dom_cos", "wom_sin", "wom_cos",
-    "dow_sin", "dow_cos", "doy_sin", "doy_cos", "is_weekend",
-    "lag_1", "lag_7", "lag_14","lag_28",
-    "rolling_mean_excl_3", 
-    #"rolling_mean_excl_5",
-    "rolling_mean_excl_7", "rolling_mean_excl_14", "rolling_mean_excl_28",
-    "month_sin", "month_cos", "quarter",
+    "day_of_week", "day_of_month", "week_of_year", "week_of_month",
+    "month", "quarter", "is_weekend",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
+    "is_monday", "is_friday",
     "is_holiday", "is_thanksgiving", "is_black_friday",
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
+    "is_pre_holiday_1", "is_pre_holiday_2", "is_pre_holiday_3", "is_pre_holiday_7",
+    "is_post_holiday_1", "is_post_holiday_2", "is_post_holiday_3", "is_post_holiday_7",
     "is_bridge_day",
 ]
 
-
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.70, 0.75, 0.82, 0.85, 0.88, 0.91]},
+    {'metric': 'spearman', 'thresholds': [0.75, 0.82, 0.85, 0.88, 0.91]},
 ]
 
 window_sizes              = [15]
+SEQ_LENGTHS               = [30]          # lookback grid
 step_sizes                = [1]
 enable_edges_opts         = [True]
 enable_second_degree_opts = [False]
@@ -119,28 +113,27 @@ USE_RESIDUALS  = False
 MODEL_TYPE     = 'ridge'
 EPOCHS         = 1000
 PATIENCE       = 100
-LEARNING_RATE  = 0.001
-HIDDEN_SIZE    = 32          # GCN hidden width
-MLP_HIDDEN     = (256,64)    # MLP head widths
+LEARNING_RATE  = 5e-4          # halved (was 1e-3) to damp early oscillations
+WARMUP_EPOCHS  = 10            # linear warmup before plateau scheduler kicks in
+HIDDEN_SIZE    = 32
+NUM_LAYERS     = 1
 DROPOUT        = 0.0
 D_G            = 16          # per-step graph embedding dim
 SAVE_MODELS    = False
 SAVE_PLOTS     = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
-GCN_NODE_FEATURES = None     # set dynamically to window_size (raw sequence features)
-
 # Grid of ablation modes — True: zero-out z (no GCN signal); False: full model.
-ABLATE_Z_VALUES = [True, False]
-DIAG_CSV_NAME  = "diagnostics.csv"
-# Set True to emit inference_graph_log.csv with per-step neighbourhood data.
+ABLATE_Z_VALUES        = [True, False]
 RECORD_INFERENCE_GRAPHS = False
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-# ── Per-day alignment helper (identical to LSTM sibling) ───────────────────
+# ──────────────────────────────────────────────────────────────────────────
+# Per-day alignment helper
+# ──────────────────────────────────────────────────────────────────────────
 def _make_pad_graph(template: Data) -> Data:
+    """Zero-valued single-node graph matching the feature width of ``template``."""
     in_feats = template.x.shape[1]
     return Data(
         x=torch.zeros(1, in_feats, dtype=torch.float32),
@@ -151,10 +144,19 @@ def _make_pad_graph(template: Data) -> Data:
 
 
 def _align_pyg_windows_to_timeline(pyg_windows, window_size, step_size, T):
+    """
+    Convert the per-window PyG list (one Data per sliding window of width W)
+    into a per-day list of length T where ``aligned[t]`` is the graph built
+    *strictly before* day t (days t-W .. t-1).  This matches the
+    GCNTimeSeriesDataset / Graph2Vec convention and is the pad that
+    GUARANTEES no label leakage in the per-step variant (the graph chosen
+    for the last lookback step never includes the label day).
+    """
     if step_size != 1:
         raise NotImplementedError("Per-day alignment helper currently assumes step_size=1")
+
     pad = _make_pad_graph(pyg_windows[0])
-    aligned = [pad] * window_size + list(pyg_windows)
+    aligned = [pad] * window_size + list(pyg_windows)       # pad by W (not W-1)
     if len(aligned) < T:
         aligned += [aligned[-1]] * (T - len(aligned))
     else:
@@ -162,17 +164,76 @@ def _align_pyg_windows_to_timeline(pyg_windows, window_size, step_size, T):
     return aligned
 
 
-# Exog columns whose value at day t is value[t-k] — recomputed at inference
-# from the rolling (own-prediction-augmented) target history.
-LAG_PREFIX = "lag_"
-ROLLING_MEAN_EXCL_PREFIX = "rolling_mean_excl_"
+# ──────────────────────────────────────────────────────────────────────────
+# Recursive inference (PER-STEP: deque of L graphs)
+# ──────────────────────────────────────────────────────────────────────────
+@torch.no_grad()
+def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
+                                    future_graphs, exog_test_scaled,
+                                    scaler, horizon, device):
+    """
+    One-step-at-a-time inference for the per-step GCN+LSTM.
+
+    Parameters
+    ----------
+    model            : SimpleGCNLSTMForecaster (per-step variant)
+    ts_seed          : (L, 1+n_exog) scaled LSTM seed; row L-1 already
+                       contains the exog for the FIRST predicted step.
+    initial_graphs   : list of L Data ego-graphs (oldest..newest) aligned to
+                       the L lookback days at inference start.
+    future_graphs    : list of length ``horizon`` of ego-graphs aligned to
+                       each successive forecast day.  Each step appends one
+                       and drops the oldest from the rolling deque.
+    exog_test_scaled : (horizon, n_exog) scaled exog for the test window.
+    scaler           : sklearn MinMaxScaler fit on the target.
+    horizon          : number of recursive steps.
+    device           : torch.device
+
+    Returns
+    -------
+    np.ndarray (horizon,) — inverse-scaled predictions.
+    """
+    model.eval()
+    ts = np.asarray(ts_seed, dtype=np.float32).copy()
+    L = ts.shape[0]
+    if len(initial_graphs) != L:
+        raise ValueError(f"initial_graphs must have length L={L}, got {len(initial_graphs)}")
+
+    graphs: "deque[Data]" = deque((g.clone() for g in initial_graphs), maxlen=L)
+    preds_scaled = []
+
+    for step in range(horizon):
+        # advance exog of the last LSTM row to the step we are about to predict
+        if step > 0 and exog_test_scaled is not None and ts.shape[1] > 1:
+            ts[-1, 1:] = exog_test_scaled[step]
+
+        ts_t  = torch.from_numpy(ts).unsqueeze(0).to(device)            # (1, L, F)
+        batch = Batch.from_data_list(list(graphs)).to(device)           # B*L = L
+        tidx  = batch.ptr[:-1].to(device)
+        out   = model(batch, tidx, ts_t)                                # (1, H, 1)
+        y_hat = float(out[0, -1, 0].detach().cpu().item())
+        preds_scaled.append(y_hat)
+
+        # roll LSTM window
+        ts = np.vstack([ts[1:], ts[-1:].copy()])
+        ts[-1, 0] = y_hat
+
+        # roll graph deque (push the graph aligned to the day we just predicted)
+        if step < len(future_graphs):
+            graphs.append(future_graphs[step].clone())
+        else:
+            graphs.append(graphs[-1].clone())
+
+    preds_scaled = np.array(preds_scaled, dtype=np.float32).reshape(-1, 1)
+    return scaler.inverse_transform(preds_scaled).flatten()
 
 
 # ──────────────────────────────────────────────────────────────────────────
 # Main runner
 # ──────────────────────────────────────────────────────────────────────────
 def main():
-    print(f"Loading data from {DATA_PATH}...")
+    # ── Load smooth data (products to EVALUATE) ───────────────────────────
+    print(f"Loading evaluation data from {DATA_PATH}...")
     df = pd.read_feather(DATA_PATH)
     if DATE_COL in df.index.names:
         if DATE_COL in df.columns:
@@ -186,24 +247,32 @@ def main():
     df[DATE_COL] = pd.to_datetime(df[DATE_COL])
     df = df.sort_values([DATE_COL, 'item_id', 'store_id']).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
-    full_df = df.copy()
+    full_df = df.copy()  # smooth products only — used for forecasting
+
+    # ── Load full catalogue (all products) for GRAPH CONSTRUCTION ─────────
+    print(f"Loading graph construction data from {GRAPH_DATA_PATH}...")
+    df_graph = pd.read_feather(GRAPH_DATA_PATH)
+    df_graph[DATE_COL] = pd.to_datetime(df_graph[DATE_COL])
+    df_graph = df_graph.sort_values([DATE_COL, 'item_id']).reset_index(drop=True)
 
     cat_labels_dict = (
-        full_df.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
-        if 'cat_label' in full_df.columns else {}
+        df_graph.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
+        if 'cat_label' in df_graph.columns else {}
     )
-    df_wide_global = full_df.pivot_table(
+    # df_wide_global contains ALL products — neighbours are drawn from the full catalogue
+    df_wide_global = df_graph.pivot_table(
         index='item_id', columns=DATE_COL, values=TARGET_COL, aggfunc='sum'
     ).fillna(0)
     df_wide_global.columns = pd.to_datetime(df_wide_global.columns).strftime('%Y-%m-%d')
 
     Lcols = len(df_wide_global.columns)
-    forecast_horizon_global = 153
-    val_size_global         = 153
-    train_size_global       = 455
+    forecast_horizon_global = 152
+    val_size_global = 154
+    train_size_global = 455
     global_train_start_idx = max(0, Lcols - forecast_horizon_global - val_size_global - train_size_global)
     global_val_start_idx   = Lcols - forecast_horizon_global - val_size_global
 
+    # per-product StandardScaler fit on training window, applied to whole history
     product_scalers = {}
     train_df_wide = df_wide_global.iloc[:, global_train_start_idx:global_val_start_idx]
     df_wide_scaled = df_wide_global.copy()
@@ -215,6 +284,7 @@ def main():
             df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         ).flatten()
 
+    # Iterate only over smooth products for evaluation
     products_iter = (
         full_df[['item_id', 'store_id']]
         .drop_duplicates()
@@ -234,10 +304,11 @@ def main():
         )
 
         forecast_horizon = 153
-        seq_length       = 30
         train_size       = 455
         val_size         = 153
         BATCH_SIZE       = 32
+
+        max_seq_length   = max(SEQ_LENGTHS)
 
         required_rows = forecast_horizon + val_size + train_size
         if len(df_p) < required_rows:
@@ -287,6 +358,7 @@ def main():
             os.makedirs(grid_search_plots_dir, exist_ok=True)
             os.makedirs(best_models_seed_dir,  exist_ok=True)
 
+            # GCN+LSTM requires a graph for every config — no_emb baseline is dropped.
             all_configs = list(grid_configs)
 
             for config in all_configs:
@@ -299,13 +371,17 @@ def main():
                 is_threshold_mode = thresholds is not None and thresholds != [None]
                 params   = thresholds if is_threshold_mode else percentiles
                 iterator = itertools.product(
-                    ABLATE_Z_VALUES, params, window_sizes, step_sizes,
+                    ABLATE_Z_VALUES, params, SEQ_LENGTHS, window_sizes, step_sizes,
                     enable_edges_opts, enable_second_degree_opts,
                 )
 
                 metric_type = infer_metric_type(metric)
 
-                for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
+                for ablate_z, param_val, seq_length, window_size, step_size, enable_edges, enable_second_degree in iterator:
+                    # Per-step ego-graph alignment requires window_size <= seq_length.
+                    if window_size > seq_length:
+                        print(f"Skipping combo (L={seq_length}, W={window_size}): W must be <= L.")
+                        continue
                     # When ablating, z is zeroed so the threshold has no effect.
                     if ablate_z and param_val != params[0]:
                         continue
@@ -313,7 +389,7 @@ def main():
                     current_threshold  = param_val if is_threshold_mode else None
                     current_percentile = param_val if not is_threshold_mode else None
 
-                    key = (ablate_z, param_val, window_size, step_size)
+                    key = (ablate_z, param_val, seq_length, window_size, step_size)
                     if key not in results_by_w_s:
                         results_by_w_s[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -331,8 +407,8 @@ def main():
 
                     # ── 1 & 2. Graph pipeline (skipped for ablation) ─────────
                     if ablate_z:
-                        # GCN output is zeroed; building hundreds of sliding-window
-                        # graphs would be pure waste.  Dummy placeholder graphs.
+                        # GCN output is zeroed; building sliding-window graphs
+                        # would be pure waste.  Dummy placeholder graphs.
                         fixed_threshold = None
                         results_by_w_s[key]['threshold'] = fixed_threshold
                         _dummy = Data(
@@ -348,9 +424,6 @@ def main():
                     else:
                         # ── 1. Build per-window NX graphs ────────────────────
                         # Always use df_wide_scaled (per-product z-score, fit on train only).
-                        # Distance metrics need scaling; similarity metrics (Spearman/Pearson)
-                        # are scale-invariant so topology is unchanged.  Node features are
-                        # already normalised, so node_scalers is never needed.
                         current_df_wide = df_wide_scaled
                         compute_func = (compute_distances_1vsAll if metric_type == 'distance'
                                         else compute_similarities_1vsAll)
@@ -391,10 +464,12 @@ def main():
                         pyg_val   = pyg_aligned_global[product_offset + val_start_idx:
                                                        product_offset + test_start_idx]
 
+                        # Inference seed: the L per-day graphs ending at last val day.
                         seed_start = product_offset + test_start_idx - seq_length
                         seed_end   = product_offset + test_start_idx
                         pyg_seed_graphs = pyg_aligned_global[seed_start:seed_end]
 
+                        # Future graphs aligned to each forecast day in [test_start, test_start+H)
                         fut_start = product_offset + test_start_idx
                         fut_end   = fut_start + forecast_horizon
                         pyg_future_graphs = pyg_aligned_global[fut_start:fut_end]
@@ -409,7 +484,7 @@ def main():
                         graph_window_size=window_size,
                     )
                     train_loader = DataLoader(
-                        train_dataset, batch_size=BATCH_SIZE, shuffle=False,
+                        train_dataset, batch_size=BATCH_SIZE, shuffle=True,
                         pin_memory=use_pin_memory, collate_fn=collate_pyg_ts,
                     )
                     val_dataset = GCNTimeSeriesDataset(
@@ -430,31 +505,45 @@ def main():
                     if torch.cuda.is_available():
                         torch.cuda.manual_seed(seed)
 
-                    in_channels   = pyg_train[0].x.shape[1]
-                    ts_input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
-                    model = SimpleGCNMLPForecaster(
+                    in_channels     = pyg_train[0].x.shape[1]    # 8 from _window_node_features
+                    lstm_input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
+                    model = SimpleGCNLSTMForecaster(
                         in_channels=in_channels,
                         gcn_hidden=HIDDEN_SIZE,
                         d_g=D_G,
-                        ts_input_size=ts_input_size,
-                        seq_length=seq_length,
-                        hidden_sizes=MLP_HIDDEN,
+                        lstm_input_size=lstm_input_size,
+                        lstm_hidden=HIDDEN_SIZE,
+                        lstm_layers=NUM_LAYERS,
                         horizon=1,
                         dropout=DROPOUT,
                     ).to(device)
-                    model.ablate_z = ablate_z
                     criterion  = nn.MSELoss()
                     criterion2 = nn.MSELoss()
                     optimizer  = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
-                    scheduler  = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    # Linear warmup -> ReduceLROnPlateau (sequentially via SequentialLR)
+                    warmup = torch.optim.lr_scheduler.LinearLR(
+                        optimizer, start_factor=0.1, end_factor=1.0, total_iters=WARMUP_EPOCHS,
+                    )
+                    plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
                         optimizer, mode='min', factor=0.5, patience=PATIENCE // 3,
                     )
+                    # train_model() calls scheduler.step(val_loss); wrap so warmup runs first.
+                    class _WarmThenPlateau:
+                        def __init__(self, w, p, n_warm):
+                            self.w, self.p, self.n_warm, self.i = w, p, n_warm, 0
+                        def step(self, val_loss):
+                            if self.i < self.n_warm:
+                                self.w.step(); self.i += 1
+                            else:
+                                self.p.step(val_loss)
+                    scheduler = _WarmThenPlateau(warmup, plateau, WARMUP_EPOCHS)
 
-                    # ── 5. Checkpoint paths ──────────────────────────────────
+                    # ── 5. Checkpoint paths (PER-STEP tag) ───────────────────
                     model_dir_label = (f"th{current_threshold}" if is_threshold_mode
                                        else f"pct{current_percentile}")
                     best_models_dir = os.path.join(
-                        best_models_seed_dir, str(window_size), str(step_size),
+                        best_models_seed_dir, f"L{seq_length}",
+                        str(window_size), str(step_size),
                         metric, model_dir_label,
                     )
                     os.makedirs(best_models_dir, exist_ok=True)
@@ -466,8 +555,8 @@ def main():
                     param_label = (f"th_{current_threshold}" if is_threshold_mode
                                    else f"pct_{current_percentile}")
                     base_name = (
-                        f"best_gcnmlp_perstep_{prefix_star}{product_id}_{metric}"
-                        f"_w{window_size}_s{step_size}_{param_label}{res_tag}_seed_{seed}"
+                        f"best_gcnlstm_perstep_{prefix_star}{product_id}_{metric}"
+                        f"_L{seq_length}_w{window_size}_s{step_size}_{param_label}{res_tag}_seed_{seed}"
                     )
                     best_model_path = os.path.join(best_models_dir, f"{base_name}.pth")
                     history_path    = os.path.join(best_models_dir, f"{base_name}_history.pkl")
@@ -481,10 +570,8 @@ def main():
                             history = pickle.load(f)
                             train_losses = history['train_losses']
                             val_losses   = history['val_losses']
-                        train_time  = history.get('train_time', None)
-                        best_epoch  = history.get('best_epoch', None)
                     else:
-                        print("Training new per-step GCN+MLP model...")
+                        print("Training new per-step GCN+LSTM model...")
                         model, train_losses, val_losses, best_epoch, train_time = train_model(
                             seed=seed, epochs=EPOCHS, model=model,
                             train_loader=train_loader, val_loader=val_loader,
@@ -504,11 +591,11 @@ def main():
                         print(f"Loading best weights from {best_model_path} for inference...")
                         model.load_state_dict(torch.load(best_model_path, map_location=device))
 
-                    # ── 7. Recursive inference ───────────────────────────────
+                    # ── 7. Recursive inference (PER-STEP) ────────────────────
                     inf_threshold = fixed_threshold
                     print("Running Inference...")
-                    _inf_start = time.time()
 
+                    # LSTM seed: last L target values of val, exog rows aligned so last row = exog_test[0]
                     if EXOG_COLS:
                         exog_seed_rows = np.vstack([
                             exog_val_scaled[-(seq_length - 1):],
@@ -520,26 +607,7 @@ def main():
                         ]).astype(np.float32)
                     else:
                         ts_seed = val_scaled[-seq_length:].reshape(-1, 1).astype(np.float32)
-
-                    lag_col_indices = {}
-                    for i, name in enumerate(EXOG_COLS):
-                        if name.startswith(LAG_PREFIX):
-                            try:
-                                k = int(name[len(LAG_PREFIX):])
-                            except ValueError:
-                                continue
-                            lag_col_indices[i] = k
-                    rolling_mean_excl_col_indices = {}
-                    for i, name in enumerate(EXOG_COLS):
-                        if name.startswith(ROLLING_MEAN_EXCL_PREFIX):
-                            try:
-                                W = int(name[len(ROLLING_MEAN_EXCL_PREFIX):])
-                            except ValueError:
-                                continue
-                            rolling_mean_excl_col_indices[i] = W
-                    target_history_unscaled = np.concatenate([train, val]).astype(np.float32)
-
-                    graph_log = [] if RECORD_INFERENCE_GRAPHS else None
+                    inference_time_start = time.time()
                     forecast = _recursive_forecast_gcn_perstep(
                         model=model,
                         ts_seed=ts_seed,
@@ -549,36 +617,8 @@ def main():
                         scaler=scaler,
                         horizon=forecast_horizon,
                         device=device,
-                        target_history_unscaled=target_history_unscaled if EXOG_COLS else None,
-                        lag_col_indices=lag_col_indices if EXOG_COLS else None,
-                        rolling_mean_excl_col_indices=rolling_mean_excl_col_indices if EXOG_COLS else None,
-                        exog_scaler=exog_scaler if EXOG_COLS else None,
-                        graph_log_out=graph_log,
                     )
-                    inference_time = time.time() - _inf_start
-
-                    if RECORD_INFERENCE_GRAPHS and graph_log:
-                        _igcsv = os.path.join(SCRIPT_DIR, "inference_graph_log.csv")
-                        _igexists = os.path.exists(_igcsv)
-                        with open(_igcsv, 'a', newline='') as _gf:
-                            _gw = csv.writer(_gf)
-                            if not _igexists:
-                                _gw.writerow([
-                                    "product_id", "store_id", "seed", "metric",
-                                    "window_size", "step_size",
-                                    "threshold", "percentile", "ablate_z",
-                                    "step", "n_nodes", "src_node", "tgt_node", "edge_weight",
-                                ])
-                            for _row in graph_log:
-                                _gw.writerow([
-                                    product_id, store_id, seed, metric,
-                                    window_size, step_size,
-                                    current_threshold if current_threshold is not None else "",
-                                    current_percentile if current_percentile is not None else "",
-                                    ablate_z,
-                                    _row['step'], _row['n_nodes'],
-                                    _row['src_node'], _row['tgt_node'], _row['edge_weight'],
-                                ])
+                    inference_time = time.time() - inference_time_start
 
                     valid_mask     = ~np.isnan(forecast)
                     valid_test     = test[valid_mask]
@@ -598,7 +638,7 @@ def main():
                     param_str_label = (f"th:{current_threshold}" if is_threshold_mode
                                        else f"pct:{current_percentile} (val:{th_str})")
                     az_str = "ablation" if ablate_z else "full"
-                    label_name = (f"{param_str_label}|w:{window_size}|st:{step_size}"
+                    label_name = (f"{param_str_label}|L:{seq_length}|w:{window_size}|st:{step_size}"
                                   f"|e:{enable_edges}|2nd:{enable_second_degree}|az:{az_str}")
 
                     results_by_w_s[key]['forecasts'][label_name]    = forecast
@@ -620,21 +660,16 @@ def main():
                         if not timing_exists:
                             tw.writerow([
                                 "product_id", "store_id", "seed", "metric",
-                                "window_size", "step_size", "threshold", "percentile",
-                                "ablate_z", "best_epoch",
+                                "seq_length", "window_size", "step_size",
+                                "threshold", "percentile", "ablate_z",
                                 "train_time_s", "inference_time_s",
-                                "rmse", "mae",
                             ])
                         tw.writerow([
                             product_id, store_id, seed, metric,
-                            window_size, step_size,
+                            seq_length, window_size, step_size,
                             current_threshold if current_threshold is not None else "",
                             current_percentile if current_percentile is not None else "",
-                            ablate_z,
-                            best_epoch if best_epoch is not None else "",
-                            f"{train_time:.2f}" if train_time is not None else "",
-                            f"{inference_time:.4f}",
-                            rmse, mae,
+                            ablate_z, train_time, inference_time,
                         ])
 
                     # ── Append to persistent CSV (per metric) ────────────────
@@ -645,27 +680,28 @@ def main():
                         if not file_exists:
                             writer.writerow([
                                 "product_id", "store_id", "seed", "metric",
-                                "window_size", "step_size", "threshold", "percentile",
-                                "enable_edges", "enable_second_degree", "ablate_z",
+                                "seq_length", "window_size", "step_size",
+                                "threshold", "percentile",
+                                "ablate_z", "enable_edges", "enable_second_degree",
                                 "rmse", "mae", "bias", "r2_score", "pocid",
                             ])
                         writer.writerow([
                             product_id, store_id, seed, metric,
-                            window_size, step_size,
+                            seq_length, window_size, step_size,
                             current_threshold if current_threshold is not None else "",
                             current_percentile if current_percentile is not None else "",
-                            enable_edges, enable_second_degree, ablate_z,
+                            ablate_z, enable_edges, enable_second_degree,
                             rmse, mae, bias, score, pocid,
                         ])
 
-                # ── Per-metric combined plot ─────────────────────────────────
+                # ── Per-metric combined plot (all thresholds) ────────────────
                 train_index = df_p[DATE_COL][train_slice].values
                 val_index   = df_p[DATE_COL][val_slice].values
                 test_index  = df_p[DATE_COL][test_slice].values
 
                 grouped_results = {}
-                for (az, p, w, s), res_dicts in results_by_w_s.items():
-                    key = (w, s)
+                for (az, p, L, w, s), res_dicts in results_by_w_s.items():
+                    key = (L, w, s)
                     if key not in grouped_results:
                         grouped_results[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -674,24 +710,22 @@ def main():
                     for k in grouped_results[key]:
                         grouped_results[key][k].update(res_dicts[k])
 
-                for (w, s), res_dicts in grouped_results.items():
+                for (L, w, s), res_dicts in grouped_results.items():
                     raw_str = ("_".join(map(str, thresholds))
                                if thresholds is not None and len(thresholds) > 0 and percentiles is None
                                else "_".join(map(str, percentiles)))
                     values_str = hashlib.md5(raw_str.encode()).hexdigest()[:8]
 
                     sub_dir = os.path.join(
-                        grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}',
+                        grid_search_plots_dir, metric_type,
+                        f'seq_{L}', f'window_{w}', f'step_{s}',
                         f'item_{product_id}', values_str,
                     )
                     os.makedirs(sub_dir, exist_ok=True)
                     save_plot_path = os.path.join(
-                        sub_dir,
-                        f"item_{product_id}_{metric}_seed_{seed}_all_configs.html",
+                        sub_dir, f"item_{product_id}_{metric}_seed_{seed}_all_configs.html"
                     )
-                    emb_title = (
-                        f'GCN+MLP (per-step) Forecasts + Ablation ({metric} | Seed={seed} | W={w} | S={s})'
-                    )
+                    emb_title = f'GCN+LSTM (per-step) Forecasts + Ablation ({metric} | Seed={seed} | L={L} | W={w} | S={s})'
 
                     if SAVE_PLOTS:
                         print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
@@ -699,7 +733,7 @@ def main():
                             train, val, test, res_dicts['forecasts'],
                             train_index, val_index, test_index,
                             res_dicts['train_losses'], res_dicts['val_losses'],
-                            metric=metric, embedding_strategy='gcn_perstep_mlp',
+                            metric=metric, embedding_strategy='gcn_perstep',
                             window_size=w, step_size=s, threshold=None, percentile=None,
                             target_col=TARGET_COL,
                             title=f'{emb_title} (Item={product_id})',
@@ -719,8 +753,6 @@ def main():
                 csv_path = os.path.join(SCRIPT_DIR, csv_file)
                 try:
                     res_df = pd.read_csv(csv_path)
-                    if 'threshold' not in res_df.columns or 'rmse' not in res_df.columns:
-                        continue
                     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
                     fig.suptitle(f'Threshold vs RMSE and MAE | Metric: {metric_name}', fontsize=16)
 

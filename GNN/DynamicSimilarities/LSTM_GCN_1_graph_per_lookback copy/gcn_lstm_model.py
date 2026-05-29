@@ -71,6 +71,10 @@ class SimpleGCNLSTMForecaster(nn.Module):
         self.d_g     = d_g
         self.horizon = horizon
 
+        # diagnostic switch — when True the GCN embedding is zeroed out
+        # before being concatenated with the temporal features (ablation).
+        self.ablate_z = False
+
     def forward(self, pyg_batch, target_node_indices, ts_seq):
         """
         PER-STEP variant: one ego-graph per lookback day.
@@ -88,27 +92,31 @@ class SimpleGCNLSTMForecaster(nn.Module):
         """
         B, L, _ = ts_seq.shape
 
-        # GCN branch — encodes B*L graphs in a single sparse forward.
-        ew = (
-            pyg_batch.edge_attr.squeeze(-1)
-            if (pyg_batch.edge_attr is not None and pyg_batch.edge_attr.numel() > 0)
-            else None
-        )
-        h = self.conv1(pyg_batch.x, pyg_batch.edge_index, edge_weight=ew)
-        h = self.activation(h)
-        h = self.gnn_drop(h)
-        h = self.conv2(h, pyg_batch.edge_index, edge_weight=ew)
-        z_flat = self.z_norm(h[target_node_indices])           # (B*L, d_g)
-
-        if z_flat.shape[0] != B * L:
-            raise RuntimeError(
-                f"Expected {B*L} target indices for per-step model, got {z_flat.shape[0]}. "
-                "Make sure you are using the per-step collate that returns "
-                "(pyg_batch, ts_batch, y_batch, target_idx, L)."
+        if self.ablate_z:
+            # Skip GCN entirely — output is zeroed, no point paying the cost.
+            z_seq = torch.zeros(B, L, self.d_g, device=ts_seq.device, dtype=ts_seq.dtype)
+        else:
+            # GCN branch — encodes B*L graphs in a single sparse forward.
+            ew = (
+                pyg_batch.edge_attr.squeeze(-1)
+                if (pyg_batch.edge_attr is not None and pyg_batch.edge_attr.numel() > 0)
+                else None
             )
+            h = self.conv1(pyg_batch.x, pyg_batch.edge_index, edge_weight=ew)
+            h = self.activation(h)
+            h = self.gnn_drop(h)
+            h = self.conv2(h, pyg_batch.edge_index, edge_weight=ew)
+            z_flat = self.z_norm(h[target_node_indices])           # (B*L, d_g)
 
-        # (B*L, d_g) -> (B, L, d_g)  in the same row-major order produced by collate
-        z_seq = z_flat.view(B, L, self.d_g)
+            if z_flat.shape[0] != B * L:
+                raise RuntimeError(
+                    f"Expected {B*L} target indices for per-step model, got {z_flat.shape[0]}. "
+                    "Make sure you are using the per-step collate that returns "
+                    "(pyg_batch, ts_batch, y_batch, target_idx, L)."
+                )
+
+            # (B*L, d_g) -> (B, L, d_g)  in the same row-major order produced by collate
+            z_seq = z_flat.view(B, L, self.d_g)
 
         # Per-step concat with the temporal/exogenous features
         x = torch.cat([ts_seq, z_seq], dim=-1)                 # (B, L, in+d_g)
