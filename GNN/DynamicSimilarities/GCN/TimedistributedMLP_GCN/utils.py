@@ -2,11 +2,53 @@ import numpy as np
 from typing import Tuple
 import pandas as pd
 import holidays
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import torch
 import torch.nn as nn
 import networkx as nx
 from tslearn.metrics import cdist_dtw
+
+
+DISTANCE_METRICS = {
+    'euclidean', 'hamming', 'amplitude_offset', 'slope_consistency',
+    'phase_invariance', 'dtw', 'cid', 'lorentzian', 'sbd', 'msm', 'edr', 'lcss',
+    'manhattan', 'twed', 'erp', 'stid',
+}
+SIMILARITY_METRICS = {'pearson', 'spearman', 'kendall'}
+
+
+def infer_metric_type(metric, metric_type=None):
+    if metric_type is not None:
+        if metric_type not in {'distance', 'similarity'}:
+            raise ValueError("metric_type must be either 'distance' or 'similarity'")
+        return metric_type
+    if metric in DISTANCE_METRICS:
+        return 'distance'
+    if metric in SIMILARITY_METRICS:
+        return 'similarity'
+    raise ValueError(
+        f"Metric {metric} not supported. "
+        f"Distance metrics: {sorted(DISTANCE_METRICS)}; "
+        f"similarity metrics: {sorted(SIMILARITY_METRICS)}"
+    )
+
+def compute_metrics(y_test, y_pred):
+    
+    def POCID(y_test, y_pred):
+        diff_original = y_test[1:] - y_test[:-1]
+        diff_pred = y_pred[1:] - y_pred[:-1]
+        is_positive = (diff_original * diff_pred) > 0
+        return is_positive.sum() / len(is_positive) if len(is_positive) > 0 else 0.0
+
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    mae = mean_absolute_error(y_test, y_pred)
+    bias = np.mean(y_pred - y_test)
+    score = 0.5 * rmse + 0.25 * mae + 0.25 * abs(bias)
+    pocid = POCID(y_test, y_pred)
+    return rmse, mae, bias, score, pocid
+
+
 def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
     """
     Computes similarities between target_ts (1D) and all_ts (2D) using PyTorch.
@@ -482,108 +524,6 @@ def compute_distances_1vsAll(target_ts, all_ts, metric='amplitude_offset', eps=1
     else:
         raise ValueError(f"Metric {metric} not supported")
 
-def _proximity_decay(
-    dates: pd.Series,
-    month: int,
-    day: int,
-    tau_before: float = 10.0,
-    tau_after: float = 3.0,
-):
-    """Asymmetric exp-decay proximity to an annual fixed-date event.
-
-    Returns a value in [0, 1]:
-      - 1.0  on the event day itself.
-      - exp(-days_to  / tau_before) in the days leading up to the event.
-      - exp(-days_from / tau_after)  in the days after the event.
-
-    Asymmetry reflects retail demand patterns: demand builds gradually before
-    a holiday (large tau_before) and drops sharply after (small tau_after).
-    Defaults: tau_before=10 (~2-week ramp), tau_after=3 (~3-day tail).
-    """
-    dates = pd.to_datetime(dates).reset_index(drop=True)
-    years = dates.dt.year
-    this_year = pd.to_datetime(dict(year=years, month=month, day=day))
-    next_year = pd.to_datetime(dict(year=years + 1, month=month, day=day))
-    prev_year = pd.to_datetime(dict(year=years - 1, month=month, day=day))
-
-    # Signed distance to nearest occurrence: negative = before event, positive = after.
-    d_this = (dates - this_year).dt.days.values   # positive after this year's event
-    d_next = (dates - next_year).dt.days.values   # always negative (before)
-    d_prev = (dates - prev_year).dt.days.values   # always positive (after)
-
-    # Pick the occurrence that minimises |distance|.
-    candidates = np.stack([d_this, d_next, d_prev], axis=1)
-    idx = np.argmin(np.abs(candidates), axis=1)
-    signed = candidates[np.arange(len(candidates)), idx]   # <0 before, >0 after, 0 on day
-
-    tau = np.where(signed <= 0, tau_before, tau_after)
-    return np.exp(-np.abs(signed) / tau).astype(np.float32)
-
-
-def _proximity_decay_dynamic(
-    dates: pd.Series,
-    holiday_map,
-    holiday_name: str,
-    tau_before: float = 7.0,
-    tau_after: float = 3.0,
-    offset_days: int = 0,
-):
-    """Asymmetric exp-decay proximity for a moving holiday (e.g. Thanksgiving).
-
-    Looks up every occurrence of *holiday_name* in *holiday_map*, optionally
-    shifts by *offset_days* (positive = later, used for Black Friday = +1),
-    then applies the same asymmetric decay as `_proximity_decay`.
-
-    Defaults: tau_before=7 (~1-week ramp), tau_after=3 (~3-day tail).
-    """
-    dates = pd.to_datetime(dates).reset_index(drop=True)
-    event_dates = pd.to_datetime(sorted(
-        d + pd.Timedelta(days=offset_days)
-        for d, name in holiday_map.items()
-        if name == holiday_name
-    ))
-    if len(event_dates) == 0:
-        return np.zeros(len(dates), dtype=np.float32)
-
-    dates_arr = dates.values.astype("datetime64[D]")
-    events_arr = event_dates.values.astype("datetime64[D]")
-
-    # For each date find the nearest event occurrence.
-    signed_days = np.array([
-        min(
-            ((d - e) / np.timedelta64(1, "D") for e in events_arr),
-            key=abs,
-        )
-        for d in dates_arr
-    ], dtype=float)
-
-    tau = np.where(signed_days <= 0, tau_before, tau_after)
-    return np.exp(-np.abs(signed_days) / tau).astype(np.float32)
-def _signed_days_to_event(dates: pd.Series, month: int, day: int, clip: int = 30):
-    """Return (days_to_next, days_from_prev) for an annual fixed-date event.
-
-    Both are non-negative integers clipped to [0, clip]. `days_to_next` is 0 on
-    the event itself (and `days_from_prev` is also 0 that day).
-    """
-    dates = pd.to_datetime(dates).reset_index(drop=True)
-    years = dates.dt.year
-    this_year = pd.to_datetime(dict(year=years, month=month, day=day))
-    next_year = pd.to_datetime(dict(year=years + 1, month=month, day=day))
-    prev_year = pd.to_datetime(dict(year=years - 1, month=month, day=day))
-
-    days_to = np.where(
-        this_year.values >= dates.values,
-        (this_year - dates).dt.days.values,
-        (next_year - dates).dt.days.values,
-    )
-    days_from = np.where(
-        this_year.values <= dates.values,
-        (dates - this_year).dt.days.values,
-        (dates - prev_year).dt.days.values,
-    )
-    return np.clip(days_to, 0, clip).astype(int), np.clip(days_from, 0, clip).astype(int)
-
-
 def generate_exogenous_features(df, exog_cols, date_col='date', target_col='value', group_cols=None):
     """
     Generates specific calendar, cyclical, and holiday exogenous features for a DataFrame
@@ -675,23 +615,6 @@ def generate_exogenous_features(df, exog_cols, date_col='date', target_col='valu
         ).astype(int),
         "is_christmas_eve": lambda d: ((d[date_col].dt.month == 12) & (d[date_col].dt.day == 24)).astype(int),
         "is_new_year_eve": lambda d: ((d[date_col].dt.month == 12) & (d[date_col].dt.day == 31)).astype(int),
-        # Dec 19–25 inclusive: captures the full pre-Christmas demand ramp.
-        "is_christmas_week": lambda d: (
-            (d[date_col].dt.month == 12) & (d[date_col].dt.day.between(19, 25))
-        ).astype(int),
-        # Signed proximity to nearest Christmas, clipped at +/- 30 so the
-        # feature is informative near Dec 25 and saturates the rest of the year.
-        "days_to_christmas": lambda d: _signed_days_to_event(d[date_col], 12, 25, clip=30)[0],
-        "days_from_christmas": lambda d: _signed_days_to_event(d[date_col], 12, 25, clip=30)[1],
-        # Smooth exp-decay bump in [0, 1]: 1 on Dec 25, ~0.37 at tau days,
-        # ~0 far away. No flat region, no arbitrary clip.
-        "christmas_proximity": lambda d: _proximity_decay(d[date_col], 12, 25, tau_before=10.0, tau_after=3.0),
-        "thanksgiving_proximity": lambda d: _proximity_decay_dynamic(
-            d[date_col], _get_holidays()[0], "Thanksgiving Day", tau_before=7.0, tau_after=3.0
-        ),
-        "black_friday_proximity": lambda d: _proximity_decay_dynamic(
-            d[date_col], _get_holidays()[0], "Thanksgiving Day", tau_before=3.0, tau_after=2.0, offset_days=1
-        ),
 
         # PROMOTIONS
         "promo_type_FRPG": lambda d: d.get("promo_type_FRPG", pd.Series(0, index=d.index)).astype(int),
@@ -745,32 +668,29 @@ def generate_exogenous_features(df, exog_cols, date_col='date', target_col='valu
         elif col.startswith("rolling_mean_excl_"):
             window = int(col.split("_")[-1])
             if group_cols:
-                df[col] = df.groupby(group_cols)[target_col].transform(
-                    lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
-                ).fillna(0)
+                df[col] = df.groupby(group_cols)[target_col].transform(lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()).fillna(0)
             else:
                 df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
-
+                
         elif col.startswith("rolling_mean_"):
-            # NOTE: leak-safe version — excludes the current observation by shifting one step.
-            # The previous implementation included y_t in the mean, which leaks the target at training time.
             window = int(col.split("_")[-1])
             if group_cols:
-                df[col] = df.groupby(group_cols)[target_col].transform(
-                    lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
-                ).fillna(0)
+                df[col] = df.groupby(group_cols)[target_col].transform(lambda x: x.rolling(window=window, min_periods=1).mean()).fillna(0)
             else:
-                df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
+                df[col] = df[target_col].rolling(window=window, min_periods=1).mean().fillna(0)
 
         elif col == "is_bridge_day":
             _, holiday_dates = get_holiday_dates()
-            holiday_set = set(pd.to_datetime(holiday_dates).normalize())
-
-            d = df[date_col].dt.normalize()
-            prev_is_holiday = (d - pd.Timedelta(days=1)).isin(holiday_set)
-            next_is_holiday = (d + pd.Timedelta(days=1)).isin(holiday_set)
-            dow = d.dt.dayofweek
-            df[col] = ((prev_is_holiday & (dow == 4)) | (next_is_holiday & (dow == 0))).astype(int)
+            holiday_set = set(holiday_dates)
+            
+            df[col] = 0
+            for idx in df.index:
+                d = df.at[idx, date_col]
+                prev_day = d - pd.Timedelta(days=1)
+                next_day = d + pd.Timedelta(days=1)
+                if ((prev_day in holiday_set and d.dayofweek == 4) or 
+                    (next_day in holiday_set and d.dayofweek == 0)):
+                    df.at[idx, col] = 1
 
         elif col in df.columns:
             # If the column exists in the dataset natively (e.g., store_id, cat_label) and isn't a builder key, just pass

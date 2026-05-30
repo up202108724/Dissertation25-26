@@ -10,8 +10,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
-from mlp import MLPForecaster
-from graph2vecdataset import make_windows, WindowDataset
+from mlp import TimeDistributedMLPForecaster
+from dataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
@@ -24,7 +24,8 @@ class TrainConfig:
     weight_decay: float = 1e-3
     dropout: float = 0.2
     patience: int = 150
-    hidden_sizes: tuple = (128, 64)
+    hidden_sizes: tuple = (32, 16)
+    model_type: str = "tdmlp"
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 def train_mlp_forecaster(
@@ -37,7 +38,6 @@ def train_mlp_forecaster(
     target_channel: int = 0,
     target_col=None,
     exog_cols=None,
-    graph_embeddings=None,
     test_size=None,
 ):
     torch.manual_seed(seed)
@@ -72,25 +72,12 @@ def train_mlp_forecaster(
     val_target = val_context_data[:, target_channel:target_channel+1]
     val_scaled[:, target_channel:target_channel+1] = scaler.transform(val_target)
 
-    # Extract embeddings for Train and Val (if provided).
-    # val_scaled starts at (val_start_idx - lookback), so the embedding start
-    # must match that same data position, not len(train_scaled).
-    # Using len(train_scaled) as the start would offset embeddings by +lookback
-    # rows (forward data leak introduced by the val-context prepend fix).
-    if graph_embeddings is not None:
-        emb_train = graph_embeddings[:len(train_scaled)]
-        val_emb_start = len(train_scaled) - cfg.lookback  # = val_context_start_idx (positive)
-        emb_val = graph_embeddings[val_emb_start : val_emb_start + len(val_scaled)]
-    else:
-        emb_train = None
-        emb_val = None
-
-    # Create windows with targets, exogenous features, and embeddings
+    # Create windows with targets and exogenous features
     X_train, y_train_full = make_windows(
-        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_train, graph_window_size=15
+        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel
     )
     X_val, y_val_full = make_windows(
-        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_val, graph_window_size=15
+        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel
     )
 
     y_train = y_train_full[:, :, target_channel : target_channel + 1]
@@ -109,15 +96,13 @@ def train_mlp_forecaster(
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
         
-    model = MLPForecaster(
-        lookback=cfg.lookback,
-        in_channels=C_in,
-        horizon=cfg.horizon,
-        out_dim=1,
-        hidden_sizes=cfg.hidden_sizes,
-        dropout=cfg.dropout,
-        activation="relu",
-    ).to(cfg.device)
+    
+    model = TimeDistributedMLPForecaster(
+            in_channels=C_in,
+            hidden_sizes=cfg.hidden_sizes,
+            dropout=cfg.dropout,
+            activation="relu",
+        ).to(cfg.device)  
 
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     

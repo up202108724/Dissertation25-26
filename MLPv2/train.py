@@ -35,10 +35,9 @@ def train_mlp_forecaster(
     scaler,
     target_channel,  
     val_ratio,          # unused: val split is determined by cfg.val_size and test_size
-    hidden_sizes,
-    target_col,
-    exog_cols,
-    test_size,
+    target_col=None,
+    exog_cols=None,
+    test_size=None,
     model_type: str = "mlp",
 ):
     torch.manual_seed(seed)
@@ -89,15 +88,15 @@ def train_mlp_forecaster(
     print(f"Input Shape:  (Batch, {cfg.lookback}, {C_in})")
     print("Output Shape: (Batch, 1)")
 
-    train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=False)
+    train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
         
     model = build_forecaster(
         model_type=model_type,
         lookback=cfg.lookback,
         in_channels=C_in,
-        hidden_sizes=hidden_sizes,
-        dropout=0.2,
+        hidden_sizes=cfg.hidden_sizes,
+        dropout=cfg.dropout,
         activation="relu",
     ).to(cfg.device)
 

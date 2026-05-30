@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
-from mlp import MLPForecaster
+from mlp import MLPForecaster, TimeDistributedMLPForecaster
 from graph2vecdataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
@@ -24,7 +24,8 @@ class TrainConfig:
     weight_decay: float = 1e-3
     dropout: float = 0.2
     patience: int = 150
-    hidden_sizes: tuple = (128, 64)
+    hidden_sizes: tuple = (32, 16)
+    model_type: str = "tdmlp"
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 def train_mlp_forecaster(
@@ -109,15 +110,23 @@ def train_mlp_forecaster(
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
         
-    model = MLPForecaster(
-        lookback=cfg.lookback,
-        in_channels=C_in,
-        horizon=cfg.horizon,
-        out_dim=1,
-        hidden_sizes=cfg.hidden_sizes,
-        dropout=cfg.dropout,
-        activation="relu",
-    ).to(cfg.device)
+    if cfg.model_type == "tdmlp":
+        model = TimeDistributedMLPForecaster(
+            in_channels=C_in,
+            hidden_sizes=cfg.hidden_sizes,
+            dropout=cfg.dropout,
+            activation="relu",
+        ).to(cfg.device)
+    else:
+        model = MLPForecaster(
+            lookback=cfg.lookback,
+            in_channels=C_in,
+            horizon=cfg.horizon,
+            out_dim=1,
+            hidden_sizes=cfg.hidden_sizes,
+            dropout=cfg.dropout,
+            activation="relu",
+        ).to(cfg.device)
 
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     

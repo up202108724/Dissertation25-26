@@ -10,8 +10,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
-from mlp import MLPForecaster
-from graph2vecdataset import make_windows, WindowDataset
+from mlp import TimeDistributedMLPForecaster
+from gcn_mlpdataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
@@ -24,28 +24,29 @@ class TrainConfig:
     weight_decay: float = 1e-3
     dropout: float = 0.2
     patience: int = 150
-    hidden_sizes: tuple = (128, 64)
+    hidden_sizes: tuple = (32, 16)
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 def train_mlp_forecaster(
-    df: pd.DataFrame,
+    df: pd.DataFrame, 
     cfg: TrainConfig,
     seed: int,
     loss_type: str,
-    product_id: str,
+    product_id: str,    
     scaler,
     target_channel: int = 0,
     target_col=None,
     exog_cols=None,
     graph_embeddings=None,
-    test_size=None,
+    test_size=None
 ):
+
+    
     torch.manual_seed(seed)
     np.random.seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
 
-    
     cols = [target_col] + (exog_cols if exog_cols else [])
     data = df[cols].values
     
@@ -67,7 +68,7 @@ def train_mlp_forecaster(
     # which collapses when val_size is small relative to lookback.
     val_context_start_idx = val_start_idx - cfg.lookback
     val_context_data = data[val_context_start_idx : val_end_idx]
-    
+
     val_scaled = val_context_data.copy()
     val_target = val_context_data[:, target_channel:target_channel+1]
     val_scaled[:, target_channel:target_channel+1] = scaler.transform(val_target)
@@ -75,8 +76,6 @@ def train_mlp_forecaster(
     # Extract embeddings for Train and Val (if provided).
     # val_scaled starts at (val_start_idx - lookback), so the embedding start
     # must match that same data position, not len(train_scaled).
-    # Using len(train_scaled) as the start would offset embeddings by +lookback
-    # rows (forward data leak introduced by the val-context prepend fix).
     if graph_embeddings is not None:
         emb_train = graph_embeddings[:len(train_scaled)]
         val_emb_start = len(train_scaled) - cfg.lookback  # = val_context_start_idx (positive)
@@ -109,11 +108,8 @@ def train_mlp_forecaster(
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
         
-    model = MLPForecaster(
-        lookback=cfg.lookback,
+    model = TimeDistributedMLPForecaster(
         in_channels=C_in,
-        horizon=cfg.horizon,
-        out_dim=1,
         hidden_sizes=cfg.hidden_sizes,
         dropout=cfg.dropout,
         activation="relu",
@@ -179,7 +175,7 @@ def train_mlp_forecaster(
                 torch.save(best_state, best_model_path)
                 best_epoch = epoch
                 patience_counter = 0
-                print (f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
+                print(f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
             else:
                 patience_counter += 1
                 if cfg.patience is not None and patience_counter >= cfg.patience:
