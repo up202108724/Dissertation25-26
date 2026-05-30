@@ -1,2 +1,0 @@
-seed,item_id,store_id,rmse,mae,train_time,inference_time,best_epoch
-42,26008,6269,51.92091419584129,28.870059770679003,0.0,0.14100217819213867,15

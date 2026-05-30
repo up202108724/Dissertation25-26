@@ -30,7 +30,7 @@ from sklearn.metrics import r2_score
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-DATA_PATH = os.path.join(script_dir, '..', '..','..', 'dataset', 'data_andre.feather')
+DATA_PATH = os.path.join(script_dir, '..', '..','..', 'dataset', 'data_smooth.feather')
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
@@ -38,17 +38,6 @@ train_size = 455
 val_size = 153
 forecast_horizon = 153
 lookback_window = 30
-'''
-EXOG_COLS = [
-    "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    "rolling_mean_7",
-    "month", "quarter",
-    "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
-    "is_monday", "is_friday",
-    "is_holiday", "is_thanksgiving", "is_black_friday",
-    "is_christmas", "is_christmas_eve", "is_new_year_eve",
-    "is_bridge_day",
-]
 '''
 EXOG_COLS = [
     # Cyclical Calendar Features 
@@ -59,10 +48,49 @@ EXOG_COLS = [
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
    
     # Trend Hint 
-    "rolling_mean_excl_7",
+    "rolling_mean_7",
    
  
     # Holidays & Events (Crucial)
+    "is_holiday", "is_thanksgiving", "is_black_friday",
+    "is_christmas", "is_christmas_eve", "is_new_year_eve",
+    "is_bridge_day"
+]
+'''
+'''
+EXOG_COLS = [
+    "dom_sin","dom_cos", "wom_sin", "wom_cos",
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos", "is_weekend",
+    "lag_1", "lag_7", "lag_14","lag_28",
+    "rolling_mean_excl_3", 
+    #"rolling_mean_excl_5",
+    "rolling_mean_excl_7", "rolling_mean_excl_14", "rolling_mean_excl_28",
+    "month_sin", "month_cos", "quarter",
+    "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
+    "is_holiday", "is_thanksgiving", "is_black_friday",
+    "is_christmas", "is_christmas_eve", "is_new_year_eve",
+    "is_bridge_day",
+    # Christmas ramp features: let the MLP anticipate the spike instead of
+    # firing only on Dec 25. `lag_364` gives last year's same-day demand
+    # (requires >=2 yrs of history; falls back to 0 otherwise).
+    "is_christmas_week", "christmas_proximity",
+    "thanksgiving_proximity", "black_friday_proximity",
+    "lag_364",
+]
+'''
+EXOG_COLS = [
+    # Cyclical calendar (base harmonics only)
+    "dom_sin", "dom_cos", "wom_sin", "wom_cos",
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos",
+    "month_sin", "month_cos",
+    "is_weekend",
+    # Structural boundaries
+    "is_month_start", "is_month_end",
+    "is_quarter_start", "is_quarter_end",
+    # Autoregressive (leak-safe, recomputed at inference)
+    "lag_1", "lag_7", "lag_14", "lag_28",
+    "rolling_mean_excl_7", "rolling_mean_excl_28",
+    # Holidays
     "is_holiday", "is_thanksgiving", "is_black_friday",
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day"
@@ -79,7 +107,7 @@ grid_configs = [
 
 
 batch_size = 32
-hidden_sizes = (256,64, 32)
+hidden_sizes = (64, 32)
 dropout = 0.2
 EPOCHS = 1000
 LEARNING_RATE = 0.001
@@ -99,13 +127,29 @@ USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-PRODUCTS_TO_TEST = [
-  (911753,6269)
-  #(26008, 6269),
-  #(907969, 6269),
-  #(907967, 6269),
-  #(213626, 6269)
-]
+# Ablation toggle for graph2vec embeddings:
+#   True  -> embeddings (both historical and recursively-inferred) are zeroed,
+#            same architecture/input shape as the full model.
+#   False -> full model with real graph2vec embeddings.
+ABLATE_EMB_VALUES = [True, False]
+
+# Set to None to iterate over all (item_id, store_id) pairs in DATA_PATH,
+# or provide an explicit list e.g. [(26008, 6269), (907969, 6269)].
+PRODUCTS_TO_TEST = [[26008, 6269]]
+
+
+class _ZeroEmbGraph2VecWrapper:
+    """Wraps a trained graph2vec model so .infer() returns zero vectors.
+
+    Used in ablation runs to keep the recursive-inference code path identical
+    while ensuring the embedding channel carries no information.
+    """
+    def __init__(self, real_model, emb_dim):
+        self._real = real_model
+        self._dim = int(emb_dim)
+
+    def infer(self, graphs):
+        return np.zeros((len(graphs), self._dim), dtype=np.float32)
 
 # -----------------------------------------------------------------------------
 # Main Loop
@@ -150,8 +194,17 @@ def main():
 
     os.makedirs('best_models', exist_ok=True)
     os.makedirs('grid_search_plots', exist_ok=True)
-    
-    for product_id, store_id in PRODUCTS_TO_TEST:
+
+    products_iter = (
+        full_df[['item_id', 'store_id']]
+        .drop_duplicates()
+        .sort_values(['item_id', 'store_id'])
+        .itertuples(index=False, name=None)
+        if PRODUCTS_TO_TEST is None
+        else PRODUCTS_TO_TEST
+    )
+
+    for product_id, store_id in products_iter:
         print(f"\n{'='*80}")
         print(f"PROCESSING PRODUCT {product_id} FOR STORE {store_id}")
         print(f"{'='*80}\n")
@@ -159,7 +212,13 @@ def main():
         df_product = full_df[(full_df['item_id'] == product_id) & (full_df['store_id'] == store_id)].copy()
         df_product[DATE_COL] = pd.to_datetime(df_product[DATE_COL])
         df_product = df_product.sort_values(DATE_COL).reset_index(drop=True)
-        
+
+        required_rows = forecast_horizon + val_size + train_size
+        if len(df_product) < required_rows:
+            print(f"Skipping Product {product_id} at Store {store_id}: "
+                  f"Found {len(df_product)} rows, but {required_rows} are required.")
+            continue
+
         test_start_idx = len(df_product) - forecast_horizon
         val_start_idx = test_start_idx - val_size
         train_start_idx = val_start_idx - train_size
@@ -225,19 +284,30 @@ def main():
 
                 if metric == 'no_emb':
                     is_threshold_mode = False
-                    iterator = [(None, 15, 1, False, False)]
+                    # ablate_emb is irrelevant for the no-embedding baseline.
+                    iterator = [(False, None, 15, 1, False, False)]
                 else:
                     is_threshold_mode = thresholds is not None and thresholds != [None]
                     params = thresholds if is_threshold_mode else percentiles
-                    iterator = itertools.product(params, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
-            
-                for param_val, window_sz, step_sz, enable_edges, enable_second_degree in iterator:
+                    iterator = itertools.product(
+                        ABLATE_EMB_VALUES, params, window_sizes, step_sizes,
+                        enable_edges_opts, enable_second_degree_opts,
+                    )
+
+                for ablate_emb, param_val, window_sz, step_sz, enable_edges, enable_second_degree in iterator:
                     use_embeddings = (metric != 'no_emb')
-                    
+
+                    # When ablating, the threshold/percentile is informational only;
+                    # only run once per (window, step, edges, 2nd) combination.
+                    if use_embeddings and ablate_emb:
+                        params_list = thresholds if is_threshold_mode else percentiles
+                        if param_val != params_list[0]:
+                            continue
+
                     current_threshold = param_val if use_embeddings and is_threshold_mode else None
                     current_percentile = param_val if use_embeddings and not is_threshold_mode else None
 
-                    key = (param_val, window_sz, step_sz)
+                    key = (ablate_emb, param_val, window_sz, step_sz)
                     if key not in results_by_w_s:
                         results_by_w_s[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -257,7 +327,8 @@ def main():
                     print(f"\n{'='*60}")
                     if use_embeddings:
                         param_str = f"threshold={current_threshold}" if is_threshold_mode else f"percentile={current_percentile}"
-                        print(f"Running MLP Experiment: metric={metric}, {param_str}, window_size={window_sz}, enable_edges={enable_edges}, 2nd_degree={enable_second_degree}")
+                        print(f"Running MLP Experiment: ablate_emb={ablate_emb}, metric={metric}, {param_str}, "
+                              f"window_size={window_sz}, enable_edges={enable_edges}, 2nd_degree={enable_second_degree}")
                     else:
                         print("Running Experiment: BASELINE (no graph embeddings)")
                     print(f"{'='*60}")
@@ -288,6 +359,13 @@ def main():
                         )
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
+
+                        # Ablation: keep architecture identical but zero the
+                        # embedding channel everywhere (historical + recursive).
+                        if ablate_emb and graph_embeddings is not None:
+                            emb_dim = graph_embeddings.shape[1]
+                            graph_embeddings = np.zeros_like(graph_embeddings)
+                            graph2vec_model = _ZeroEmbGraph2VecWrapper(graph2vec_model, emb_dim)
                     else:
                         graph_embeddings = None
                         graph2vec_model = None
@@ -364,7 +442,9 @@ def main():
                     
                     if use_embeddings:
                         param_str_label = f"th:{current_threshold}" if is_threshold_mode else f"pct:{current_percentile} (val:{th_str})"
-                        label_name = f"{param_str_label}|w:{window_sz}|st:{step_sz}|e:{enable_edges}|2nd:{enable_second_degree}"
+                        ae_str = "ablation" if ablate_emb else "full"
+                        label_name = (f"{param_str_label}|w:{window_sz}|st:{step_sz}"
+                                      f"|e:{enable_edges}|2nd:{enable_second_degree}|ae:{ae_str}")
                     else:
                         label_name = "No Embeddings"
                 
@@ -389,32 +469,33 @@ def main():
                     with open(csv_results_path, 'a', newline='') as csvfile:
                         writer = csv.writer(csvfile)
                         if not file_exists:
-                            writer.writerow(["product_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "rmse", "mae", "bias", "r2_score", "pocid"])
-                        
-                        writer.writerow([product_id, store_id, seed, metric, 15 if metric == 'no_emb' else window_sz, 1 if metric == 'no_emb' else step_sz, current_threshold if use_embeddings else "", current_percentile if use_embeddings else "", enable_edges if use_embeddings else "", enable_second_degree if use_embeddings else "", rmse, mae, bias, score, pocid])
+                            writer.writerow(["product_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "ablate_emb", "rmse", "mae", "bias", "r2_score", "pocid"])
+
+                        writer.writerow([product_id, store_id, seed, metric, 15 if metric == 'no_emb' else window_sz, 1 if metric == 'no_emb' else step_sz, current_threshold if use_embeddings else "", current_percentile if use_embeddings else "", enable_edges if use_embeddings else "", enable_second_degree if use_embeddings else "", ablate_emb if use_embeddings else "", rmse, mae, bias, score, pocid])
 
                 train_index = df_product[DATE_COL][train_slice].values
                 val_index = df_product[DATE_COL][val_slice].values
                 test_index = df_product[DATE_COL][test_slice].values
 
                 if metric == 'no_emb':
+                    baseline_key = (False, None, 15, 1)
                     values_str = "no_thresholds"
                     sub_dir = os.path.join(grid_search_plots_dir, 'no_emb', f'window_{15}', f'step_{1}', f'item_{product_id}', values_str)
                     os.makedirs(sub_dir, exist_ok=True)
                     save_plot_path = os.path.join(sub_dir, f"item_{product_id}_store_{store_id}_no_emb_seed_{seed}.html")
                     emb_title = f'Baseline MLP Forecast (No Embeddings | Seed={seed})'
-                    
+
                     if SAVE_PLOTS:
-                        plot_results(train, val, test, results_by_w_s[(None, 15, 1)]['forecasts'], train_index, val_index, test_index,
-                                     results_by_w_s[(None, 15, 1)]['train_losses'], results_by_w_s[(None, 15, 1)]['val_losses'], metric=metric, embedding_strategy='graph2vec_mlp',
+                        plot_results(train, val, test, results_by_w_s[baseline_key]['forecasts'], train_index, val_index, test_index,
+                                     results_by_w_s[baseline_key]['train_losses'], results_by_w_s[baseline_key]['val_losses'], metric=metric, embedding_strategy='graph2vec_mlp',
                                      window_size=15, step_size=1, threshold=None, percentile=None,
                                      target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
-                                     save_path=save_plot_path, rmse=results_by_w_s[(None, 15, 1)]['rmse'], mae=results_by_w_s[(None, 15, 1)]['mae'], 
-                                     bias=results_by_w_s[(None, 15, 1)]['bias'], score=results_by_w_s[(None, 15, 1)]['score'], pocid=results_by_w_s[(None, 15, 1)]['pocid'])
+                                     save_path=save_plot_path, rmse=results_by_w_s[baseline_key]['rmse'], mae=results_by_w_s[baseline_key]['mae'],
+                                     bias=results_by_w_s[baseline_key]['bias'], score=results_by_w_s[baseline_key]['score'], pocid=results_by_w_s[baseline_key]['pocid'])
                 else:
                     metric_type = infer_metric_type(metric)
                     grouped_results = {}
-                    for (p, w, s), res_dicts in results_by_w_s.items():
+                    for (ae, p, w, s), res_dicts in results_by_w_s.items():
                         group_key = (w, s)
                         if group_key not in grouped_results:
                             grouped_results[group_key] = {

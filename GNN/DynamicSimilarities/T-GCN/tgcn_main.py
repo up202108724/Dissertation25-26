@@ -1,18 +1,22 @@
 """
-Grid-search runner for the PER-STEP GCN + MLP forecaster
-(one ego-graph per lookback day, jointly trained with the MLP head).
+Grid-search runner for the PER-STEP T-GCN forecaster
+(one ego-graph per lookback day → GCN encoder → GRU temporal head).
 
-Direct analogue of ``LSTM_GCN_1_graph_per_lookback/main.py`` but with a flat
-MLP head instead of an LSTM.  Reuses:
+Directly mirrors ``MLP_GCN/main_gcn_mlp.py`` — same dataset / collate /
+recursive inference / training loop / plotting — but swaps the flat MLP
+head for a recurrent GRU head over the L lookback steps.
 
-    * ``GCNTimeSeriesDataset`` + ``collate_pyg_ts`` + ``build_pyg_graphs_from_nx_windows``
-      from the LSTM sibling (model-agnostic per-step pipeline)
-    * ``_recursive_forecast_gcn_perstep`` from the LSTM sibling (signature
-      ``model(pyg_batch, target_idx, ts_seq) -> (B, H, 1)`` is identical for
-      our MLP-headed model)
-    * ``neighbourhood_graph`` from GraphAnalysis
-    * Local ``SimpleGCNMLPForecaster`` and ``train_model`` (this folder)
-    * Local ``plots.plot_results``
+Reuses (no duplication):
+
+    * ``GCNTimeSeriesDataset`` + ``collate_pyg_ts`` +
+      ``build_pyg_graphs_from_nx_windows`` from ``MLP_GCN/gcn_mlp_dataset.py``
+    * ``_recursive_forecast_gcn_perstep`` from
+      ``MLP_GCN/gcn_mlpinference.py`` (signature is model-agnostic)
+    * ``train_model`` from ``MLP_GCN/gcn_mlp_train.py``
+    * ``plot_results`` from ``MLP_GCN/plots.py``
+
+Run:
+    python "GNN/DynamicSimilarities/T-GCN/tgcn_main.py"
 """
 
 import os
@@ -33,26 +37,26 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # ── Paths & sys.path setup ─────────────────────────────────────────────────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '../../..')))                                  # repo root
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..')))                                        # DynamicSimilarities/
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'GraphAnalysis')))                       # neighbourhood_graph
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'LSTM_GCN_1_graph_per_lookback')))       # reusable GCN dataset/inference
+sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '../../..')))                   # repo root
+sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..')))                          # DynamicSimilarities/
+sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'GraphAnalysis')))         # neighbourhood_graph
+sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'MLP_GCN')))               # reusable per-step GCN pipeline
 
 from model_utils.utils import generate_exogenous_features, compute_metrics
 from utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll  # GraphAnalysis/utils.py
 
-# Reused per-step GCN pipeline (model-agnostic)
-from GNN.DynamicSimilarities.MLP_GCN.gcn_mlp_dataset import (
+# Reused per-step GCN pipeline (model-agnostic) from the MLP_GCN sibling
+from gcn_mlp_dataset import (
     GCNTimeSeriesDataset,
     collate_pyg_ts,
     build_pyg_graphs_from_nx_windows,
 )
 from gcn_mlpinference import _recursive_forecast_gcn_perstep
-
-# Local MLP-headed model + training loop + plotting
-from gcn_mlp_model import SimpleGCNMLPForecaster
 from gcn_mlp_train import train_model
 from plots import plot_results
+
+# Local T-GCN model
+from tgcn_model import SimpleTGCNForecaster
 
 
 # ── Metric typing ──────────────────────────────────────────────────────────
@@ -90,39 +94,21 @@ SEEDS = [42]
 PRODUCTS_TO_TEST = [
     (26008, 6269),
     (911753, 6269),
-    #(907967, 6269),
 ]
-'''
+
 EXOG_COLS = [
-    "dom_sin","dom_cos", "wom_sin", "wom_cos",
-    "dow_sin", "dow_cos", "doy_sin", "doy_cos", "is_weekend",
-    "lag_1", "lag_7", "lag_14","lag_28",
-    "rolling_mean_excl_3", 
-    #"rolling_mean_excl_5",
-    "rolling_mean_excl_7", "rolling_mean_excl_14", "rolling_mean_excl_28",
-    "month_sin", "month_cos", "quarter",
+    # Cyclical Calendar Features
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos",
+    "dom_sin", "dom_cos", "wom_sin", "wom_cos",
+    "month_sin", "month_cos", "quarter_sin", "quarter_cos", "woy_sin", "woy_cos",
+    # Structural boundaries
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
+    # Trend Hint
+    "rolling_mean_excl_7",
+    # Holidays & Events
     "is_holiday", "is_thanksgiving", "is_black_friday",
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day",
-]
-'''
-EXOG_COLS = [
-    # Cyclical Calendar Features 
-    "dow_sin", "dow_cos", "doy_sin", "doy_cos",
-    "dom_sin", "dom_cos", "wom_sin", "wom_cos", "month_sin", "month_cos", "quarter_sin", "quarter_cos", "woy_sin", "woy_cos",
- 
-    # Structural boundaries 
-    "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
-   
-    # Trend Hint 
-    "rolling_mean_excl_7",
-   
- 
-    # Holidays & Events (Crucial)
-    "is_holiday", "is_thanksgiving", "is_black_friday",
-    "is_christmas", "is_christmas_eve", "is_new_year_eve",
-    "is_bridge_day"
 ]
 
 grid_configs = [
@@ -139,30 +125,27 @@ EPOCHS         = 1000
 PATIENCE       = 100
 LEARNING_RATE  = 0.001
 HIDDEN_SIZE    = 32          # GCN hidden width
-MLP_HIDDEN     = (256,128,64,32)    # MLP head widths
+GRU_HIDDEN     = 64          # GRU hidden width
+GRU_LAYERS     = 1           # stacked GRU layers
 DROPOUT        = 0.0
 D_G            = 16          # per-step graph embedding dim
 SAVE_MODELS    = False
 SAVE_PLOTS     = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
-GCN_NODE_FEATURES = None     # set dynamically to window_size (raw sequence features)
 
 # Grid of ablation modes — True: zero-out z (no GCN signal); False: full model.
 ABLATE_Z_VALUES = [True, False]
 DIAG_CSV_NAME  = "diagnostics.csv"
-# Set True to emit inference_graph_log.csv with per-step neighbourhood data.
 RECORD_INFERENCE_GRAPHS = False
 
 # Node feature mode for GCN graphs.
-# 'raw'   — full window sequence as node features (shape: n_nodes × window_size)
-# 'stats' — 8-dim statistical summary per node (mean, std, min, max, first, last, slope, sum)
 NODE_FEATURE_MODE = 'raw'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-# ── Per-day alignment helper (identical to LSTM sibling) ───────────────────
+# ── Per-day alignment helper ───────────────────────────────────────────────
 def _make_pad_graph(template: Data) -> Data:
     in_feats = template.x.shape[1]
     return Data(
@@ -185,8 +168,6 @@ def _align_pyg_windows_to_timeline(pyg_windows, window_size, step_size, T):
     return aligned
 
 
-# Exog columns whose value at day t is value[t-k] — recomputed at inference
-# from the rolling (own-prediction-augmented) target history.
 LAG_PREFIX = "lag_"
 ROLLING_MEAN_EXCL_PREFIX = "rolling_mean_excl_"
 
@@ -321,7 +302,6 @@ def main():
                 metric_type = infer_metric_type(metric)
 
                 for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
-                    # When ablating, z is zeroed so the threshold has no effect.
                     if ablate_z and param_val != params[0]:
                         continue
 
@@ -346,8 +326,6 @@ def main():
 
                     # ── 1 & 2. Graph pipeline (skipped for ablation) ─────────
                     if ablate_z:
-                        # GCN output is zeroed; building hundreds of sliding-window
-                        # graphs would be pure waste.  Dummy placeholder graphs.
                         fixed_threshold = None
                         results_by_w_s[key]['threshold'] = fixed_threshold
                         _dummy_in_channels = 8 if NODE_FEATURE_MODE == 'stats' else window_size
@@ -362,11 +340,6 @@ def main():
                         pyg_seed_graphs   = [_dummy] * seq_length
                         pyg_future_graphs = [_dummy] * forecast_horizon
                     else:
-                        # ── 1. Build per-window NX graphs ────────────────────
-                        # Always use df_wide_scaled (per-product z-score, fit on train only).
-                        # Distance metrics need scaling; similarity metrics (Spearman/Pearson)
-                        # are scale-invariant so topology is unchanged.  Node features are
-                        # already normalised, so node_scalers is never needed.
                         current_df_wide = df_wide_scaled
                         compute_func = (compute_distances_1vsAll if metric_type == 'distance'
                                         else compute_similarities_1vsAll)
@@ -391,7 +364,6 @@ def main():
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
 
-                        # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
                         pyg_windows = build_pyg_graphs_from_nx_windows(
                             nx_graphs, current_df_wide, product_id,
                             window_size=window_size, step_size=step_size,
@@ -449,13 +421,13 @@ def main():
 
                     in_channels   = pyg_train[0].x.shape[1]
                     ts_input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
-                    model = SimpleGCNMLPForecaster(
+                    model = SimpleTGCNForecaster(
                         in_channels=in_channels,
                         gcn_hidden=HIDDEN_SIZE,
                         d_g=D_G,
                         ts_input_size=ts_input_size,
-                        seq_length=seq_length,
-                        hidden_sizes=MLP_HIDDEN,
+                        gru_hidden=GRU_HIDDEN,
+                        num_gru_layers=GRU_LAYERS,
                         horizon=1,
                         dropout=DROPOUT,
                     ).to(device)
@@ -483,7 +455,7 @@ def main():
                     param_label = (f"th_{current_threshold}" if is_threshold_mode
                                    else f"pct_{current_percentile}")
                     base_name = (
-                        f"best_gcnmlp_perstep_{prefix_star}{product_id}_{metric}"
+                        f"best_tgcn_perstep_{prefix_star}{product_id}_{metric}"
                         f"_w{window_size}_s{step_size}_{param_label}{res_tag}_seed_{seed}"
                     )
                     best_model_path = os.path.join(best_models_dir, f"{base_name}.pth")
@@ -499,7 +471,7 @@ def main():
                             train_losses = history['train_losses']
                             val_losses   = history['val_losses']
                     else:
-                        print("Training new per-step GCN+MLP model...")
+                        print("Training new per-step T-GCN model...")
                         model, train_losses, val_losses, best_epoch, train_time = train_model(
                             seed=seed, epochs=EPOCHS, model=model,
                             train_loader=train_loader, val_loader=val_loader,
@@ -625,7 +597,6 @@ def main():
 
                     print(f"Finished {metric} @ {param_val} -> RMSE: {rmse}\n")
 
-                    # ── Append to persistent CSV (per metric) ────────────────
                     csv_results_path = os.path.join(SCRIPT_DIR, f"{metric}.csv")
                     file_exists = os.path.exists(csv_results_path)
                     with open(csv_results_path, 'a', newline='') as csvfile:
@@ -653,14 +624,14 @@ def main():
 
                 grouped_results = {}
                 for (az, p, w, s), res_dicts in results_by_w_s.items():
-                    key = (w, s)
-                    if key not in grouped_results:
-                        grouped_results[key] = {
+                    gkey = (w, s)
+                    if gkey not in grouped_results:
+                        grouped_results[gkey] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
                             'rmse': {}, 'mae': {}, 'bias': {}, 'score': {}, 'pocid': {},
                         }
-                    for k in grouped_results[key]:
-                        grouped_results[key][k].update(res_dicts[k])
+                    for k in grouped_results[gkey]:
+                        grouped_results[gkey][k].update(res_dicts[k])
 
                 for (w, s), res_dicts in grouped_results.items():
                     raw_str = ("_".join(map(str, thresholds))
@@ -678,7 +649,7 @@ def main():
                         f"item_{product_id}_{metric}_seed_{seed}_all_configs.html",
                     )
                     emb_title = (
-                        f'GCN+MLP (per-step) Forecasts + Ablation ({metric} | Seed={seed} | W={w} | S={s})'
+                        f'T-GCN (per-step) Forecasts + Ablation ({metric} | Seed={seed} | W={w} | S={s})'
                     )
 
                     if SAVE_PLOTS:
@@ -687,7 +658,7 @@ def main():
                             train, val, test, res_dicts['forecasts'],
                             train_index, val_index, test_index,
                             res_dicts['train_losses'], res_dicts['val_losses'],
-                            metric=metric, embedding_strategy='gcn_perstep_mlp',
+                            metric=metric, embedding_strategy='tgcn_perstep',
                             window_size=w, step_size=s, threshold=None, percentile=None,
                             target_col=TARGET_COL,
                             title=f'{emb_title} (Item={product_id})',

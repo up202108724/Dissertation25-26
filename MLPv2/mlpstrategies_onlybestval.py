@@ -20,18 +20,38 @@ from inference import recursive_inference_dynamic_exog
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-DATA_PATH = os.path.join(script_dir, '..', 'dataset', 'data_andre.feather')
+DATA_PATH = os.path.join(script_dir, '..', 'dataset', 'data_andre_fulfilled.feather')
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
-train_size = 455
-val_size = 154
-forecast_horizon = 152
+train_size = 761-153-30
+val_size = 30
+forecast_horizon = 153
 lookback_window = 30
 
 # Trimmed: removed redundant ordinal duplicates of cyclical encodings
 # (day_of_week vs dow_*, month vs month_*, is_monday/is_friday vs dow_*).
 # Rolling means use the leak-safe "_excl_" variant — see utils.py.
+
+EXOG_COLS = [
+    # Cyclical Calendar Features 
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos",
+    "dom_sin", "dom_cos", "wom_sin", "wom_cos", "month_sin", "month_cos", "quarter_sin", "quarter_cos", "woy_sin", "woy_cos",
+ 
+    # Structural boundaries 
+    "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
+   
+    # Trend Hint 
+    "rolling_mean_7",
+   
+ 
+    # Holidays & Events (Crucial)
+    "is_holiday", "is_thanksgiving", "is_black_friday",
+    "is_christmas", "is_christmas_eve", "is_new_year_eve",
+    "is_bridge_day"
+]
+
+'''
 EXOG_COLS = [
     "dom_sin","dom_cos", "wom_sin", "wom_cos",
     "dow_sin", "dow_cos", "doy_sin", "doy_cos", "is_weekend",
@@ -44,25 +64,22 @@ EXOG_COLS = [
     "is_holiday", "is_thanksgiving", "is_black_friday",
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day",
+    # Christmas ramp features: let the MLP anticipate the spike instead of
+    # firing only on Dec 25. `lag_364` gives last year's same-day demand
+    # (requires >=2 yrs of history; falls back to 0 otherwise).
 ]
-
+'''
 batch_size = 32
-hidden_sizes = (256,64)
-dropout = 0.2
+hidden_sizes = (64,32)
+dropout = 0.0
 EPOCHS = 1000
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-4
 seeds = [42]
 #seeds = [42, 1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
 
-loss_type = 'huber'
+loss_type = 'MSELoss'
 
-# Architecture switch consumed by train.py via build_forecaster().
-# 'mlp'   -> original flatten MLP (legacy baseline).
-# 'tdmlp' -> shared per-step Linear(C -> hidden_sizes[0]) then small head over
-#            hidden_sizes[1:]. Preserves which-lag-is-which without sharing
-#            weights across time.
-# 'tcn'   -> small causal dilated TCN, hidden_sizes = per-block channel counts.
 MODEL_TYPE = 'mlp'
 
 
@@ -82,7 +99,7 @@ def main():
     df = df.sort_values([DATE_COL, "item_id", "store_id"]).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     
-    target_products = [26008]
+    target_products = [26008,911753]
     #target_products = [911753] # Select first 5 unique products for testing
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
     strategies= ['best_val']
@@ -178,6 +195,7 @@ def main():
                     val_size=val_size,
                     lr=LEARNING_RATE,
                     epochs=EPOCHS,
+                    patience=1000,
                     weight_decay=WEIGHT_DECAY,
                     device=str(device)
                 )
@@ -240,7 +258,9 @@ def main():
                 #   - future_exog is passed UNSCALED so the inference loop can
                 #     OVERWRITE lag_*/rolling_mean_* per step using the running
                 #     prediction buffer (no peek at the true test target).
-                recent_target_unscaled = val[-lookback_window:].astype(np.float32)
+                #   - target history is the FULL train+val sequence so long
+                #     lags (e.g. lag_364) can be resolved beyond the lookback.
+                recent_target_unscaled = np.concatenate([train, val]).astype(np.float32)
                 recent_exog_unscaled_df = exog_val_unscaled.iloc[-lookback_window:].reset_index(drop=True)
 
                 start_infer = time.time()

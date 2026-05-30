@@ -2,7 +2,6 @@
 
 
 from dataclasses import dataclass
-from time import time
 import time
 from typing import Tuple, Optional, List
 from mlp import MLPForecaster, build_forecaster
@@ -35,15 +34,18 @@ def train_mlp_forecaster(
     product_id: str,    
     scaler,
     target_channel,  
-    val_ratio,
+    val_ratio,          # unused: val split is determined by cfg.val_size and test_size
     hidden_sizes,
     target_col,
     exog_cols,
     test_size,
     model_type: str = "mlp",
 ):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
 
-    
     cols = [target_col] + (exog_cols if exog_cols else [])
     data = df[cols].values
     
@@ -60,7 +62,9 @@ def train_mlp_forecaster(
     train_target = train_data[:, target_channel:target_channel+1]
     train_scaled[:, target_channel:target_channel+1] = scaler.fit_transform(train_target)
     
-    val_context_start_idx = val_start_idx
+    # Prepend `lookback` rows of train context so make_windows produces `val_size`
+    # windows. Without this, val windows = val_size - lookback (= 0 when equal).
+    val_context_start_idx = val_start_idx - cfg.lookback
     val_context_data = data[val_context_start_idx : val_end_idx]
     
     val_scaled = val_context_data.copy()
@@ -121,7 +125,7 @@ def train_mlp_forecaster(
 
     model_dir = f'best_models/seed_{seed}/{loss_type}'
     os.makedirs(model_dir, exist_ok=True)
-    best_model_path = f'{model_dir}/mlp_product_{product_id}.pth'
+    best_model_path = f'{model_dir}/mlp_item{product_id}.pth'
     best_epoch = 0
     for epoch in range(1, cfg.epochs + 1):
         model.train()
@@ -215,7 +219,9 @@ def train_model_best_train_loss(
     train_target = train_data[:, target_channel:target_channel+1]
     train_scaled[:, target_channel:target_channel+1] = scaler.fit_transform(train_target)
     
-    val_context_start_idx = val_start_idx
+    # Prepend `lookback` rows of train context so make_windows produces `val_size`
+    # windows. Without this, val windows = val_size - lookback (= 0 when equal).
+    val_context_start_idx = val_start_idx - cfg.lookback
     val_context_data = data[val_context_start_idx : val_end_idx]
     
     val_scaled = val_context_data.copy()

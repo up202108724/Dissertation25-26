@@ -14,9 +14,9 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir, '..', 'LSTM'))
 
 from plots import plot_results
-from utils import generate_exogenous_features
+from utils import generate_exogenous_features, ExogenousScaler
 from train import TrainConfig, train_mlp_forecaster
-from inference import recursive_inference
+from inference import recursive_inference_dynamic_exog
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -25,10 +25,10 @@ DATE_COL = 'date'
 TARGET_COL = 'value'
 
 train_size = 455
-val_size = 154
-forecast_horizon = 152
+val_size = 153
+forecast_horizon = 153
 lookback_window = 30
-
+'''
 EXOG_COLS = [
     # Cyclical Calendar Features 
     "dow_sin", "dow_cos", "doy_sin", "doy_cos",
@@ -47,24 +47,51 @@ EXOG_COLS = [
     "is_bridge_day"
 ]
 '''
+'''
 EXOG_COLS = [
-    "dow_sin","dow_cos","doy_sin","doy_cos","is_weekend",
-    "rolling_mean_7",
-    "month", "quarter",
+    "dom_sin","dom_cos", "wom_sin", "wom_cos",
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos", "is_weekend",
+    "lag_1", "lag_7", "lag_14","lag_28",
+    "rolling_mean_excl_3", 
+    #"rolling_mean_excl_5",
+    "rolling_mean_excl_7", "rolling_mean_excl_14", "rolling_mean_excl_28",
+    "month_sin", "month_cos", "quarter",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
-    "is_monday", "is_friday",
     "is_holiday", "is_thanksgiving", "is_black_friday",
     "is_christmas", "is_christmas_eve", "is_new_year_eve",
     "is_bridge_day",
+    # Christmas ramp features: let the MLP anticipate the spike instead of
+    # firing only on Dec 25. `lag_364` gives last year's same-day demand
+    # (requires >=2 yrs of history; falls back to 0 otherwise).
+    "is_christmas_week", "christmas_proximity",
+    "thanksgiving_proximity", "black_friday_proximity",
+    "lag_364",
 ]
 '''
+EXOG_COLS = [
+    # Cyclical calendar (base harmonics only)
+    "dom_sin", "dom_cos", "wom_sin", "wom_cos",
+    "dow_sin", "dow_cos", "doy_sin", "doy_cos",
+    "month_sin", "month_cos",
+    "is_weekend",
+    # Structural boundaries
+    "is_month_start", "is_month_end",
+    "is_quarter_start", "is_quarter_end",
+    # Autoregressive (leak-safe, recomputed at inference)
+    "lag_1", "lag_7", "lag_14", "lag_28",
+    "rolling_mean_excl_7", "rolling_mean_excl_28",
+    # Holidays
+    "is_holiday", "is_thanksgiving", "is_black_friday",
+    "is_christmas", "is_christmas_eve", "is_new_year_eve",
+    "is_bridge_day"
+]
 batch_size = 32
-hidden_sizes = (64, 32)
-dropout = 0.2
+hidden_sizes = (256, 64)
+dropout = 0.0
 EPOCHS = 1000
 LEARNING_RATE = 0.001
 #seeds = [42]
-seeds = [42, 1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
+seeds = [42, 1000, 26008, 907969]  # Add more seeds as needed
 
 loss_type = 'MSELoss'
 
@@ -84,7 +111,7 @@ def main():
     df = df.sort_values([DATE_COL, "item_id", "store_id"]).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     
-    target_products = [26008, 907969, 907967, 213626]
+    target_products = [26008]
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
     results = []
     
@@ -117,26 +144,27 @@ def main():
             train_scaled = scaler.fit_transform(train.reshape(-1, 1)).flatten()
             val_scaled = scaler.transform(val.reshape(-1, 1)).flatten()
 
-            exog_train = df_product[EXOG_COLS][train_slice].values
-            exog_val = df_product[EXOG_COLS][val_slice].values
-            exog_test = df_product[EXOG_COLS][test_slice].values
-            
+            # Keep UNSCALED copies — needed by the dynamic inference loop.
+            exog_train_unscaled = df_product[EXOG_COLS].iloc[train_slice].copy()
+            exog_val_unscaled = df_product[EXOG_COLS].iloc[val_slice].copy()
+            exog_test_unscaled = df_product[EXOG_COLS].iloc[test_slice].copy()
+
             if len(EXOG_COLS) > 0:
-                exog_scaler = MinMaxScaler()
-                exog_train_scaled = exog_scaler.fit_transform(exog_train)
-                exog_val_scaled = exog_scaler.transform(exog_val)
-                exog_test_scaled = exog_scaler.transform(exog_test)
-                
-                # Apply to df_product so truth/target remains unscaled but exogs are scaled for train.py
-                exog_indices = df_product.columns.get_indexer(EXOG_COLS)
-                df_product.iloc[train_slice, exog_indices] = exog_train_scaled
-                df_product.iloc[val_slice, exog_indices] = exog_val_scaled
-                df_product.iloc[test_slice, exog_indices] = exog_test_scaled
+                # Type-aware scaler: pass-through for binary/cyclical, MinMax for continuous.
+                exog_scaler = ExogenousScaler(continuous_strategy='minmax')
+                exog_scaler.fit(exog_train_unscaled, EXOG_COLS)
+
+                exog_train_scaled = exog_scaler.transform(exog_train_unscaled.copy(), EXOG_COLS)
+                exog_val_scaled = exog_scaler.transform(exog_val_unscaled.copy(), EXOG_COLS)
+                exog_test_scaled = exog_scaler.transform(exog_test_unscaled.copy(), EXOG_COLS)
+
+                # Write scaled values back so train.py sees scaled features.
+                exog_col_idx = df_product.columns.get_indexer(EXOG_COLS)
+                df_product.iloc[train_slice, exog_col_idx] = exog_train_scaled[EXOG_COLS].values
+                df_product.iloc[val_slice, exog_col_idx] = exog_val_scaled[EXOG_COLS].values
+                df_product.iloc[test_slice, exog_col_idx] = exog_test_scaled[EXOG_COLS].values
             else:
                 exog_scaler = None
-                exog_train_scaled = exog_train
-                exog_val_scaled = exog_val
-                exog_test_scaled = exog_test
             
             input_size = 1 + len(EXOG_COLS)
             
@@ -150,7 +178,7 @@ def main():
 
             model_dir = f'best_models/seed_{seed}/{loss_type}'
             os.makedirs(model_dir, exist_ok=True)
-            model_path = f'{model_dir}/mlp_item{item_id}_store{store_id}.pth'
+            model_path = f'{model_dir}/mlp_item{item_id}_{store_id}.pth'
                 
                 
             # Prepare global config for this strategy
@@ -174,20 +202,24 @@ def main():
             # Load best model
             if os.path.exists(model_path):
                 model.load_state_dict(torch.load(model_path))
-                
-                # Inference
-            recent_target = val[-lookback_window:].reshape(-1, 1)
-            recent_exog_scaled = exog_val_scaled[-lookback_window:]
-            recent_history = np.column_stack([recent_target, recent_exog_scaled])
-                
+
+            # Leak-safe recursive inference: lag/rolling cols are recomputed
+            # from the running prediction buffer, never from ground-truth test.
+            # Full train+val target passed so lag_364 resolves correctly.
+            recent_target_unscaled = np.concatenate([train, val]).astype(np.float32)
+            recent_exog_unscaled_df = exog_val_unscaled.iloc[-lookback_window:].reset_index(drop=True)
+
             start_infer = time.time()
-            forecast = recursive_inference(
+            forecast = recursive_inference_dynamic_exog(
                 model=model,
-                scaler=scaler,
-                recent_history=recent_history,
-                future_exog=exog_test_scaled,
+                target_scaler=scaler,
+                exog_scaler=exog_scaler,
+                exog_cols=EXOG_COLS,
+                history_target_unscaled=recent_target_unscaled,
+                history_exog_unscaled=recent_exog_unscaled_df,
+                future_exog_unscaled=exog_test_unscaled.reset_index(drop=True),
                 target_channel=0,
-                device=str(device)
+                device=str(device),
             )
             infer_time = time.time() - start_infer
                 

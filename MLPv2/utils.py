@@ -3,6 +3,109 @@ from typing import Tuple
 import pandas as pd
 import holidays
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+def _proximity_decay(
+    dates: pd.Series,
+    month: int,
+    day: int,
+    tau_before: float = 10.0,
+    tau_after: float = 3.0,
+):
+    """Asymmetric exp-decay proximity to an annual fixed-date event.
+
+    Returns a value in [0, 1]:
+      - 1.0  on the event day itself.
+      - exp(-days_to  / tau_before) in the days leading up to the event.
+      - exp(-days_from / tau_after)  in the days after the event.
+
+    Asymmetry reflects retail demand patterns: demand builds gradually before
+    a holiday (large tau_before) and drops sharply after (small tau_after).
+    Defaults: tau_before=10 (~2-week ramp), tau_after=3 (~3-day tail).
+    """
+    dates = pd.to_datetime(dates).reset_index(drop=True)
+    years = dates.dt.year
+    this_year = pd.to_datetime(dict(year=years, month=month, day=day))
+    next_year = pd.to_datetime(dict(year=years + 1, month=month, day=day))
+    prev_year = pd.to_datetime(dict(year=years - 1, month=month, day=day))
+
+    # Signed distance to nearest occurrence: negative = before event, positive = after.
+    d_this = (dates - this_year).dt.days.values   # positive after this year's event
+    d_next = (dates - next_year).dt.days.values   # always negative (before)
+    d_prev = (dates - prev_year).dt.days.values   # always positive (after)
+
+    # Pick the occurrence that minimises |distance|.
+    candidates = np.stack([d_this, d_next, d_prev], axis=1)
+    idx = np.argmin(np.abs(candidates), axis=1)
+    signed = candidates[np.arange(len(candidates)), idx]   # <0 before, >0 after, 0 on day
+
+    tau = np.where(signed <= 0, tau_before, tau_after)
+    return np.exp(-np.abs(signed) / tau).astype(np.float32)
+
+
+def _proximity_decay_dynamic(
+    dates: pd.Series,
+    holiday_map,
+    holiday_name: str,
+    tau_before: float = 7.0,
+    tau_after: float = 3.0,
+    offset_days: int = 0,
+):
+    """Asymmetric exp-decay proximity for a moving holiday (e.g. Thanksgiving).
+
+    Looks up every occurrence of *holiday_name* in *holiday_map*, optionally
+    shifts by *offset_days* (positive = later, used for Black Friday = +1),
+    then applies the same asymmetric decay as `_proximity_decay`.
+
+    Defaults: tau_before=7 (~1-week ramp), tau_after=3 (~3-day tail).
+    """
+    dates = pd.to_datetime(dates).reset_index(drop=True)
+    event_dates = pd.to_datetime(sorted(
+        d + pd.Timedelta(days=offset_days)
+        for d, name in holiday_map.items()
+        if name == holiday_name
+    ))
+    if len(event_dates) == 0:
+        return np.zeros(len(dates), dtype=np.float32)
+
+    dates_arr = dates.values.astype("datetime64[D]")
+    events_arr = event_dates.values.astype("datetime64[D]")
+
+    # For each date find the nearest event occurrence.
+    signed_days = np.array([
+        min(
+            ((d - e) / np.timedelta64(1, "D") for e in events_arr),
+            key=abs,
+        )
+        for d in dates_arr
+    ], dtype=float)
+
+    tau = np.where(signed_days <= 0, tau_before, tau_after)
+    return np.exp(-np.abs(signed_days) / tau).astype(np.float32)
+def _signed_days_to_event(dates: pd.Series, month: int, day: int, clip: int = 30):
+    """Return (days_to_next, days_from_prev) for an annual fixed-date event.
+
+    Both are non-negative integers clipped to [0, clip]. `days_to_next` is 0 on
+    the event itself (and `days_from_prev` is also 0 that day).
+    """
+    dates = pd.to_datetime(dates).reset_index(drop=True)
+    years = dates.dt.year
+    this_year = pd.to_datetime(dict(year=years, month=month, day=day))
+    next_year = pd.to_datetime(dict(year=years + 1, month=month, day=day))
+    prev_year = pd.to_datetime(dict(year=years - 1, month=month, day=day))
+
+    days_to = np.where(
+        this_year.values >= dates.values,
+        (this_year - dates).dt.days.values,
+        (next_year - dates).dt.days.values,
+    )
+    days_from = np.where(
+        this_year.values <= dates.values,
+        (dates - this_year).dt.days.values,
+        (dates - prev_year).dt.days.values,
+    )
+    return np.clip(days_to, 0, clip).astype(int), np.clip(days_from, 0, clip).astype(int)
+
+
 def generate_exogenous_features(df, exog_cols, date_col='date', target_col='value', group_cols=None):
     """
     Generates specific calendar, cyclical, and holiday exogenous features for a DataFrame
@@ -94,6 +197,23 @@ def generate_exogenous_features(df, exog_cols, date_col='date', target_col='valu
         ).astype(int),
         "is_christmas_eve": lambda d: ((d[date_col].dt.month == 12) & (d[date_col].dt.day == 24)).astype(int),
         "is_new_year_eve": lambda d: ((d[date_col].dt.month == 12) & (d[date_col].dt.day == 31)).astype(int),
+        # Dec 19–25 inclusive: captures the full pre-Christmas demand ramp.
+        "is_christmas_week": lambda d: (
+            (d[date_col].dt.month == 12) & (d[date_col].dt.day.between(19, 25))
+        ).astype(int),
+        # Signed proximity to nearest Christmas, clipped at +/- 30 so the
+        # feature is informative near Dec 25 and saturates the rest of the year.
+        "days_to_christmas": lambda d: _signed_days_to_event(d[date_col], 12, 25, clip=30)[0],
+        "days_from_christmas": lambda d: _signed_days_to_event(d[date_col], 12, 25, clip=30)[1],
+        # Smooth exp-decay bump in [0, 1]: 1 on Dec 25, ~0.37 at tau days,
+        # ~0 far away. No flat region, no arbitrary clip.
+        "christmas_proximity": lambda d: _proximity_decay(d[date_col], 12, 25, tau_before=10.0, tau_after=3.0),
+        "thanksgiving_proximity": lambda d: _proximity_decay_dynamic(
+            d[date_col], _get_holidays()[0], "Thanksgiving Day", tau_before=7.0, tau_after=3.0
+        ),
+        "black_friday_proximity": lambda d: _proximity_decay_dynamic(
+            d[date_col], _get_holidays()[0], "Thanksgiving Day", tau_before=3.0, tau_after=2.0, offset_days=1
+        ),
 
         # PROMOTIONS
         "promo_type_FRPG": lambda d: d.get("promo_type_FRPG", pd.Series(0, index=d.index)).astype(int),

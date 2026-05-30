@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
 from mlp import MLPForecaster
-from graph2vecdataset import make_windows, WindowDataset
+from GNN.DynamicSimilarities.MLP_GCN.gcn_mlpdataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
@@ -37,8 +37,7 @@ def train_mlp_forecaster(
     target_col=None,
     exog_cols=None,
     graph_embeddings=None,
-    test_size=None,
-    patience: Optional[int] = None,
+    test_size=None
 ):
 
     
@@ -128,7 +127,6 @@ def train_mlp_forecaster(
     os.makedirs(model_dir, exist_ok=True)
     best_model_path = f'{model_dir}/mlp_product_{product_id}.pth'
     best_epoch = 0
-    patience_counter = 0
     for epoch in range(1, cfg.epochs + 1):
         model.train()
         train_loss = 0.0
@@ -166,13 +164,7 @@ def train_mlp_forecaster(
                 best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
                 torch.save(best_state, best_model_path)
                 best_epoch = epoch
-                patience_counter = 0
                 print (f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
-            else:
-                patience_counter += 1
-                if patience is not None and patience_counter >= patience:
-                    print(f"Early stopping at epoch {epoch} (no val improvement for {patience} epochs; best epoch={best_epoch}).")
-                    break
         else:
             print("WARNING: Validation set is too small to form windows!")
 

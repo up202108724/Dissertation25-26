@@ -65,49 +65,9 @@ EXOG_COLS = [
 ]
 
 # Grid Search Parameters Setup
-'''
+
 grid_configs = [
-    #{'metric': 'pearson', 'thresholds': [0.8,0.9, 0.95]},
-    #{'metric': 'pearson', 'percentiles':  [0.5, 1, 2]},
-    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.75, 0.85, 0.001)]},
-    {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.7, 0.82, 0.001)]},
-    {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.74, 0.001)]},
-    #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2, 3.1, 0.01)]},
-]
-'''
-'''
-grid_configs = [
-    # Similaridades (Já existentes)
-    {'metric': 'spearman', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
-    {'metric': 'pearson', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
-    {'metric': 'kendall', 'thresholds': [round(t, 3) for t in np.arange(0.6, 0.85, 0.001)]},
-    
-    # Distâncias Robustas e Lock-step
-    {'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},
-    {'metric': 'manhattan', 'thresholds': [round(t, 2) for t in np.arange(4.0, 10.0, 0.1)]},
-    {'metric': 'lorentzian', 'thresholds': [round(t, 2) for t in np.arange(1.0, 5.0, 0.1)]},
-    
-    # Distâncias Elásticas (Elastic)
-    {'metric': 'dtw', 'thresholds': [round(t, 2) for t in np.arange(1.5, 4.0, 0.05)]},
-    {'metric': 'twed', 'thresholds': [round(t, 2) for t in np.arange(2.0, 8.0, 0.2)]},
-    {'metric': 'erp', 'thresholds': [round(t, 2) for t in np.arange(2.0, 8.0, 0.2)]},
-    
-    # Baseadas em Forma e Deslizamento (Sliding)
-    {'metric': 'sbd', 'thresholds': [round(t, 3) for t in np.arange(0.05, 0.5, 0.01)]},
-    {'metric': 'stid', 'thresholds': [round(t, 2) for t in np.arange(1.5, 3.5, 0.05)]},
-    
-    # Baseadas em Atributos (Feature-based)
-    {'metric': 'catch22', 'thresholds': [round(t, 1) for t in np.arange(2.0, 15.0, 0.5)]},
-]
-'''
-grid_configs = [
-    # Distâncias Robustas e Lock-step
-    #{'metric': 'cid', 'percentiles': [0.5, 1, 2]},
-    #{'metric': 'amplitude_offset', 'percentiles': [0.5, 1, 2]},
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
-    #{'metric': 'cid', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.2, 0.01)]},
-    # Distâncias Robustas e Lock-step
-    #{'metric': 'amplitude_offset', 'thresholds': [round(t, 2) for t in np.arange(2.0, 3.5, 0.01)]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]}
 ]
 
 window_sizes = [15]     

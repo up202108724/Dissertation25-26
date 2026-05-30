@@ -102,7 +102,9 @@ def recursive_inference_dynamic_exog(
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     exog_cols = list(exog_cols)
     horizon = len(future_exog_unscaled)
-    lookback = len(history_target_unscaled)
+    # `lookback` is defined by the exog window — target history may be LONGER
+    # to support large lags (e.g. lag_364) that need to look back beyond it.
+    lookback = len(history_exog_unscaled)
 
     lag_cols, roll_cols = parse_dynamic_exog_cols(exog_cols)
 
@@ -116,9 +118,11 @@ def recursive_inference_dynamic_exog(
     )
     history_exog_scaled = np.asarray(history_exog_scaled, dtype=np.float32)
 
-    # Pre-scale the history target.
+    # Only the LAST `lookback` target values seed the input window; the rest
+    # of the buffer is kept solely for long-lag lookups.
+    recent_target_unscaled = np.asarray(target_buffer[-lookback:], dtype=np.float32)
     history_target_scaled = target_scaler.transform(
-        np.asarray(target_buffer, dtype=np.float32).reshape(-1, 1)
+        recent_target_unscaled.reshape(-1, 1)
     ).ravel().astype(np.float32)
 
     # Number of input channels = 1 (target) + len(exog_cols)

@@ -1,18 +1,12 @@
 """
-Grid-search runner for the PER-STEP GCN + MLP forecaster
-(one ego-graph per lookback day, jointly trained with the MLP head).
+Grid-search runner for the FROZEN-GRAPH GCN + MLP forecaster.
 
-Direct analogue of ``LSTM_GCN_1_graph_per_lookback/main.py`` but with a flat
-MLP head instead of an LSTM.  Reuses:
-
-    * ``GCNTimeSeriesDataset`` + ``collate_pyg_ts`` + ``build_pyg_graphs_from_nx_windows``
-      from the LSTM sibling (model-agnostic per-step pipeline)
-    * ``_recursive_forecast_gcn_perstep`` from the LSTM sibling (signature
-      ``model(pyg_batch, target_idx, ts_seq) -> (B, H, 1)`` is identical for
-      our MLP-headed model)
-    * ``neighbourhood_graph`` from GraphAnalysis
-    * Local ``SimpleGCNMLPForecaster`` and ``train_model`` (this folder)
-    * Local ``plots.plot_results``
+Identical pipeline to ``MLP_GCN/main_gcn_mlp.py`` except the ego-graph is
+computed ONCE on training-only columns of ``df_wide_scaled`` and then
+reused (same topology, same node-feature window) for every train/val/seed
+step and every recursive forecast step.  This removes the leakage caused
+by recomputing similarity over windows that include val/test observations
+of the neighbour products.
 """
 
 import os
@@ -362,18 +356,21 @@ def main():
                         pyg_seed_graphs   = [_dummy] * seq_length
                         pyg_future_graphs = [_dummy] * forecast_horizon
                     else:
-                        # ── 1. Build per-window NX graphs ────────────────────
-                        # Always use df_wide_scaled (per-product z-score, fit on train only).
-                        # Distance metrics need scaling; similarity metrics (Spearman/Pearson)
-                        # are scale-invariant so topology is unchanged.  Node features are
-                        # already normalised, so node_scalers is never needed.
+                        # ── FROZEN GRAPH (no leakage) ────────────────────────
+                        # Compute similarity ONCE on training-only columns and
+                        # build a SINGLE ego-graph from the last training window.
+                        # The same Data object is reused for every train, val,
+                        # seed and forecast step, so neither neighbour selection
+                        # nor node features ever see val/test values.
                         current_df_wide = df_wide_scaled
                         compute_func = (compute_distances_1vsAll if metric_type == 'distance'
                                         else compute_similarities_1vsAll)
 
+                        train_df_wide = current_df_wide.iloc[:, :global_val_start_idx]
+
                         nx_graphs, fixed_threshold = neighbourhood_graph(
                             product_id=product_id,
-                            df=current_df_wide,
+                            df=train_df_wide,
                             metric=metric,
                             metric_type=metric_type,
                             window_size=window_size,
@@ -386,35 +383,25 @@ def main():
                             residuals=USE_RESIDUALS,
                             enable_edges_within_star=enable_edges,
                             enable_second_degree=enable_second_degree,
-                            train_end_idx=global_val_start_idx,
+                            train_end_idx=None,
                         )
-                        print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
+                        print(f"Resolved frozen graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
 
-                        # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
-                        pyg_windows = build_pyg_graphs_from_nx_windows(
-                            nx_graphs, current_df_wide, product_id,
+                        # Take the LAST training window's graph and build one
+                        # PyG Data with node features from that same window.
+                        frozen_pyg = build_pyg_graphs_from_nx_windows(
+                            [nx_graphs[-1]],
+                            train_df_wide.iloc[:, -window_size:],
+                            product_id,
                             window_size=window_size, step_size=step_size,
                             node_feature_mode=NODE_FEATURE_MODE,
-                        )
-                        T_global = current_df_wide.shape[1]
-                        pyg_aligned_global = _align_pyg_windows_to_timeline(
-                            pyg_windows, window_size=window_size,
-                            step_size=step_size, T=T_global,
-                        )
-                        product_offset = T_global - len(df_p)
-                        pyg_train = pyg_aligned_global[product_offset + train_start_idx:
-                                                       product_offset + val_start_idx]
-                        pyg_val   = pyg_aligned_global[product_offset + val_start_idx:
-                                                       product_offset + test_start_idx]
+                        )[0]
 
-                        seed_start = product_offset + test_start_idx - seq_length
-                        seed_end   = product_offset + test_start_idx
-                        pyg_seed_graphs = pyg_aligned_global[seed_start:seed_end]
-
-                        fut_start = product_offset + test_start_idx
-                        fut_end   = fut_start + forecast_horizon
-                        pyg_future_graphs = pyg_aligned_global[fut_start:fut_end]
+                        pyg_train         = [frozen_pyg] * (val_start_idx  - train_start_idx)
+                        pyg_val           = [frozen_pyg] * (test_start_idx - val_start_idx)
+                        pyg_seed_graphs   = [frozen_pyg] * seq_length
+                        pyg_future_graphs = [frozen_pyg] * forecast_horizon
 
                     # ── 3. Datasets / loaders (PER-STEP) ─────────────────────
                     use_pin_memory = torch.cuda.is_available()
