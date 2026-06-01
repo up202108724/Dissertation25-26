@@ -99,7 +99,6 @@ PRODUCTS_TO_TEST = [
 # Main Loop
 # -----------------------------------------------------------------------------
 def main():
-    print(f"Loading data from {DATA_PATH}...")
     df = pd.read_feather(DATA_PATH)
     
     if DATE_COL in df.index.names:
@@ -140,10 +139,6 @@ def main():
     os.makedirs('grid_search_plots', exist_ok=True)
     
     for product_id, store_id in PRODUCTS_TO_TEST:
-        print(f"\n{'='*80}")
-        print(f"PROCESSING PRODUCT {product_id} FOR STORE {store_id}")
-        print(f"{'='*80}\n")
-        
         df_product = full_df[(full_df['item_id'] == product_id) & (full_df['store_id'] == store_id)].copy()
         df_product[DATE_COL] = pd.to_datetime(df_product[DATE_COL])
         df_product = df_product.sort_values(DATE_COL).reset_index(drop=True)
@@ -192,8 +187,6 @@ def main():
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
 
-            print(f"\n--- RUNNING WITH SEED {seed} ---\n")
-            
             grid_search_plots_dir = os.path.join(script_dir, 'grid_search_plots', f'seed_{seed}')
             best_models_seed_dir = os.path.join(script_dir, 'best_models', f'seed_{seed}')
             os.makedirs(grid_search_plots_dir, exist_ok=True)
@@ -242,14 +235,6 @@ def main():
                             results_by_w_s[key]['score']["No Embeddings"] = base_score
                             results_by_w_s[key]['pocid']["No Embeddings"] = base_pocid
 
-                    print(f"\n{'='*60}")
-                    if use_embeddings:
-                        param_str = f"threshold={current_threshold}" if is_threshold_mode else f"percentile={current_percentile}"
-                        print(f"Running MLP Experiment: metric={metric}, {param_str}, window_size={window_sz}, enable_edges={enable_edges}, 2nd_degree={enable_second_degree}")
-                    else:
-                        print("Running Experiment: BASELINE (no graph embeddings)")
-                    print(f"{'='*60}")
-
                     fixed_threshold = None
                     if use_embeddings:
                         metric_type = infer_metric_type(metric)
@@ -275,7 +260,6 @@ def main():
                             cat_labels=cat_labels_dict,
                             save_embeddings=SAVE_EMBEDDINGS
                         )
-                        print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
                     else:
                         graph_embeddings = None
@@ -377,8 +361,6 @@ def main():
                     results_by_w_s[key]['score'][label_name] = score
                     results_by_w_s[key]['pocid'][label_name] = pocid
                 
-                    print(f"Finished {metric} @ {param_val} -> RMSE: {rmse:.4f}\n")
-                    
                     csv_results_path = os.path.join(script_dir, f"{metric}.csv")
                     file_exists = os.path.exists(csv_results_path)
                     with open(csv_results_path, 'a', newline='') as csvfile:
@@ -447,7 +429,6 @@ def main():
                                          bias=res_dicts['bias'], score=res_dicts['score'], pocid=res_dicts['pocid'])
                                      
     if SAVE_PLOTS:
-        print("\nGenerating Correlation Plots across all collected CSVs...")
         for csv_file in os.listdir(script_dir):
             if csv_file.endswith('.csv') and csv_file != 'no_emb.csv' and csv_file != 'mlp_results.csv':
                 metric_name = csv_file.replace('.csv', '')
@@ -479,9 +460,8 @@ def main():
                     plt.tight_layout()
                     plt.savefig(plot_save_path)
                     plt.close()
-                    print(f"Saved correlation plot for {metric_name} at {plot_save_path}")
                 except Exception as e:
-                    print(f"Failed to generate plot for {csv_file}: {e}")
+                    pass
 
 if __name__ == "__main__":
     main()

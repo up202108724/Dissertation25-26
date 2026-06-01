@@ -100,7 +100,7 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.70, 0.85, 0.95, 0.99]},
+    {'metric': 'spearman', 'thresholds': [0.75, 0.82, 0.85, 0.88]},
 ]
 
 window_sizes              = [15]

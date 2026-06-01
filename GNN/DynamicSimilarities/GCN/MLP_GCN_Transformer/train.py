@@ -10,40 +10,35 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
-from mlp import TimeDistributedMLPForecaster
-from dataset import make_windows, WindowDataset
+from mlp import MLPForecaster
+from gcn_mlpdataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
-    horizon: int = 1
+    horizon: int = 153
     batch_size: int = 32
     train_size: int = 455
-    val_size: int = 153
+    val_size : int = 153
     lr: float = 1e-4
-    epochs: int = 1000
+    epochs: int = 30
     weight_decay: float = 1e-3
-    dropout: float = 0.2
-    patience: int = 150
-    hidden_sizes: tuple = (32, 16)
-    model_type: str = "tdmlp"
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 def train_mlp_forecaster(
-    df: pd.DataFrame,
+    df: pd.DataFrame, 
     cfg: TrainConfig,
     seed: int,
     loss_type: str,
-    product_id: str,
+    product_id: str,    
     scaler,
-    target_channel: int = 0,
+    target_channel: int = 0,    
+    val_ratio: float = 0.2,
+    hidden_sizes=(16, 8),
     target_col=None,
     exog_cols=None,
-    test_size=None,
+    graph_embeddings=None,
+    test_size=None
 ):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
 
     
     cols = [target_col] + (exog_cols if exog_cols else [])
@@ -62,22 +57,27 @@ def train_mlp_forecaster(
     train_target = train_data[:, target_channel:target_channel+1]
     train_scaled[:, target_channel:target_channel+1] = scaler.fit_transform(train_target)
     
-    # Prepend `lookback` rows of train context so val windows cover the full
-    # val split. Without this, val windows = val_size - lookback - horizon + 1
-    # which collapses when val_size is small relative to lookback.
-    val_context_start_idx = val_start_idx - cfg.lookback
+    val_context_start_idx = val_start_idx
     val_context_data = data[val_context_start_idx : val_end_idx]
     
     val_scaled = val_context_data.copy()
     val_target = val_context_data[:, target_channel:target_channel+1]
     val_scaled[:, target_channel:target_channel+1] = scaler.transform(val_target)
 
-    # Create windows with targets and exogenous features
+    # Extract embeddings for Train and Val (if provided)
+    if graph_embeddings is not None:
+        emb_train = graph_embeddings[:len(train_scaled)]
+        emb_val = graph_embeddings[len(train_scaled): len(train_scaled) + len(val_scaled)]
+    else:
+        emb_train = None
+        emb_val = None
+
+    # Create windows with targets, exogenous features, and embeddings
     X_train, y_train_full = make_windows(
-        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel
+        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_train, graph_window_size=15
     )
     X_val, y_val_full = make_windows(
-        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel
+        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_val, graph_window_size=15
     )
 
     y_train = y_train_full[:, :, target_channel : target_channel + 1]
@@ -96,16 +96,18 @@ def train_mlp_forecaster(
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
         
-    
-    model = TimeDistributedMLPForecaster(
-            in_channels=C_in,
-            hidden_sizes=cfg.hidden_sizes,
-            dropout=cfg.dropout,
-            activation="relu",
-        ).to(cfg.device)  
+    model = MLPForecaster(
+        lookback=cfg.lookback,
+        in_channels=C_in,
+        horizon=cfg.horizon,
+        out_dim=1, 
+        hidden_sizes=hidden_sizes,
+        dropout=0.2,
+        activation="relu",
+    ).to(cfg.device)
 
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
-
+    
     if loss_type.lower() == 'mse':
         loss_fn = nn.MSELoss()
     elif loss_type.lower() == 'mae':
@@ -125,7 +127,6 @@ def train_mlp_forecaster(
     os.makedirs(model_dir, exist_ok=True)
     best_model_path = f'{model_dir}/mlp_product_{product_id}.pth'
     best_epoch = 0
-    patience_counter = 0
     for epoch in range(1, cfg.epochs + 1):
         model.train()
         train_loss = 0.0
@@ -163,13 +164,7 @@ def train_mlp_forecaster(
                 best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
                 torch.save(best_state, best_model_path)
                 best_epoch = epoch
-                patience_counter = 0
-                print(f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
-            else:
-                patience_counter += 1
-                if cfg.patience is not None and patience_counter >= cfg.patience:
-                    print(f"Early stopping at epoch {epoch} (no val improvement for {cfg.patience} epochs; best epoch={best_epoch}).")
-                    break
+                print (f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
         else:
             print("WARNING: Validation set is too small to form windows!")
 

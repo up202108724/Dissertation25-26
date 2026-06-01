@@ -10,8 +10,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
-from mlp import TimeDistributedMLPForecaster
-from dataset import make_windows, WindowDataset
+from mlp import MLPForecaster, TimeDistributedMLPForecaster
+from graph2vecdataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
@@ -38,6 +38,7 @@ def train_mlp_forecaster(
     target_channel: int = 0,
     target_col=None,
     exog_cols=None,
+    graph_embeddings=None,
     test_size=None,
 ):
     torch.manual_seed(seed)
@@ -72,12 +73,25 @@ def train_mlp_forecaster(
     val_target = val_context_data[:, target_channel:target_channel+1]
     val_scaled[:, target_channel:target_channel+1] = scaler.transform(val_target)
 
-    # Create windows with targets and exogenous features
+    # Extract embeddings for Train and Val (if provided).
+    # val_scaled starts at (val_start_idx - lookback), so the embedding start
+    # must match that same data position, not len(train_scaled).
+    # Using len(train_scaled) as the start would offset embeddings by +lookback
+    # rows (forward data leak introduced by the val-context prepend fix).
+    if graph_embeddings is not None:
+        emb_train = graph_embeddings[:len(train_scaled)]
+        val_emb_start = len(train_scaled) - cfg.lookback  # = val_context_start_idx (positive)
+        emb_val = graph_embeddings[val_emb_start : val_emb_start + len(val_scaled)]
+    else:
+        emb_train = None
+        emb_val = None
+
+    # Create windows with targets, exogenous features, and embeddings
     X_train, y_train_full = make_windows(
-        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel
+        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_train, graph_window_size=15
     )
     X_val, y_val_full = make_windows(
-        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel
+        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_val, graph_window_size=15
     )
 
     y_train = y_train_full[:, :, target_channel : target_channel + 1]
@@ -85,27 +99,29 @@ def train_mlp_forecaster(
 
     C_in = X_train.shape[2]
     
-    print(f"Train/Val Split Indices:")
-    print(f"  Train End: {train_end_idx}")
-    print(f"  Val Range:     {val_start_idx} to {val_end_idx}")
-    print(f"  Test Range:    {test_start_idx} to End")
-    print(f"  Val Targets:   {y_val.shape[0]} windows created")
-    print(f"Input Shape:  (Batch, {cfg.lookback}, {C_in})")
-    print(f"Output Shape: (Batch, {cfg.horizon}, 1)")
-
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
         
-    
-    model = TimeDistributedMLPForecaster(
+    if cfg.model_type == "tdmlp":
+        model = TimeDistributedMLPForecaster(
             in_channels=C_in,
             hidden_sizes=cfg.hidden_sizes,
             dropout=cfg.dropout,
             activation="relu",
-        ).to(cfg.device)  
+        ).to(cfg.device)
+    else:
+        model = MLPForecaster(
+            lookback=cfg.lookback,
+            in_channels=C_in,
+            horizon=cfg.horizon,
+            out_dim=1,
+            hidden_sizes=cfg.hidden_sizes,
+            dropout=cfg.dropout,
+            activation="relu",
+        ).to(cfg.device)
 
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
-
+    
     if loss_type.lower() == 'mse':
         loss_fn = nn.MSELoss()
     elif loss_type.lower() == 'mae':
@@ -164,17 +180,13 @@ def train_mlp_forecaster(
                 torch.save(best_state, best_model_path)
                 best_epoch = epoch
                 patience_counter = 0
-                print(f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
             else:
                 patience_counter += 1
                 if cfg.patience is not None and patience_counter >= cfg.patience:
-                    print(f"Early stopping at epoch {epoch} (no val improvement for {cfg.patience} epochs; best epoch={best_epoch}).")
                     break
         else:
-            print("WARNING: Validation set is too small to form windows!")
+            pass
 
-    if hasattr(val_loader.dataset, "__len__") and len(val_loader.dataset) > 0:
-        print(f"Best Val {loss_type.upper()}: {best_val:.6f} (Epoch {best_epoch})")
     if best_state is not None:
         model.load_state_dict(best_state)
 

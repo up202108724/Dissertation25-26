@@ -14,23 +14,22 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 # Add LSTM directory to path to reuse training scripts, datasets and plots
 sys.path.append(os.path.join(script_dir, '..', 'LSTM'))
 
-from plots import plot_results
 from utils import generate_exogenous_features
 from train import TrainConfig, train_mlp_forecaster
 from graph2vecinference import recursive_inference
+from plots import plot_results
 
 from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
 import itertools
 import csv
-import hashlib
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score
 
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-DATA_PATH = os.path.join(script_dir, '..', '..','..', 'dataset', 'data_andre_fulfilled.feather')
+FULL_DATA_PATH = os.path.join(script_dir, '..', '..','..', 'dataset', 'data_andre_classified.feather')
+TOP_DATA_PATH = os.path.join(script_dir, '..', '..','..', 'dataset', 'top_12500.feather')
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
@@ -59,7 +58,7 @@ EXOG_COLS = [
 ]
 grid_configs = [
 
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
 ]
 
 # Training hyperparameters
@@ -74,7 +73,7 @@ MODEL_TYPE = 'ridge'
 LOSS_TYPE = 'mse'
 PATIENCE = 150
 ##########################
-SEEDS = [42,1000,26008,907969]
+SEEDS = [42]
 #seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
 WINDOW_SIZES = [15]     
 STEP_SIZES = [1]
@@ -87,20 +86,14 @@ USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 GRAPH_EMBEDDINGS_DIM = 16
-PRODUCTS_TO_TEST = [
-  #(911753,6269)
-  (26008, 6269),
-  #(907969, 6269),
-  #(907967, 6269),
-  #(213626, 6269)
-]
+# TARGET_CATEGORIES is no longer used since we test everything in the feather file
 
 # -----------------------------------------------------------------------------
 # Main Loop
 # -----------------------------------------------------------------------------
 def main():
-    print(f"Loading data from {DATA_PATH}...")
-    df = pd.read_feather(DATA_PATH)
+    experiment_start = time.time()
+    df = pd.read_feather(FULL_DATA_PATH)
     
     if DATE_COL in df.index.names:
         df = df.reset_index(drop=True) if DATE_COL in df.columns else df.reset_index()
@@ -137,13 +130,29 @@ def main():
         df_wide_scaled.loc[item_id_iter] = z_scaler.transform(full_ts).flatten()
 
     os.makedirs('best_models', exist_ok=True)
-    os.makedirs('grid_search_plots', exist_ok=True)
-    
+
+    # ── Select test products from the top dataset ────────────────────────────
+    top_df = pd.read_feather(TOP_DATA_PATH)
+    products_df = (
+        top_df[['item_id', 'store_id']]
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+    PRODUCTS_TO_TEST = list(products_df.itertuples(index=False, name=None))
+
+    results_csv = os.path.join(script_dir, "graph2vec_mlp2_results.csv")
+    done_set = set()
+    if os.path.exists(results_csv):
+        done_df = pd.read_csv(results_csv, dtype=str)
+        # Using string matching to be safe with float representations
+        done_df['threshold'] = done_df['threshold'].fillna('').astype(str)
+        done_df['percentile'] = done_df['percentile'].fillna('').astype(str)
+        for _, row in done_df.iterrows():
+            # key: (product_id, store_id, seed, metric, threshold)
+            done_set.add((str(row['item_id']), str(row['store_id']), str(row['seed']), str(row['metric']), str(row['threshold'])))
+        print(f"Resuming: {len(done_set)} experiments already completed.")
+
     for product_id, store_id in PRODUCTS_TO_TEST:
-        print(f"\n{'='*80}")
-        print(f"PROCESSING PRODUCT {product_id} FOR STORE {store_id}")
-        print(f"{'='*80}\n")
-        
         df_product = full_df[(full_df['item_id'] == product_id) & (full_df['store_id'] == store_id)].copy()
         df_product[DATE_COL] = pd.to_datetime(df_product[DATE_COL])
         df_product = df_product.sort_values(DATE_COL).reset_index(drop=True)
@@ -192,17 +201,22 @@ def main():
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
 
-            print(f"\n--- RUNNING WITH SEED {seed} ---\n")
-            
-            grid_search_plots_dir = os.path.join(script_dir, 'grid_search_plots', f'seed_{seed}')
             best_models_seed_dir = os.path.join(script_dir, 'best_models', f'seed_{seed}')
-            os.makedirs(grid_search_plots_dir, exist_ok=True)
             os.makedirs(best_models_seed_dir, exist_ok=True)
 
             all_configs = [{'metric': 'no_emb'}] + grid_configs if USE_EMBEDDINGS else [{'metric': 'no_emb'}]
             
             base_forecast, base_train_losses, base_val_losses = None, None, None
             base_rmse, base_mae, base_bias, base_score, base_pocid = None, None, None, None, None
+
+            all_forecasts_for_plot = {}
+            all_train_losses_for_plot = {}
+            all_val_losses_for_plot = {}
+            all_rmse_for_plot = {}
+            all_mae_for_plot = {}
+            all_bias_for_plot = {}
+            all_score_for_plot = {}
+            all_pocid_for_plot = {}
 
             for config in all_configs:
                 metric = config['metric']
@@ -225,6 +239,12 @@ def main():
                     current_threshold = param_val if use_embeddings and is_threshold_mode else None
                     current_percentile = param_val if use_embeddings and not is_threshold_mode else None
 
+                    # Resumable script check
+                    exp_th_str = str(current_threshold) if use_embeddings and is_threshold_mode else ""
+                    if (str(product_id), str(store_id), str(seed), str(metric), exp_th_str) in done_set:
+                        print(f"Skipping already completed experiment: Item {product_id}, Store {store_id}, Seed {seed}, Metric {metric}, Threshold {exp_th_str}")
+                        continue
+
                     key = (param_val, window_sz, step_sz)
                     if key not in results_by_w_s:
                         results_by_w_s[key] = {
@@ -241,14 +261,6 @@ def main():
                             results_by_w_s[key]['bias']["No Embeddings"] = base_bias
                             results_by_w_s[key]['score']["No Embeddings"] = base_score
                             results_by_w_s[key]['pocid']["No Embeddings"] = base_pocid
-
-                    print(f"\n{'='*60}")
-                    if use_embeddings:
-                        param_str = f"threshold={current_threshold}" if is_threshold_mode else f"percentile={current_percentile}"
-                        print(f"Running MLP Experiment: metric={metric}, {param_str}, window_size={window_sz}, enable_edges={enable_edges}, 2nd_degree={enable_second_degree}")
-                    else:
-                        print("Running Experiment: BASELINE (no graph embeddings)")
-                    print(f"{'='*60}")
 
                     fixed_threshold = None
                     if use_embeddings:
@@ -275,7 +287,6 @@ def main():
                             cat_labels=cat_labels_dict,
                             save_embeddings=SAVE_EMBEDDINGS
                         )
-                        print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
                     else:
                         graph_embeddings = None
@@ -376,112 +387,53 @@ def main():
                     results_by_w_s[key]['bias'][label_name] = bias
                     results_by_w_s[key]['score'][label_name] = score
                     results_by_w_s[key]['pocid'][label_name] = pocid
+
+                    all_forecasts_for_plot[label_name] = forecast
+                    all_train_losses_for_plot[label_name] = t_losses
+                    all_val_losses_for_plot[label_name] = v_losses
+                    all_rmse_for_plot[label_name] = rmse
+                    all_mae_for_plot[label_name] = mae
+                    all_bias_for_plot[label_name] = bias
+                    all_score_for_plot[label_name] = score
+                    all_pocid_for_plot[label_name] = pocid
                 
-                    print(f"Finished {metric} @ {param_val} -> RMSE: {rmse:.4f}\n")
-                    
-                    csv_results_path = os.path.join(script_dir, f"{metric}.csv")
+                    csv_results_path = os.path.join(script_dir, "graph2vec_mlp2_results.csv")
                     file_exists = os.path.exists(csv_results_path)
                     with open(csv_results_path, 'a', newline='') as csvfile:
                         writer = csv.writer(csvfile)
                         if not file_exists:
-                            writer.writerow(["product_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "rmse", "mae", "bias", "r2_score", "pocid", "train_time", "infer_time"])
+                            writer.writerow(["item_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "rmse", "mae", "bias", "r2_score", "pocid", "train_time", "inference_time", "best_epoch"])
                         
-                        writer.writerow([product_id, store_id, seed, metric, 15 if metric == 'no_emb' else window_sz, 1 if metric == 'no_emb' else step_sz, current_threshold if use_embeddings else "", current_percentile if use_embeddings else "", enable_edges if use_embeddings else "", enable_second_degree if use_embeddings else "", rmse, mae, bias, score, pocid, round(train_time, 4), round(infer_time, 4)])
+                        writer.writerow([product_id, store_id, seed, metric, 15 if metric == 'no_emb' else window_sz, 1 if metric == 'no_emb' else step_sz, current_threshold if use_embeddings else "", current_percentile if use_embeddings else "", enable_edges if use_embeddings else "", enable_second_degree if use_embeddings else "", rmse, mae, bias, score, pocid, round(train_time, 4), round(infer_time, 4), best_epoch])
 
+            if SAVE_PLOTS:
+                plot_dir = os.path.join(script_dir, f'grid_search_plots/seed_{seed}/{LOSS_TYPE}')
+                os.makedirs(plot_dir, exist_ok=True)
+                
+                plot_path = os.path.join(plot_dir, f'item{product_id}_store{store_id}_comparison.html')
+                
                 train_index = df_product[DATE_COL][train_slice].values
                 val_index = df_product[DATE_COL][val_slice].values
                 test_index = df_product[DATE_COL][test_slice].values
+                
+                plot_results(train, val, test, all_forecasts_for_plot, 
+                             train_index, val_index, test_index,
+                             all_train_losses_for_plot, all_val_losses_for_plot,
+                             target_col=TARGET_COL, title=f'TDMLP Forecast - Item {product_id} Store {store_id} (Seed {seed})',
+                             save_path=plot_path,
+                             rmse=all_rmse_for_plot, mae=all_mae_for_plot, bias=all_bias_for_plot,
+                             score=all_score_for_plot, pocid=all_pocid_for_plot, df_full=df_product)
 
-                if metric == 'no_emb':
-                    values_str = "no_thresholds"
-                    sub_dir = os.path.join(grid_search_plots_dir, 'no_emb', f'window_{15}', f'step_{1}', f'item_{product_id}', values_str)
-                    os.makedirs(sub_dir, exist_ok=True)
-                    save_plot_path = os.path.join(sub_dir, f"item_{product_id}_store_{store_id}_no_emb_seed_{seed}.html")
-                    emb_title = f'Baseline MLP Forecast (No Embeddings | Seed={seed})'
-                    
-                    if SAVE_PLOTS:
-                        plot_results(train, val, test, results_by_w_s[(None, 15, 1)]['forecasts'], train_index, val_index, test_index,
-                                     results_by_w_s[(None, 15, 1)]['train_losses'], results_by_w_s[(None, 15, 1)]['val_losses'], metric=metric, embedding_strategy='graph2vec_mlp',
-                                     window_size=15, step_size=1, threshold=None, percentile=None,
-                                     target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
-                                     save_path=save_plot_path, rmse=results_by_w_s[(None, 15, 1)]['rmse'], mae=results_by_w_s[(None, 15, 1)]['mae'], 
-                                     bias=results_by_w_s[(None, 15, 1)]['bias'], score=results_by_w_s[(None, 15, 1)]['score'], pocid=results_by_w_s[(None, 15, 1)]['pocid'])
-                else:
-                    metric_type = infer_metric_type(metric)
-                    grouped_results = {}
-                    for (p, w, s), res_dicts in results_by_w_s.items():
-                        group_key = (w, s)
-                        if group_key not in grouped_results:
-                            grouped_results[group_key] = {
-                                'forecasts': {}, 'train_losses': {}, 'val_losses': {},
-                                'rmse': {}, 'mae': {}, 'bias': {}, 'score': {}, 'pocid': {}
-                            }
-                        grouped_results[group_key]['forecasts'].update(res_dicts['forecasts'])
-                        grouped_results[group_key]['train_losses'].update(res_dicts['train_losses'])
-                        grouped_results[group_key]['val_losses'].update(res_dicts['val_losses'])
-                        grouped_results[group_key]['rmse'].update(res_dicts['rmse'])
-                        grouped_results[group_key]['mae'].update(res_dicts['mae'])
-                        grouped_results[group_key]['bias'].update(res_dicts['bias'])
-                        grouped_results[group_key]['score'].update(res_dicts['score'])
-                        grouped_results[group_key]['pocid'].update(res_dicts['pocid'])
-
-                    for (w, s), res_dicts in grouped_results.items():
-                        if thresholds is not None and len(thresholds) > 0 and percentiles is None:
-                            raw_str = "_".join(map(str, thresholds))
-                        else:
-                            raw_str = "_".join(map(str, percentiles))
-                        
-                        values_str = hashlib.md5(raw_str.encode()).hexdigest()[:8]
-                        sub_dir = os.path.join(grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}', f'item_{product_id}', values_str)
-                        os.makedirs(sub_dir, exist_ok=True)
-                        
-                        save_plot_path = os.path.join(sub_dir, f"item_{product_id}_{metric}_seed_{seed}_all_configs.html")
-                        emb_title = f'Graph2Vec MLP Forecasts ({metric} | Seed={seed} | W={w} | S={s})'
-
-                        if SAVE_PLOTS:
-                            plot_results(train, val, test, res_dicts['forecasts'], train_index, val_index, test_index,
-                                         res_dicts['train_losses'], res_dicts['val_losses'], metric=metric, embedding_strategy='graph2vec_mlp',
-                                         window_size=w, step_size=s, threshold=None, percentile=None,
-                                         target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
-                                         save_path=save_plot_path, rmse=res_dicts['rmse'], mae=res_dicts['mae'], 
-                                         bias=res_dicts['bias'], score=res_dicts['score'], pocid=res_dicts['pocid'])
-                                     
-    if SAVE_PLOTS:
-        print("\nGenerating Correlation Plots across all collected CSVs...")
-        for csv_file in os.listdir(script_dir):
-            if csv_file.endswith('.csv') and csv_file != 'no_emb.csv' and csv_file != 'mlp_results.csv':
-                metric_name = csv_file.replace('.csv', '')
-                csv_path = os.path.join(script_dir, csv_file)
-                try:
-                    res_df = pd.read_csv(csv_path)
-                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-                    fig.suptitle(f'Threshold vs RMSE and MAE | Metric: {metric_name}', fontsize=16)
-
-                    x_col = 'threshold' if res_df['threshold'].notna().any() else 'percentile'
-                    plot_data = res_df.dropna(subset=[x_col, 'rmse', 'mae']).sort_values(by=x_col)
-                    
-                    if plot_data.empty:
-                        continue
-
-                    ax1.plot(plot_data[x_col], plot_data['rmse'], marker='o', linestyle='-', color='b')
-                    ax1.set_title(f'{x_col.capitalize()} vs RMSE')
-                    ax1.set_xlabel(x_col.capitalize())
-                    ax1.set_ylabel('RMSE')
-                    ax1.grid(True)
-
-                    ax2.plot(plot_data[x_col], plot_data['mae'], marker='s', linestyle='-', color='r')
-                    ax2.set_title(f'{x_col.capitalize()} vs MAE')
-                    ax2.set_xlabel(x_col.capitalize())
-                    ax2.set_ylabel('MAE')
-                    ax2.grid(True)
-
-                    plot_save_path = os.path.join(script_dir, f"{metric_name}_correlation_plot.png")
-                    plt.tight_layout()
-                    plt.savefig(plot_save_path)
-                    plt.close()
-                    print(f"Saved correlation plot for {metric_name} at {plot_save_path}")
-                except Exception as e:
-                    print(f"Failed to generate plot for {csv_file}: {e}")
+    # ------------------------------------------------------------------
+    # Timing summary
+    # ------------------------------------------------------------------
+    total_elapsed = time.time() - experiment_start
+    csv_results_path = os.path.join(script_dir, "graph2vec_mlp2_results.csv")
+    with open(csv_results_path, 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["TOTAL_EXPERIMENT_TIME_SECONDS", round(total_elapsed, 2)] + [""] * 16)
+        
+    print(f"\nTotal experiment time: {total_elapsed/60:.2f} min → saved to {csv_results_path}")
 
 if __name__ == "__main__":
     main()

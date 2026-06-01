@@ -55,6 +55,8 @@ PRODUCTS_TO_TEST = [
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
     "month", "quarter", "is_weekend",
+    "lag_1", "lag_7",  "lag_30",
+    #"rolling_mean_excl_7", "rolling_mean_excl_3", "rolling_mean_excl_5","rolling_mean_excl_15",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
     "is_monday", "is_friday",
     "is_holiday", "is_thanksgiving", "is_black_friday",
@@ -63,6 +65,7 @@ EXOG_COLS = [
     "is_post_holiday_1", "is_post_holiday_2", "is_post_holiday_3", "is_post_holiday_7",
     "is_bridge_day",
 ]
+
 
 # Grid Search Parameters Setup
 

@@ -73,7 +73,7 @@ def classify_items_adi_cv(
 
     Quadrants:
       - smooth: ADI <= threshold AND CV <= threshold
-      - seasonal: ADI <= threshold AND CV > threshold  
+      - erratic: ADI <= threshold AND CV > threshold  
       - intermittent: ADI > threshold AND CV <= threshold
       - lumpy: ADI > threshold AND CV > threshold
     """
@@ -129,7 +129,7 @@ def classify_items_adi_cv(
         if adi <= adi_threshold and cv <= cv_threshold:
             label = "smooth"
         elif adi <= adi_threshold and cv > cv_threshold:
-            label = "seasonal"
+            label = "erratic"
         elif adi > adi_threshold and cv <= cv_threshold:
             label = "intermittent"
         else:

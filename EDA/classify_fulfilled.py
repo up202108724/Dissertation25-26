@@ -3,7 +3,7 @@ Classifies every (item_id, store_id) pair in data_andre_fulfilled.feather
 using the ADI/CV scheme (Syntetos et al.):
 
   smooth       — ADI <= 1.32 AND CV <= 0.49
-  seasonal     — ADI <= 1.32 AND CV >  0.49
+  erratic      — ADI <= 1.32 AND CV >  0.49
   intermittent — ADI >  1.32 AND CV <= 0.49
   lumpy        — ADI >  1.32 AND CV >  0.49
 
@@ -65,7 +65,7 @@ for (item_id, store_id), group in df.groupby([ITEM_COL, STORE_COL], sort=False):
     if adi <= ADI_THRESHOLD and cv <= CV_THRESHOLD:
         label = "smooth"
     elif adi <= ADI_THRESHOLD and cv > CV_THRESHOLD:
-        label = "seasonal"
+        label = "erratic"
     elif adi > ADI_THRESHOLD and cv <= CV_THRESHOLD:
         label = "intermittent"
     else:
