@@ -140,7 +140,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 GRAPH_EMBEDDINGS_DIM = 16
 PRODUCTS_TO_TEST = [
   #(911753,6269)
-  (26008, 6269),
+  #(26008, 6269),
   #(907969, 6269),
   #(907967, 6269),
   #(213626, 6269)
