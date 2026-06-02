@@ -98,7 +98,8 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
                                     lag_col_indices: Optional[Dict[int, int]] = None,
                                     rolling_mean_excl_col_indices: Optional[Dict[int, int]] = None,
                                     exog_scaler=None,
-                                    graph_log_out: Optional[list] = None):
+                                    graph_log_out: Optional[list] = None,
+                                    step_callback=None):
     """
     One-step-at-a-time inference for the per-step GCN + MLP.
 
@@ -218,6 +219,9 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
                     'tgt_node': tgt_label,
                     'edge_weight': float(ea[eidx]),
                 })
+
+        if step_callback is not None:
+            step_callback(step)
 
         # roll lookback window: shift left, append a new last row carrying ŷ
         ts = np.vstack([ts[1:], ts[-1:].copy()])

@@ -378,7 +378,6 @@ def main():
                         pyg_val           = [_dummy] * (test_start_idx - val_start_idx)
                         pyg_seed_graphs   = [_dummy] * lookback_window
                         pyg_future_graphs = [_dummy] * forecast_horizon
-                        _inf_nx_graphs    = None
                     else:
                         # ── 1. Build per-window NX graphs ────────────────────
                         # Always use df_wide_scaled (per-product z-score, fit on train only).
@@ -409,7 +408,29 @@ def main():
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
                         
-                        _inf_nx_graphs = nx_graphs[-forecast_horizon:] if SAVE_INFERENCE_GRAPHS_PLOTS else None
+                        if SAVE_INFERENCE_GRAPHS_PLOTS:
+                            param_label_plot = (f"th_{current_threshold}" if is_threshold_mode
+                                                else f"pct_{current_percentile}")
+                            graph_plot_dir = os.path.join(SCRIPT_DIR, 'graph_infered_plots', str(product_id), f'seed_{seed}', metric, param_label_plot)
+                            os.makedirs(graph_plot_dir, exist_ok=True)
+
+                            print(f"\nSaving inference graphs plots for product {product_id} (Seed: {seed}) ...")
+                            inference_nx_graphs = nx_graphs[-forecast_horizon:]
+                            for _gi, _G in enumerate(inference_nx_graphs):
+                                _title = (
+                                    f"Product {product_id} | {metric} | {param_label_plot} | "
+                                    f"w{window_size}_s{step_size} | inference step {_gi + 1}"
+                                )
+                                _save_path = os.path.join(
+                                    graph_plot_dir,
+                                    f"graph_{metric}_{param_label_plot}_w{window_size}_s{step_size}_step{_gi + 1:04d}.html",
+                                )
+                                plot_networkx_plotly(
+                                    G=_G,
+                                    title=_title,
+                                    save_path=_save_path,
+                                    target_node=product_id,
+                                )
 
                         # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
                         pyg_windows = build_pyg_graphs_from_nx_windows(
@@ -507,12 +528,11 @@ def main():
                     if enable_second_degree:
                         prefix_star = "2nddegree_" + prefix_star
                     res_tag = f"_res_{MODEL_TYPE}" if USE_RESIDUALS else ""
-                    az_tag = "_ablation" if ablate_z else ""
                     param_label = (f"th_{current_threshold}" if is_threshold_mode
                                    else f"pct_{current_percentile}")
                     base_name = (
                         f"best_gcnmlp_perstep_{prefix_star}{product_id}_{metric}"
-                        f"_w{window_size}_s{step_size}_{param_label}{res_tag}{az_tag}_seed_{seed}"
+                        f"_w{window_size}_s{step_size}_{param_label}{res_tag}_seed_{seed}"
                     )
                     best_model_path  = os.path.join(best_models_dir, f"{base_name}.pth")
                     history_path     = os.path.join(best_models_dir, f"{base_name}_history.pkl")
@@ -634,39 +654,6 @@ def main():
                             rolling_mean_excl_col_indices[i] = W
                     target_history_unscaled = np.concatenate([train, val]).astype(np.float32)
 
-                    # ── Build per-step graph-save callback ───────────────────
-                    if _inf_nx_graphs is not None:
-                        _param_label_plot = (f"th_{current_threshold}" if is_threshold_mode
-                                             else f"pct_{current_percentile}")
-                        _graph_plot_dir = os.path.join(
-                            SCRIPT_DIR, 'graph_infered_plots', str(product_id),
-                            f'seed_{seed}', metric, _param_label_plot,
-                        )
-                        os.makedirs(_graph_plot_dir, exist_ok=True)
-                        print(f"\nWill save {len(_inf_nx_graphs)} inference graph plots during inference...")
-
-                        def _make_step_cb(graphs, plot_dir, lbl, w, s, pid, met):
-                            def _cb(step_idx):
-                                if step_idx < len(graphs):
-                                    _title = (
-                                        f"Product {pid} | {met} | {lbl} | "
-                                        f"w{w}_s{s} | inference step {step_idx + 1}"
-                                    )
-                                    _sp = os.path.join(
-                                        plot_dir,
-                                        f"graph_{met}_{lbl}_w{w}_s{s}_step{step_idx + 1:04d}.html",
-                                    )
-                                    plot_networkx_plotly(G=graphs[step_idx], title=_title,
-                                                         save_path=_sp, target_node=pid)
-                            return _cb
-
-                        _step_callback = _make_step_cb(
-                            _inf_nx_graphs, _graph_plot_dir, _param_label_plot,
-                            window_size, step_size, product_id, metric,
-                        )
-                    else:
-                        _step_callback = None
-
                     graph_log = [] if RECORD_INFERENCE_GRAPHS else None
                     _inf_start = time.time()
                     forecast = _recursive_forecast_gcn_perstep(
@@ -683,7 +670,6 @@ def main():
                         rolling_mean_excl_col_indices=rolling_mean_excl_col_indices if EXOG_COLS else None,
                         exog_scaler=exog_scaler if EXOG_COLS else None,
                         graph_log_out=graph_log,
-                        step_callback=_step_callback,
                     )
                     inference_time = time.time() - _inf_start
 
