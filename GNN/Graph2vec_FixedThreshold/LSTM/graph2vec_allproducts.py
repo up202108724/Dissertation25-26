@@ -429,8 +429,7 @@ def main():
                     distance_metrics = ['euclidean','manhattan', 'hamming', 'amplitude_offset', 'slope_consistency', 'phase_invariance', 'dtw', 'cid', 'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
                     current_df_wide = df_wide_scaled if metric in distance_metrics else df_wide_global
                     
-                    SAVE_INFERENCE_GRAPHS_PLOTS = True
-                    result_tuple = graph2vec_inference(
+                    forecast, inference_time = graph2vec_inference(
                         metric=metric, window_size=window_size, step_size=step_size,
                         model=model,
                         df=df, df_wide=current_df_wide, cat_labels=cat_labels_dict, date_col=DATE_COL,
@@ -449,41 +448,8 @@ def main():
                         enable_second_degree=enable_second_degree,
                         percentile=current_percentile if not is_threshold_mode else None,  # Passes percentile mode if used (otherwise None)
                         threshold=inf_threshold,  # Pass the threshold inferred from the percentile
-                        create_plots=False,  # We will create combined plots later, so disable individual plotting here
-                        return_graphs=SAVE_INFERENCE_GRAPHS_PLOTS
+                        create_plots=False  # We will create combined plots later, so disable individual plotting here
                     )
-                    
-                    if SAVE_INFERENCE_GRAPHS_PLOTS:
-                        forecast, inference_time, inference_nx_graphs = result_tuple
-                        graph_plot_dir = os.path.join(script_dir, 'graph_infered_plots', str(product_id), f'seed_{seed}')
-                        os.makedirs(graph_plot_dir, exist_ok=True)
-                        
-                        import sys
-                        utils_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'GraphAnalysis'))
-                        if utils_path not in sys.path:
-                            sys.path.append(utils_path)
-                        try:
-                            from utils import plot_dynamic_graphs
-                        except ImportError:
-                            from GNN.Graph2vec_FixedThreshold.LSTM.utils import plot_dynamic_graphs
-                            
-                        print(f"\nSaving inference graphs plots for product {product_id} (Seed: {seed}) ...")
-                        plot_dynamic_graphs(
-                            graphs=inference_nx_graphs,
-                            product_id=product_id,
-                            metric=metric,
-                            plot_dir=graph_plot_dir,
-                            residuals=USE_RESIDUALS,
-                            enable_edges_within_star=enable_edges,
-                            enable_second_degree=enable_second_degree,
-                            num_plots=None,
-                            window_size=window_size,
-                            step_size=step_size,
-                            threshold=inf_threshold,
-                            percentile=current_percentile
-                        )
-                    else:
-                        forecast, inference_time = result_tuple
 
                     valid_mask = ~np.isnan(forecast)
                     valid_test = test[valid_mask]

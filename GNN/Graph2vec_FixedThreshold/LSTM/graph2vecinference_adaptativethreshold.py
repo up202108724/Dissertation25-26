@@ -121,7 +121,7 @@ def graph2vec_inference(
     device, item_id, store_id, seed, criterion, val_scaled, test_scaled=None,
     exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None,
     node_embeddings=None, graph2vec_model=None, enable_edges_within_star=True, enable_second_degree=False, percentile=None,
-    create_plots=False, product_scalers=None
+    create_plots=False, product_scalers=None, return_graphs=False
 ):
     
     model.eval()
@@ -161,6 +161,7 @@ def graph2vec_inference(
     forecast = []
     warmup_preds_unscaled = []
     total_steps = forecast_window
+    gathered_inference_graphs = []
     
     # Setup inference log file
     inf_log_dir = f'inference_logs/seed_{seed}/{criterion}/item_{item_id}_store_{store_id}'
@@ -300,6 +301,8 @@ def graph2vec_inference(
                             enable_second_degree=enable_second_degree
                         )
                         
+                        gathered_inference_graphs.append(new_G)
+                        
                         new_emb = get_dynamic_embedding(new_G, graph2vec_model, dimensions=emb_dim)
                         current_emb_seq = current_emb_seq[1:] + [new_emb.tolist()]
                         
@@ -369,4 +372,6 @@ def graph2vec_inference(
     print(f"Forecasted values {forecast[:5]} ...")
     inference_time = time.time() - start_inference_time
 
+    if return_graphs:
+        return forecast, inference_time, gathered_inference_graphs
     return forecast, inference_time

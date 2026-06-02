@@ -125,6 +125,7 @@ def recursive_inference(
     enable_second_degree: bool = False,
     past_dates: list = None,
     future_dates: list = None,
+    return_graphs: bool = False,
 ) -> np.ndarray:
     """
     Recursively forecasts `horizon` steps using a 1-step-ahead model.
@@ -167,6 +168,8 @@ def recursive_inference(
         input_window[:-1, exog_indices] = input_window[1:, exog_indices]
         # Inserir exógena do dia que vamos prever no último step
         input_window[-1, exog_indices] = future_exog[0]
+    
+    gathered_inference_graphs = []
     
     with torch.no_grad(): # BOA PRÁTICA: Desligar gradientes na inferência
         for i in range(horizon):
@@ -212,9 +215,13 @@ def recursive_inference(
                     enable_second_degree=enable_second_degree
                 )
                 
+                gathered_inference_graphs.append(G)
+                
                 new_emb = graph2vec_model.infer([G])[0]
                 input_window[-1, num_base_features:] = new_emb
             
     # Reshape para fazer inverse_transform
     # Em vez de inverter novamente, podemos simplesmente devolver os preds_unscaled que já acumulámos
+    if return_graphs:
+        return np.array(preds_unscaled).flatten(), gathered_inference_graphs
     return np.array(preds_unscaled).flatten()
