@@ -108,7 +108,7 @@ EXOG_COLS = [
 ]
 grid_configs = [
 
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
+    {'metric': 'spearman', 'thresholds': [0.85]},
 ]
 
 # Training hyperparameters
@@ -314,7 +314,8 @@ def main():
             os.makedirs(best_models_seed_dir,  exist_ok=True)
 
             all_configs = list(grid_configs)
-
+            ##Baseline execution first
+            
             for config in all_configs:
                 metric      = config['metric']
                 thresholds  = config.get('thresholds',  [None])

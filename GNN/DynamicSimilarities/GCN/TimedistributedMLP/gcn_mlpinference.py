@@ -66,14 +66,22 @@ def _align_pyg_windows_to_timeline(pyg_windows, window_size, step_size, T):
 # ──────────────────────────────────────────────────────────────────────────
 # Helpers for leakage-safe dynamic exog (lags, rolling means)
 # ──────────────────────────────────────────────────────────────────────────
-def _scale_lag_value(raw_value: float, exog_scaler, col_idx: int) -> float:
+def _scale_lag_value(raw_value: float, exog_scaler, col_idx: int,
+                     exog_col_name: str = None) -> float:
     """
-    Apply a single-column scaler transform on one scalar.  Works for any
-    sklearn scaler exposing ``transform`` on a 2-D array — embed the scalar
-    into a zero row, transform, pick the column back.
+    Apply a single-column scaler transform on one scalar.  Works for both
+    plain sklearn scalers and ExogenousScaler (type-aware pass-through).
     """
     if exog_scaler is None:
         return float(raw_value)
+    # ExogenousScaler — use the per-column scaler directly if available.
+    if hasattr(exog_scaler, "scalers"):
+        if exog_col_name is not None and exog_col_name in exog_scaler.scalers:
+            col_scaler = exog_scaler.scalers[exog_col_name]
+            return float(col_scaler.transform([[raw_value]])[0, 0])
+        # Binary / cyclical column: pass-through
+        return float(raw_value)
+    # Plain sklearn scaler (MinMaxScaler, StandardScaler, etc.)
     n_features = getattr(exog_scaler, "n_features_in_", None)
     if n_features is None:
         ref = getattr(exog_scaler, "data_min_", None)
@@ -98,6 +106,7 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
                                     lag_col_indices: Optional[Dict[int, int]] = None,
                                     rolling_mean_excl_col_indices: Optional[Dict[int, int]] = None,
                                     exog_scaler=None,
+                                    exog_cols=None,
                                     graph_log_out: Optional[list] = None,
                                     step_callback=None):
     """
@@ -185,13 +194,15 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
         if use_dynamic_exog and ts.shape[1] > 1:
             for col_in_exog, k in lag_col_indices.items():
                 raw_lag = float(y_history[-k])
+                col_name = exog_cols[col_in_exog] if exog_cols else None
                 ts[-1, 1 + col_in_exog] = _scale_lag_value(
-                    raw_lag, exog_scaler, col_in_exog
+                    raw_lag, exog_scaler, col_in_exog, col_name
                 )
             for col_in_exog, W in rolling_mean_excl_col_indices.items():
                 raw_mean = float(np.mean(y_history[-W:]))
+                col_name = exog_cols[col_in_exog] if exog_cols else None
                 ts[-1, 1 + col_in_exog] = _scale_lag_value(
-                    raw_mean, exog_scaler, col_in_exog
+                    raw_mean, exog_scaler, col_in_exog, col_name
                 )
 
         ts_t  = torch.from_numpy(ts).unsqueeze(0).to(device)            # (1, L, F)

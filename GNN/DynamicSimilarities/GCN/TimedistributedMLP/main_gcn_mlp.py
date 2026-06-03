@@ -109,7 +109,8 @@ EXOG_COLS = [
 ]
 grid_configs = [
 
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
+    #{'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
+    {'metric': 'spearman', 'thresholds': [0.85]},
 ]
 
 # Training hyperparameters
@@ -125,7 +126,7 @@ MODEL_TYPE = 'ridge'
 LOSS_TYPE = 'mse'
 PATIENCE = 150
 ##########################
-SEEDS = [42,1000,26008]
+SEEDS = [42]
 #seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
 WINDOW_SIZES = [15]     
 STEP_SIZES = [1]
