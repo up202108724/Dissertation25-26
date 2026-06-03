@@ -78,10 +78,10 @@ def plot_results(train, val, test, forecast,
         pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
         full_title += f"RMSE: {rmse[label]:.4f} | MAE: {mae[label]:.4f} | Bias: {bias[label]:.4f} | Score: {score[label]:.4f} | POCID: {pocid_str}"
         
-    fig = make_subplots(rows=2, cols=1,
-                        subplot_titles=(full_title, 'Training and Validation Loss'),
-                        vertical_spacing=0.10,
-                        row_heights=[0.70, 0.30])
+    fig = make_subplots(rows=3, cols=1,
+                        subplot_titles=(full_title, 'Test vs Forecast', 'Training and Validation Loss'),
+                        vertical_spacing=0.08,
+                        row_heights=[0.45, 0.30, 0.25])
     
     # Define a common hovertemplate to include date and value
     hover_temp = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
@@ -183,41 +183,22 @@ def plot_results(train, val, test, forecast,
             shared_kwargs = dict(
                 x=test_index, y=nbr_scaled,
                 mode='lines',
-                line=dict(color=color, width=1),
+                line=dict(color=color, width=1, dash='dot'),
+                opacity=0.55,
                 hovertemplate=hover,
             )
-            fig.add_trace(go.Scatter(**shared_kwargs, name=f'Nbr {nbr_id}'), row=1, col=1)
+            fig.add_trace(go.Scatter(**shared_kwargs, name=f'Nbr {nbr_id}',
+                                     legendgroup='neighbours'), row=1, col=1)
+            fig.add_trace(go.Scatter(**shared_kwargs, name=f'Nbr {nbr_id} (Zoom)',
+                                     legendgroup='neighbours', showlegend=False), row=2, col=1)
 
     # ── Red vlines at selected inference steps ────────────────────────────
     if inference_step_dates is not None:
-        test_arr = np.array(test, dtype=float)
-        _y_mid = float(np.nanmean(test_arr))
         for step_date in inference_step_dates:
             x_val = pd.Timestamp(step_date).isoformat()
-            fig.add_vline(x=x_val, line_dash='solid', line_color='red',
-                          line_width=1.5, opacity=0.6, row=1, col=1)
-            # Invisible marker on the vline so hovering shows neighbour info
-            if inference_step_neighbours is not None:
-                nbrs = inference_step_neighbours.get(step_date, [])
-                nbr_text = ', '.join(str(n) for n in nbrs) if nbrs else 'none'
-                hover_txt = (
-                    f"<b>Inference step</b>: {pd.Timestamp(step_date).date()}"
-                    f"<br><b>Neighbours ({len(nbrs)})</b>: {nbr_text}"
-                )
-                fig.add_trace(
-                    go.Scatter(
-                        x=[pd.Timestamp(step_date)],
-                        y=[_y_mid],
-                        mode='markers',
-                        marker=dict(size=12, opacity=0.0, color='red',
-                                    symbol='diamond', line=dict(width=1, color='darkred')),
-                        hovertemplate=hover_txt + '<extra></extra>',
-                        name='Graph neighbours',
-                        legendgroup='graph_neighbours',
-                        showlegend=False,
-                    ),
-                    row=1, col=1,
-                )
+            for row_n in (1, 2):
+                fig.add_vline(x=x_val, line_dash='solid', line_color='red',
+                              line_width=1.5, opacity=0.6, row=row_n, col=1)
 
     # Set tick format for x-axis to 3 months
     fig.update_xaxes(
@@ -228,7 +209,25 @@ def plot_results(train, val, test, forecast,
     )
     fig.update_yaxes(title_text=target_col, row=1, col=1)
     
-    # Plot training loss - ax2
+    # Plot forecast vs actual test only - ax2
+    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test (Zoom)', mode='lines', line=dict(color='green', width=2), showlegend=False, customdata=step_indices, hovertemplate=hover_temp_step), row=2, col=1)
+
+    for idx, (label, fcast) in enumerate(forecast.items()):
+        if fcast is None: continue
+        color = colors[idx % len(colors)]
+        if not is_multi:
+            color = 'red'
+        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=label + ' (Zoom)', legendgroup=label, mode='lines', line=dict(color=color, width=2), showlegend=False, customdata=step_indices, hovertemplate=hover_temp_step), row=2, col=1)
+    
+    fig.update_xaxes(
+        title_text='Date',
+        dtick="M3",
+        tickformat="%b\n%Y",
+        row=2, col=1
+    )
+    fig.update_yaxes(title_text=target_col, row=2, col=1)
+
+    # Plot training loss - ax3
     if not isinstance(train_losses, dict):
         train_losses = {'Forecast': train_losses}
         val_losses = {'Forecast': val_losses}
@@ -243,11 +242,11 @@ def plot_results(train, val, test, forecast,
         name_t = 'Train Loss' if not is_multi else f'Train Loss ({label})'
         name_v = 'Validation Loss' if not is_multi else f'Val Loss ({label})'
         
-        fig.add_trace(go.Scatter(x=epochs, y=t_loss, name=name_t, legendgroup=label, mode='lines', line=dict(color=color, dash='solid')), row=2, col=1)
-        fig.add_trace(go.Scatter(x=epochs, y=v_loss, name=name_v, legendgroup=label, mode='lines', line=dict(color=color, dash='dot')), row=2, col=1)
-
-    fig.update_yaxes(title_text='Loss', row=2, col=1)
-    fig.update_xaxes(title_text='Epoch', row=2, col=1)
+        fig.add_trace(go.Scatter(x=epochs, y=t_loss, name=name_t, legendgroup=label, mode='lines', line=dict(color=color, dash='solid')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=epochs, y=v_loss, name=name_v, legendgroup=label, mode='lines', line=dict(color=color, dash='dot')), row=3, col=1)
+    
+    fig.update_yaxes(title_text='Loss', row=3, col=1)
+    fig.update_xaxes(title_text='Epoch', row=3, col=1)
     
     fig.update_layout(height=1400, width=1800,
                       hovermode="x unified",
