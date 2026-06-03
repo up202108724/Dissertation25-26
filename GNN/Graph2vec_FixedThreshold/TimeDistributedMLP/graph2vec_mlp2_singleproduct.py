@@ -59,7 +59,7 @@ EXOG_COLS = [
 ]
 grid_configs = [
 
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
 ]
 
 # Training hyperparameters

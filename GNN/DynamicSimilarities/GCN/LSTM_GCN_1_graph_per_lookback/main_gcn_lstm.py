@@ -35,9 +35,12 @@ sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'Graph2vec_FixedT
 
 from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.inference import _recursive_forecast_gcn_perstep
 from model_utils.utils import generate_exogenous_features, compute_metrics
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.plots import plot_results  # from sibling Graph2vec_FixedThreshold/LSTM/plots.py
 
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll  # GraphAnalysis/utils.py
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/
+from GNN.DynamicSimilarities.plots import plot_results, plot_networkx_plotly
+from utils import generate_exogenous_features, compute_metrics, neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll # GraphAnalysis/utils.py
 
 # Local (per-step) GCN+LSTM modules
 from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.gcn_lstm_dataset import (

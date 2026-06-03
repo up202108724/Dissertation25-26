@@ -34,7 +34,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # ── Paths & sys.path setup ─────────────────────────────────────────────────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/
 
 from utils import generate_exogenous_features, compute_metrics
 from utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll # GraphAnalysis/utils.py
@@ -50,8 +50,8 @@ from gcn_mlpinference import _recursive_forecast_gcn_perstep
 # Local MLP-headed model + training loop + plotting
 from gcn_mlp_model import SimpleGCNMLPForecaster
 from gcn_mlp_train import train_model
-from mlp import AblationMLPForecaster
-from plots import plot_results, plot_networkx_plotly
+from GNN.DynamicSimilarities.GCN.TimedistributedMLP.ablationmlp import AblationMLPForecaster
+from GNN.DynamicSimilarities.plots import plot_results, plot_networkx_plotly
 
 
 # ── Metric typing ──────────────────────────────────────────────────────────

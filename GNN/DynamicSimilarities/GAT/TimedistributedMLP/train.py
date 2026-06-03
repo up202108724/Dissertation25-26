@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
 from mlp import TimeDistributedMLPForecaster
-from GNN.DynamicSimilarities.GAT.TimedistributedMLP_GCN.gat_mlpdataset import make_windows, WindowDataset
+from gat_mlpdataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30

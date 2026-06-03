@@ -34,10 +34,9 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # ── Paths & sys.path setup ─────────────────────────────────────────────────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/
 
-
-from utils import generate_exogenous_features, compute_metrics
-from utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll # GraphAnalysis/utils.py
+from utils import generate_exogenous_features, compute_metrics, neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll # GraphAnalysis/utils.py
 
 # Reused per-step GCN pipeline (model-agnostic)
 from gcn_tdmlpdataset import (
@@ -50,7 +49,7 @@ from gcn_mlpinference import _recursive_forecast_gcn_perstep
 # Local MLP-headed model + training loop + plotting
 from gcn_mlp_model import SimpleGCNMLPForecaster
 from gcn_mlp_train import train_model
-from mlp import AblationMLPForecaster
+from ablationmlp import AblationMLPForecaster
 from plots import plot_results, plot_networkx_plotly
 
 
@@ -132,10 +131,11 @@ STEP_SIZES = [1]
 ENABLE_EDGES_OPTS = [True]
 ENABLE_SECOND_DEGREE_OPTS = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
 USE_RESIDUALS = False
-SAVE_MODELS = False
+SAVE_MODELS = True
 SAVE_PLOTS = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
+LOAD_SAVED_MODEL_FOR_INFERENCE = True
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 GRAPH_EMBEDDINGS_DIM = 16
 
@@ -237,7 +237,7 @@ def main():
     top_df = pd.read_feather(TOP_DATA_PATH)
     products_df = top_df[['item_id', 'store_id']].drop_duplicates().reset_index(drop=True)
     #PRODUCTS_TO_TEST = list(products_df.itertuples(index=False, name=None))
-    PRODUCTS_TO_TEST = [(26008, 6269)]
+    PRODUCTS_TO_TEST = [(26002, 6269)]
     results_csv = os.path.join(SCRIPT_DIR, "gcn_mlp_results.csv")
     done_set = set()
     if os.path.exists(results_csv):
@@ -520,7 +520,7 @@ def main():
                     print(f"Resolved checkpoint: {best_model_path}")
 
                     # ── 6. Train (or reload) ─────────────────────────────────
-                    if os.path.exists(combined_pkl_path):
+                    if LOAD_SAVED_MODEL_FOR_INFERENCE and os.path.exists(combined_pkl_path):
                         print(f"Loading combined checkpoint from {combined_pkl_path}...")
                         with open(combined_pkl_path, 'rb') as f:
                             _ckpt = pickle.load(f)
@@ -531,7 +531,7 @@ def main():
                         scaler       = _ckpt.get('scaler', scaler)
                         if EXOG_COLS:
                             exog_scaler = _ckpt.get('exog_scaler', exog_scaler)
-                    elif os.path.exists(best_model_path) and os.path.exists(history_path):
+                    elif LOAD_SAVED_MODEL_FOR_INFERENCE and os.path.exists(best_model_path) and os.path.exists(history_path):
                         print(f"Loading existing model from {best_model_path}...")
                         model.load_state_dict(torch.load(best_model_path, map_location=device))
                         with open(history_path, 'rb') as f:
@@ -567,6 +567,10 @@ def main():
                                 'dropout': DROPOUT,
                             }
                         )
+                        # Load best-epoch weights first, then persist them in the combined pkl
+                        if os.path.exists(best_model_path):
+                            print(f"Loading best weights from {best_model_path} for inference...")
+                            model.load_state_dict(torch.load(best_model_path, map_location=device))
                         with open(combined_pkl_path, 'wb') as f:
                             pickle.dump({
                                 'model_state_dict': model.state_dict(),
@@ -595,10 +599,6 @@ def main():
                                 'train_losses': train_losses, 'val_losses': val_losses,
                                 'best_epoch': best_epoch, 'train_time': train_time,
                             }, f)
-
-                    if os.path.exists(best_model_path):
-                        print(f"Loading best weights from {best_model_path} for inference...")
-                        model.load_state_dict(torch.load(best_model_path, map_location=device))
 
                     # ── 7. Recursive inference ───────────────────────────────
                     inf_threshold = fixed_threshold
