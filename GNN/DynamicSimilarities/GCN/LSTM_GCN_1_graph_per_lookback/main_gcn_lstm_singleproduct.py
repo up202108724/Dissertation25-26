@@ -14,6 +14,8 @@ import random
 import sys
 import pickle
 import itertools
+import time
+import csv as _csv_mod
 import numpy as np
 import pandas as pd
 import torch
@@ -26,29 +28,32 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # ── Paths & sys.path setup (same convention as the single-graph runner) ────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '../../..')))                                  # repo root
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..')))                                        # DynamicSimilarities/
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'GraphAnalysis')))                       # for neighbourhood_graph
-sys.path.append(os.path.abspath(os.path.join(SCRIPT_DIR, '..', 'Graph2vec_FixedThreshold', 'LSTM')))    # for plots
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/
 
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.inference import _recursive_forecast_gcn_perstep
-from model_utils.utils import generate_exogenous_features, compute_metrics
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.plots import plot_results  # from sibling Graph2vec_FixedThreshold/LSTM/plots.py
 
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll  # GraphAnalysis/utils.py
-from GraphAnalysis.utils import plot_dynamic_graphs
-SAVE_INFERENCE_GRAPHS_PLOTS = True
+from inference import _recursive_forecast_gcn_perstep
+from utils import generate_exogenous_features, compute_metrics
+
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/
+from plots import plot_results, plot_networkx_plotly
+from utils import generate_exogenous_features, compute_metrics, neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll # GraphAnalysis/utils.py
 
 # Local (per-step) GCN+LSTM modules
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.gcn_lstm_dataset import (
+from gcn_lstm_dataset import (
     GCNTimeSeriesDataset,
     collate_pyg_ts,
     build_pyg_graphs_from_nx_windows,
 )
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.gcn_lstm_model import SimpleGCNLSTMForecaster
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.train import train_model
+from gcn_lstm_model import SimpleGCNLSTMForecaster
+from ablationlstm import AblationLSTMForecaster
+from train import train_model
 
-
+from LSTMBaseline.lstm_train import train_model as train_lstm_baseline
+from LSTMBaseline.lstm_inference import recursive_inference as recursive_forecast_lstm_baseline
+from LSTMBaseline.lstm import LSTM as LSTM_Baseline
+from LSTMBaseline.dataset import TimeSeriesDataset as LSTM_Baseline_Dataset
 # ── Metric typing ──────────────────────────────────────────────────────────
 DISTANCE_METRICS = {
     'euclidean', 'hamming', 'amplitude_offset', 'slope_consistency',
@@ -75,19 +80,18 @@ def infer_metric_type(metric, metric_type=None):
 
 
 # ── Constants (same defaults as LSTM_GCN/main.py) ──────────────────────────
-DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
+# ── Constants ──────────────────────────────────────────────────────────────
+FULL_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/data_andre_classified.feather'))
+TOP_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/top_12500.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
 SEEDS = [42]
 
-PRODUCTS_TO_TEST = [
-    
-    (26008, 6269),
-    (907967, 6269),
-    #(907969, 6269),
-    #(911753, 6269),
-]
+# Leave as None to run all (item_id, store_id) pairs found in DATA_PATH.
+# Override with a list of tuples to run only a subset, e.g.:
+#   PRODUCTS_TO_TEST = [(26008, 6269), (907967, 6269)]
+PRODUCTS_TO_TEST = [(26008, 6269), (911753, 6269)]
 
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
@@ -103,7 +107,7 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.70, 0.85, 0.95, 0.99]},
+    {'metric': 'spearman', 'thresholds': [0.75, 0.82, 0.85, 0.88]},
 ]
 
 window_sizes              = [15]
@@ -124,6 +128,13 @@ SAVE_PLOTS     = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 GCN_NODE_FEATURES = 8           # output width of _window_node_features(); used for ablation dummy graphs
+
+# Node feature mode for the GCN ego-graphs (must match across dataset build,
+# inference patching and the ablation dummy-graph width):
+#   'raw'   — full window sequence as node features (width = window_size)
+#   'stats' — 8-dim statistical summary per node
+#             (mean, std, min, max, first, last, slope, sum)
+NODE_FEATURE_MODE = 'raw'
 
 # ── Diagnostic switches ───────────────────────────────────────────────────
 # Grid of ablation modes to run in a single execution:
@@ -190,8 +201,8 @@ ROLLING_MEAN_EXCL_PREFIX = "rolling_mean_excl_"
 # Main runner
 # ──────────────────────────────────────────────────────────────────────────
 def main():
-    print(f"Loading data from {DATA_PATH}...")
-    df = pd.read_feather(DATA_PATH)
+    print(f"Loading data from {FULL_DATA_PATH}...")
+    df = pd.read_feather(FULL_DATA_PATH)
     if DATE_COL in df.index.names:
         if DATE_COL in df.columns:
             df = df.reset_index(drop=True)
@@ -205,6 +216,35 @@ def main():
     df = df.sort_values([DATE_COL, 'item_id', 'store_id']).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     full_df = df.copy()
+
+    # Build the list of (item_id, store_id) pairs to iterate over
+    global PRODUCTS_TO_TEST
+    if PRODUCTS_TO_TEST is None:
+        print(f"Loading top products from {TOP_DATA_PATH}...")
+        top_df = pd.read_feather(TOP_DATA_PATH)
+        PRODUCTS_TO_TEST = (
+            top_df[["item_id", "store_id"]]
+            .drop_duplicates()
+            .sort_values(["item_id", "store_id"])
+            .apply(lambda r: (int(r["item_id"]), int(r["store_id"])), axis=1)
+            .tolist()
+        )
+        print(f"Running all {len(PRODUCTS_TO_TEST)} (item_id, store_id) pairs from dataset.")
+
+    results_csv = os.path.join(SCRIPT_DIR, f"{grid_configs[0]['metric']}.csv") if grid_configs else None
+    done_set = set()
+    if results_csv and os.path.exists(results_csv):
+        done_df = pd.read_csv(results_csv, dtype=str)
+        if 'threshold' in done_df.columns:
+            done_df['threshold'] = done_df['threshold'].fillna('').astype(str)
+        else:
+            done_df['threshold'] = ""
+        for _, row in done_df.iterrows():
+            metric_val = str(row['metric']) if 'metric' in row else str(grid_configs[0]['metric'])
+            ablate_val = str(row['ablate_z']) if 'ablate_z' in row else "False"
+            th_val = str(row['threshold'])
+            done_set.add((str(row['product_id']), str(row['store_id']), str(row.get('seed', '42')), metric_val, th_val, ablate_val))
+        print(f"Resuming: {len(done_set)} experiments already completed.")
 
     cat_labels_dict = (
         full_df.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
@@ -233,6 +273,12 @@ def main():
         df_wide_scaled.loc[item_id_iter] = z_scaler.transform(
             df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         ).flatten()
+
+    # ── Timing bookkeeping ───────────────────────────────────────────────
+    timings_csv_path = os.path.join(SCRIPT_DIR, "timings.csv")
+    seed_times = {}                  # seed -> cumulative seconds across products
+    product_seed_times = []          # (product_id, store_id, seed, seconds)
+    total_t0 = time.time()
 
     for product_id, store_id in PRODUCTS_TO_TEST:
         print(f"\n{'='*80}")
@@ -292,6 +338,7 @@ def main():
                 torch.cuda.manual_seed_all(seed)
 
             print(f"\n--- RUNNING WITH SEED {seed} ---\n")
+            seed_t0 = time.time()
 
             grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots', f'seed_{seed}')
             best_models_seed_dir  = os.path.join(SCRIPT_DIR, 'best_models',       f'seed_{seed}')
@@ -301,10 +348,96 @@ def main():
             # GCN+LSTM requires a graph for every config — no_emb baseline is dropped.
             all_configs = list(grid_configs)
 
+            # ── Baseline execution first: pure LSTM (no graph) ───────────────
+            # Direct analogue of the MLP pipeline's baseline block.  Trained once
+            # per (product, seed); stored and injected as a reference line into
+            # every combined / merged plot below.
+            print("\n--- Training LSTM baseline (no graph) ---")
+            lstm_input_size_bl = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
+            bl_model = LSTM_Baseline(
+                input_size=lstm_input_size_bl,
+                hidden_size=HIDDEN_SIZE,
+                num_layers=NUM_LAYERS,
+                dropout=DROPOUT,
+            ).to(device)
+            bl_criterion  = nn.MSELoss()
+            bl_criterion2 = nn.MSELoss()
+            bl_optimizer  = torch.optim.Adam(bl_model.parameters(), lr=LEARNING_RATE)
+            bl_scheduler  = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                bl_optimizer, mode='min', factor=0.5, patience=PATIENCE // 3,
+            )
+
+            bl_train_dataset = LSTM_Baseline_Dataset(
+                train_scaled, exog_train_scaled if EXOG_COLS else None, seq_length,
+            )
+            bl_val_dataset = LSTM_Baseline_Dataset(
+                val_scaled, exog_val_scaled if EXOG_COLS else None, seq_length,
+            )
+            bl_train_loader = DataLoader(bl_train_dataset, batch_size=BATCH_SIZE, shuffle=False)
+            bl_val_loader   = DataLoader(bl_val_dataset, batch_size=1, shuffle=False)
+
+            bl_models_dir = os.path.join(best_models_seed_dir, 'lstm_baseline')
+            os.makedirs(bl_models_dir, exist_ok=True)
+            bl_model_path = os.path.join(
+                bl_models_dir, f"lstm_baseline_{product_id}_{store_id}_seed_{seed}.pth",
+            )
+
+            bl_model, _bl_t_losses, _bl_v_losses, _bl_best_epoch, _bl_train_time = train_lstm_baseline(
+                seed, EPOCHS, bl_model, bl_train_loader, bl_val_loader, EXOG_COLS,
+                bl_criterion, bl_criterion2, bl_optimizer, device, bl_model_path,
+                bl_scheduler, PATIENCE,
+            )
+            if os.path.exists(bl_model_path):
+                bl_model.load_state_dict(torch.load(bl_model_path, map_location=device))
+
+            # Raw (unscaled) test exog — needed by the recursive baseline loop.
+            exog_test_unscaled_bl = df_p[EXOG_COLS][test_slice].values if EXOG_COLS else None
+            _bl_forecast, _bl_infer_time = recursive_forecast_lstm_baseline(
+                bl_model, test_start_idx, seq_length,
+                val_scaled, exog_val_scaled, exog_test_scaled, exog_test_unscaled_bl,
+                scaler, exog_scaler, df_p, device, EXOG_COLS,
+                forecast_horizon, seed, 'baseline', product_id, store_id, 'MSELoss', SCRIPT_DIR,
+            )
+
+            # Baseline metrics (computed in raw scale, same as the GCN forecasts).
+            _bl_valid_mask = ~np.isnan(_bl_forecast)
+            _bl_valid_test = test[_bl_valid_mask]
+            _bl_valid_fc   = np.array(_bl_forecast)[_bl_valid_mask]
+            _bl_rmse = _bl_mae = _bl_bias = _bl_score = _bl_pocid = None
+            try:
+                _bl_rmse, _bl_mae, _bl_bias, _bl_score, _bl_pocid = compute_metrics(
+                    _bl_valid_test, _bl_valid_fc)
+            except Exception:
+                if len(_bl_valid_test) > 0:
+                    _bl_rmse  = float(np.sqrt(mean_squared_error(_bl_valid_test, _bl_valid_fc)))
+                    _bl_mae   = float(mean_absolute_error(_bl_valid_test, _bl_valid_fc))
+                    _bl_bias  = float(np.mean(_bl_valid_fc - _bl_valid_test))
+                    _bl_score = float(r2_score(_bl_valid_test, _bl_valid_fc))
+            print(f"LSTM baseline -> RMSE: {_bl_rmse}")
+
             for config in all_configs:
                 metric      = config['metric']
                 thresholds  = config.get('thresholds',  [None])
                 percentiles = config.get('percentiles', [None])
+
+                # ── Write the LSTM baseline row to this metric's CSV ─────────
+                _bl_csv_path = os.path.join(SCRIPT_DIR, f"{metric}.csv")
+                _bl_csv_exists = os.path.exists(_bl_csv_path)
+                with open(_bl_csv_path, 'a', newline='') as _blf:
+                    _blw = _csv_mod.writer(_blf)
+                    if not _bl_csv_exists:
+                        _blw.writerow([
+                            "product_id", "store_id", "seed", "metric",
+                            "window_size", "step_size", "threshold", "percentile",
+                            "enable_edges", "enable_second_degree", "ablate_z",
+                            "rmse", "mae", "bias", "r2_score", "pocid",
+                        ])
+                    _blw.writerow([
+                        product_id, store_id, seed, "baseline",
+                        "", "", "", "",
+                        "", "", "baseline",
+                        _bl_rmse, _bl_mae, _bl_bias, _bl_score, _bl_pocid,
+                    ])
 
                 results_by_w_s = {}
 
@@ -323,6 +456,11 @@ def main():
 
                     current_threshold  = param_val if is_threshold_mode else None
                     current_percentile = param_val if not is_threshold_mode else None
+
+                    exp_th_str = str(current_threshold) if is_threshold_mode and current_threshold is not None else ""
+                    if (str(product_id), str(store_id), str(seed), str(metric), exp_th_str, str(ablate_z)) in done_set:
+                        print(f"Skipping already completed experiment: Item {product_id}, Store {store_id}, Seed {seed}, Metric {metric}, Threshold {exp_th_str}, Ablation {ablate_z}")
+                        continue
 
                     key = (ablate_z, param_val, window_size, step_size)
                     if key not in results_by_w_s:
@@ -348,8 +486,11 @@ def main():
                         # single-node placeholder graphs instead.
                         fixed_threshold = None
                         results_by_w_s[key]['threshold'] = fixed_threshold
+                        _dummy_in_channels = (
+                            GCN_NODE_FEATURES if NODE_FEATURE_MODE == 'stats' else window_size
+                        )
                         _dummy = Data(
-                            x=torch.zeros(1, GCN_NODE_FEATURES, dtype=torch.float32),
+                            x=torch.zeros(1, _dummy_in_channels, dtype=torch.float32),
                             edge_index=torch.tensor([[0], [0]], dtype=torch.long),
                             edge_attr=torch.zeros(1, 1, dtype=torch.float32),
                             num_nodes=1,
@@ -386,32 +527,12 @@ def main():
                         )
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
-                        
-                        if SAVE_INFERENCE_GRAPHS_PLOTS:
-                            graph_plot_dir = os.path.join(SCRIPT_DIR, 'graph_infered_plots', str(product_id), f'seed_{seed}')
-                            os.makedirs(graph_plot_dir, exist_ok=True)
-                            
-                            print(f"\nSaving inference graphs plots for product {product_id} (Seed: {seed}) ...")
-                            inference_nx_graphs = nx_graphs[-forecast_horizon:]
-                            plot_dynamic_graphs(
-                                graphs=inference_nx_graphs,
-                                product_id=product_id,
-                                metric=metric,
-                                plot_dir=graph_plot_dir,
-                                residuals=USE_RESIDUALS,
-                                enable_edges_within_star=enable_edges,
-                                enable_second_degree=enable_second_degree,
-                                num_plots=None,
-                                window_size=window_size,
-                                step_size=step_size,
-                                threshold=current_threshold,
-                                percentile=current_percentile
-                            )
 
                         # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
                         pyg_windows = build_pyg_graphs_from_nx_windows(
                             nx_graphs, current_df_wide, product_id,
                             window_size=window_size, step_size=step_size,
+                            node_feature_mode=NODE_FEATURE_MODE,
                         )
                         T_global = current_df_wide.shape[1]
                         pyg_aligned_global = _align_pyg_windows_to_timeline(
@@ -467,16 +588,26 @@ def main():
 
                     in_channels     = pyg_train[0].x.shape[1]    # 8 from _window_node_features
                     lstm_input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
-                    model = SimpleGCNLSTMForecaster(
-                        in_channels=in_channels,
-                        gcn_hidden=HIDDEN_SIZE,
-                        d_g=D_G,
-                        lstm_input_size=lstm_input_size,
-                        lstm_hidden=HIDDEN_SIZE,
-                        lstm_layers=NUM_LAYERS,
-                        horizon=1,
-                        dropout=DROPOUT,
-                    ).to(device)
+                    if ablate_z:
+                        # Pure LSTM — no graph input, no wasted zero d_g columns.
+                        model = AblationLSTMForecaster(
+                            lstm_input_size=lstm_input_size,
+                            lstm_hidden=HIDDEN_SIZE,
+                            lstm_layers=NUM_LAYERS,
+                            horizon=1,
+                            dropout=DROPOUT,
+                        ).to(device)
+                    else:
+                        model = SimpleGCNLSTMForecaster(
+                            in_channels=in_channels,
+                            gcn_hidden=HIDDEN_SIZE,
+                            d_g=D_G,
+                            lstm_input_size=lstm_input_size,
+                            lstm_hidden=HIDDEN_SIZE,
+                            lstm_layers=NUM_LAYERS,
+                            horizon=1,
+                            dropout=DROPOUT,
+                        ).to(device)
                     model.ablate_z = ablate_z
                     criterion  = nn.MSELoss()
                     criterion2 = nn.MSELoss()
@@ -519,8 +650,14 @@ def main():
                     else:
                         print("Training new per-step GCN+LSTM model...")
                         diag_suffix = "_ablation" if ablate_z else ""
+                        # Per-product diagnostics folder:
+                        # diagnostics/<product_id>/diagnostics[_ablation].csv
+                        product_diag_dir = os.path.join(
+                            SCRIPT_DIR, "diagnostics", str(product_id),
+                        )
+                        os.makedirs(product_diag_dir, exist_ok=True)
                         diag_csv_path = os.path.join(
-                            SCRIPT_DIR,
+                            product_diag_dir,
                             DIAG_CSV_NAME.replace(".csv", f"{diag_suffix}.csv"),
                         )
                         # Mean number of edges per training window — characterises
@@ -612,6 +749,8 @@ def main():
                             _tw_start: product_offset + test_start_idx
                         ].astype(np.float32)
                         if metric_type == 'distance' and product_id in product_scalers:
+                            # predictions come out of MinMaxScaler; convert to z-score
+                            # to match df_wide_scaled space used for distance metrics.
                             target_z_scaler = product_scalers[product_id]
 
                     forecast = _recursive_forecast_gcn_perstep(
@@ -629,6 +768,7 @@ def main():
                         exog_scaler=exog_scaler if EXOG_COLS else None,
                         initial_target_window=initial_target_window,
                         target_z_scaler=target_z_scaler,
+                        node_feature_mode=NODE_FEATURE_MODE,
                     )
 
                     valid_mask     = ~np.isnan(forecast)
@@ -725,6 +865,15 @@ def main():
                     )
 
                     if SAVE_PLOTS:
+                        # Inject the LSTM baseline as a reference line.
+                        res_dicts['forecasts']['baseline']    = _bl_forecast
+                        res_dicts['train_losses']['baseline'] = _bl_t_losses
+                        res_dicts['val_losses']['baseline']   = _bl_v_losses
+                        res_dicts['rmse']['baseline']         = _bl_rmse
+                        res_dicts['mae']['baseline']          = _bl_mae
+                        res_dicts['bias']['baseline']         = _bl_bias
+                        res_dicts['score']['baseline']        = _bl_score
+                        res_dicts['pocid']['baseline']        = _bl_pocid
                         print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
                         plot_results(
                             train, val, test, res_dicts['forecasts'],
@@ -765,9 +914,23 @@ def main():
                         for prefix, src_key in [("GCN", full_key), ("Ablation", abl_key)]:
                             src = grouped_results[src_key]
                             for lbl in src['forecasts']:
+                                # 'baseline' was injected into both sides above;
+                                # add it once explicitly to avoid duplicate lines.
+                                if lbl == 'baseline':
+                                    continue
                                 new_lbl = f"{prefix}/{lbl}"
                                 for k in merged:
                                     merged[k][new_lbl] = src[k].get(lbl)
+
+                        # Single shared LSTM-baseline reference line.
+                        merged['forecasts']['baseline']    = _bl_forecast
+                        merged['train_losses']['baseline'] = _bl_t_losses
+                        merged['val_losses']['baseline']   = _bl_v_losses
+                        merged['rmse']['baseline']         = _bl_rmse
+                        merged['mae']['baseline']          = _bl_mae
+                        merged['bias']['baseline']         = _bl_bias
+                        merged['score']['baseline']        = _bl_score
+                        merged['pocid']['baseline']        = _bl_pocid
 
                         merged_path = os.path.join(
                             sub_dir,
@@ -788,7 +951,31 @@ def main():
                             bias=merged['bias'], score=merged['score'],
                             pocid=merged['pocid'],
                         )
+            # ── Per-seed timing (this product) ─────────────────────────────────────
+            seed_elapsed = time.time() - seed_t0
+            seed_times[seed] = seed_times.get(seed, 0.0) + seed_elapsed
+            product_seed_times.append((product_id, store_id, seed, seed_elapsed))
+            print(f"\n[TIMING] Product {product_id} | seed {seed}: {seed_elapsed:.1f} s "
+                  f"({seed_elapsed/60:.2f} min)")
 
+    # ── Total timing & persist ────────────────────────────────────────────────
+    total_elapsed = time.time() - total_t0
+    print("\n" + "=" * 80)
+    print("TIMING SUMMARY")
+    print("=" * 80)
+    for s, t in sorted(seed_times.items()):
+        print(f"  Seed {s}: total {t:.1f} s  ({t/60:.2f} min)  across {len(PRODUCTS_TO_TEST)} products")
+    print(f"  TOTAL    : {total_elapsed:.1f} s  ({total_elapsed/60:.2f} min)")
+
+    with open(timings_csv_path, "w", newline="") as fh:
+        w = _csv_mod.writer(fh)
+        w.writerow(["product_id", "store_id", "seed", "seconds"])
+        for pid, sid, sd, sec in product_seed_times:
+            w.writerow([pid, sid, sd, f"{sec:.3f}"])
+        for sd, sec in sorted(seed_times.items()):
+            w.writerow(["TOTAL_SEED", "", sd, f"{sec:.3f}"])
+        w.writerow(["TOTAL_ALL", "", "", f"{total_elapsed:.3f}"])
+    print(f"  Timings written to: {timings_csv_path}")
     # ── Correlation plots from accumulated CSVs ───────────────────────────
     if SAVE_PLOTS:
         import matplotlib.pyplot as plt

@@ -64,7 +64,14 @@ def train_model(
     def _capture_z(_module, _inp, out):
         _z_buf.append(out.detach())
 
-    h_handle = model.z_norm.register_forward_hook(_capture_z)
+    # Models without a graph branch (e.g. AblationLSTMForecaster) have no
+    # z_norm; skip the hook and report z stats as NaN for those rows.
+    z_norm_mod = getattr(model, "z_norm", None)
+    h_handle = (
+        z_norm_mod.register_forward_hook(_capture_z)
+        if z_norm_mod is not None
+        else None
+    )
 
     # diagnostics CSV header (created lazily on first epoch if missing)
     DIAG_FIELDS = [
@@ -230,7 +237,8 @@ def train_model(
 
     train_time = time.time() - start_train_time
 
-    h_handle.remove()
+    if h_handle is not None:
+        h_handle.remove()
 
     if best_model_path is None and hasattr(model, "best_state_dict"):
         model.load_state_dict(model.best_state_dict)

@@ -1,0 +1,247 @@
+Starting Grid Search with 72 combinations...
+
+--- Processing Seed: 42 ---
+Running: Seed=42, BS=4, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_42/lstm_bs4_hs32_dr0.0.pth with val loss: 0.002121 at epoch 348
+Running: Seed=42, BS=4, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs4_hs32_dr0.1.pth with val loss: 0.002121 at epoch 348
+Running: Seed=42, BS=4, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs4_hs32_dr0.2.pth with val loss: 0.002121 at epoch 348
+Running: Seed=42, BS=4, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_42/lstm_bs4_hs64_dr0.0.pth with val loss: 0.002141 at epoch 117
+Running: Seed=42, BS=4, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs4_hs64_dr0.1.pth with val loss: 0.002141 at epoch 117
+Running: Seed=42, BS=4, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs4_hs64_dr0.2.pth with val loss: 0.002141 at epoch 117
+Running: Seed=42, BS=8, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_42/lstm_bs8_hs32_dr0.0.pth with val loss: 0.002172 at epoch 208
+Running: Seed=42, BS=8, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs8_hs32_dr0.1.pth with val loss: 0.002172 at epoch 208
+Running: Seed=42, BS=8, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs8_hs32_dr0.2.pth with val loss: 0.002172 at epoch 208
+Running: Seed=42, BS=8, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_42/lstm_bs8_hs64_dr0.0.pth with val loss: 0.002137 at epoch 185
+Running: Seed=42, BS=8, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs8_hs64_dr0.1.pth with val loss: 0.002137 at epoch 185
+Running: Seed=42, BS=8, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs8_hs64_dr0.2.pth with val loss: 0.002137 at epoch 185
+Running: Seed=42, BS=16, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_42/lstm_bs16_hs32_dr0.0.pth with val loss: 0.001979 at epoch 152
+Running: Seed=42, BS=16, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs16_hs32_dr0.1.pth with val loss: 0.001979 at epoch 152
+Running: Seed=42, BS=16, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs16_hs32_dr0.2.pth with val loss: 0.001979 at epoch 152
+Running: Seed=42, BS=16, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_42/lstm_bs16_hs64_dr0.0.pth with val loss: 0.002051 at epoch 385
+Running: Seed=42, BS=16, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs16_hs64_dr0.1.pth with val loss: 0.002051 at epoch 385
+Running: Seed=42, BS=16, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs16_hs64_dr0.2.pth with val loss: 0.002051 at epoch 385
+Running: Seed=42, BS=32, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_42/lstm_bs32_hs32_dr0.0.pth with val loss: 0.001767 at epoch 196
+Running: Seed=42, BS=32, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs32_hs32_dr0.1.pth with val loss: 0.001767 at epoch 196
+Running: Seed=42, BS=32, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs32_hs32_dr0.2.pth with val loss: 0.001767 at epoch 196
+Running: Seed=42, BS=32, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_42/lstm_bs32_hs64_dr0.0.pth with val loss: 0.001846 at epoch 343
+Running: Seed=42, BS=32, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs32_hs64_dr0.1.pth with val loss: 0.001846 at epoch 343
+Running: Seed=42, BS=32, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_42/lstm_bs32_hs64_dr0.2.pth with val loss: 0.001846 at epoch 343
+
+--- Processing Seed: 123 ---
+Running: Seed=123, BS=4, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_123/lstm_bs4_hs32_dr0.0.pth with val loss: 0.002163 at epoch 413
+Running: Seed=123, BS=4, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs4_hs32_dr0.1.pth with val loss: 0.002163 at epoch 413
+Running: Seed=123, BS=4, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs4_hs32_dr0.2.pth with val loss: 0.002163 at epoch 413
+Running: Seed=123, BS=4, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_123/lstm_bs4_hs64_dr0.0.pth with val loss: 0.002171 at epoch 136
+Running: Seed=123, BS=4, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs4_hs64_dr0.1.pth with val loss: 0.002171 at epoch 136
+Running: Seed=123, BS=4, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs4_hs64_dr0.2.pth with val loss: 0.002171 at epoch 136
+Running: Seed=123, BS=8, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_123/lstm_bs8_hs32_dr0.0.pth with val loss: 0.002184 at epoch 210
+Running: Seed=123, BS=8, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs8_hs32_dr0.1.pth with val loss: 0.002184 at epoch 210
+Running: Seed=123, BS=8, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs8_hs32_dr0.2.pth with val loss: 0.002184 at epoch 210
+Running: Seed=123, BS=8, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_123/lstm_bs8_hs64_dr0.0.pth with val loss: 0.002167 at epoch 196
+Running: Seed=123, BS=8, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs8_hs64_dr0.1.pth with val loss: 0.002167 at epoch 196
+Running: Seed=123, BS=8, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs8_hs64_dr0.2.pth with val loss: 0.002167 at epoch 196
+Running: Seed=123, BS=16, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_123/lstm_bs16_hs32_dr0.0.pth with val loss: 0.002061 at epoch 229
+Running: Seed=123, BS=16, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs16_hs32_dr0.1.pth with val loss: 0.002061 at epoch 229
+Running: Seed=123, BS=16, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs16_hs32_dr0.2.pth with val loss: 0.002061 at epoch 229
+Running: Seed=123, BS=16, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_123/lstm_bs16_hs64_dr0.0.pth with val loss: 0.001977 at epoch 687
+Running: Seed=123, BS=16, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs16_hs64_dr0.1.pth with val loss: 0.001977 at epoch 687
+Running: Seed=123, BS=16, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs16_hs64_dr0.2.pth with val loss: 0.001977 at epoch 687
+Running: Seed=123, BS=32, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_123/lstm_bs32_hs32_dr0.0.pth with val loss: 0.001838 at epoch 834
+Running: Seed=123, BS=32, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs32_hs32_dr0.1.pth with val loss: 0.001838 at epoch 834
+Running: Seed=123, BS=32, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs32_hs32_dr0.2.pth with val loss: 0.001838 at epoch 834
+Running: Seed=123, BS=32, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_123/lstm_bs32_hs64_dr0.0.pth with val loss: 0.001833 at epoch 420
+Running: Seed=123, BS=32, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs32_hs64_dr0.1.pth with val loss: 0.001833 at epoch 420
+Running: Seed=123, BS=32, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_123/lstm_bs32_hs64_dr0.2.pth with val loss: 0.001833 at epoch 420
+
+--- Processing Seed: 2024 ---
+Running: Seed=2024, BS=4, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_2024/lstm_bs4_hs32_dr0.0.pth with val loss: 0.002263 at epoch 244
+Running: Seed=2024, BS=4, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs4_hs32_dr0.1.pth with val loss: 0.002263 at epoch 244
+Running: Seed=2024, BS=4, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs4_hs32_dr0.2.pth with val loss: 0.002263 at epoch 244
+Running: Seed=2024, BS=4, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_2024/lstm_bs4_hs64_dr0.0.pth with val loss: 0.002127 at epoch 129
+Running: Seed=2024, BS=4, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs4_hs64_dr0.1.pth with val loss: 0.002127 at epoch 129
+Running: Seed=2024, BS=4, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs4_hs64_dr0.2.pth with val loss: 0.002127 at epoch 129
+Running: Seed=2024, BS=8, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_2024/lstm_bs8_hs32_dr0.0.pth with val loss: 0.002239 at epoch 164
+Running: Seed=2024, BS=8, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs8_hs32_dr0.1.pth with val loss: 0.002239 at epoch 164
+Running: Seed=2024, BS=8, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs8_hs32_dr0.2.pth with val loss: 0.002239 at epoch 164
+Running: Seed=2024, BS=8, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_2024/lstm_bs8_hs64_dr0.0.pth with val loss: 0.002161 at epoch 227
+Running: Seed=2024, BS=8, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs8_hs64_dr0.1.pth with val loss: 0.002161 at epoch 227
+Running: Seed=2024, BS=8, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs8_hs64_dr0.2.pth with val loss: 0.002161 at epoch 227
+Running: Seed=2024, BS=16, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_2024/lstm_bs16_hs32_dr0.0.pth with val loss: 0.002030 at epoch 701
+Running: Seed=2024, BS=16, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs16_hs32_dr0.1.pth with val loss: 0.002030 at epoch 701
+Running: Seed=2024, BS=16, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs16_hs32_dr0.2.pth with val loss: 0.002030 at epoch 701
+Running: Seed=2024, BS=16, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_2024/lstm_bs16_hs64_dr0.0.pth with val loss: 0.002007 at epoch 320
+Running: Seed=2024, BS=16, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs16_hs64_dr0.1.pth with val loss: 0.002007 at epoch 320
+Running: Seed=2024, BS=16, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs16_hs64_dr0.2.pth with val loss: 0.002007 at epoch 320
+Running: Seed=2024, BS=32, HS=32, Dropout=0.0
+Loaded best model in path: best_models/seed_2024/lstm_bs32_hs32_dr0.0.pth with val loss: 0.001862 at epoch 745
+Running: Seed=2024, BS=32, HS=32, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs32_hs32_dr0.1.pth with val loss: 0.001862 at epoch 745
+Running: Seed=2024, BS=32, HS=32, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs32_hs32_dr0.2.pth with val loss: 0.001862 at epoch 745
+Running: Seed=2024, BS=32, HS=64, Dropout=0.0
+Loaded best model in path: best_models/seed_2024/lstm_bs32_hs64_dr0.0.pth with val loss: 0.001699 at epoch 535
+Running: Seed=2024, BS=32, HS=64, Dropout=0.1
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs32_hs64_dr0.1.pth with val loss: 0.001699 at epoch 535
+Running: Seed=2024, BS=32, HS=64, Dropout=0.2
+c:\Users\andre.silva\OneDrive - Retail Consult\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\rnn.py:990: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.2 and num_layers=1
+  super().__init__("LSTM", *args, **kwargs)
+Loaded best model in path: best_models/seed_2024/lstm_bs32_hs64_dr0.2.pth with val loss: 0.001699 at epoch 535

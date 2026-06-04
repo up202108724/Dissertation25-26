@@ -114,7 +114,7 @@ EXOG_COLS = [
 ]
 grid_configs = [
 
-    {'metric': 'spearman', 'thresholds': [0.85]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.78,0.82,0.85]},
 ]
 
 # Training hyperparameters
@@ -244,7 +244,7 @@ def main():
     top_df = pd.read_feather(TOP_DATA_PATH)
     products_df = top_df[['item_id', 'store_id']].drop_duplicates().reset_index(drop=True)
     #PRODUCTS_TO_TEST = list(products_df.itertuples(index=False, name=None))
-    PRODUCTS_TO_TEST = [(26002, 6269)]
+    PRODUCTS_TO_TEST = [(26008,6269), (911753, 6269),(907969, 6269)]
     results_csv = os.path.join(SCRIPT_DIR, "gcn_mlp_results.csv")
     done_set = set()
     if os.path.exists(results_csv):
@@ -701,6 +701,21 @@ def main():
 
                     graph_log = [] if RECORD_INFERENCE_GRAPHS else None
                     _inf_start = time.time()
+
+                    # Std-scaled seed window for target-node feature patching:
+                    # window_size values immediately before the test period,
+                    # taken from df_wide_scaled (no leakage).
+                    # Only applicable for the full GCN run (not ablation).
+                    if not ablate_z:
+                        _std_seed_end   = product_offset + test_start_idx
+                        _std_seed_start = _std_seed_end - window_size
+                        _target_std_seed = (
+                            df_wide_scaled.loc[product_id].values[_std_seed_start:_std_seed_end]
+                            .astype(np.float32)
+                        )
+                    else:
+                        _target_std_seed = None
+
                     forecast = _recursive_forecast_gcn_perstep(
                         model=model,
                         ts_seed=ts_seed,
@@ -717,6 +732,9 @@ def main():
                         exog_cols=EXOG_COLS if EXOG_COLS else None,
                         graph_log_out=graph_log,
                         step_callback=_step_callback,
+                        target_node_std_scaler=product_scalers[product_id] if not ablate_z else None,
+                        target_node_std_seed=_target_std_seed,
+                        node_feature_mode=NODE_FEATURE_MODE,
                     )
                     inference_time = time.time() - _inf_start
 

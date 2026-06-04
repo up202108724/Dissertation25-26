@@ -24,7 +24,10 @@ import numpy as np
 import torch
 from torch_geometric.data import Batch, Data
 
-from GNN.DynamicSimilarities.GCN.LSTM_GCN_1_graph_per_lookback.gcn_lstm_dataset import _window_node_features  # internal helper
+from gcn_lstm_dataset import (  # internal helpers
+    _window_node_features,
+    _window_node_features_raw_values,
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -96,7 +99,8 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
                                     rolling_mean_excl_col_indices: Optional[Dict[int, int]] = None,
                                     exog_scaler=None,
                                     initial_target_window=None,
-                                    target_z_scaler=None):
+                                    target_z_scaler=None,
+                                    node_feature_mode='stats'):
     """
     One-step-at-a-time inference for the per-step GCN+LSTM.
 
@@ -238,7 +242,10 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
                 if target_z_scaler is not None else y_hat_raw
             )
             target_window = np.concatenate([target_window[1:], [y_node_val]])
-            new_feats = _window_node_features(target_window[None, :])
+            if node_feature_mode == 'raw':
+                new_feats = _window_node_features_raw_values(target_window[None, :])
+            else:
+                new_feats = _window_node_features(target_window[None, :])
             new_graph.x[0] = torch.from_numpy(new_feats[0])
 
         graphs.append(new_graph)

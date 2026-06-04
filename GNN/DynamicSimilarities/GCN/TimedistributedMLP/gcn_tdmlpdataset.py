@@ -178,21 +178,10 @@ def build_pyg_graphs_from_nx_windows(
             t1 = values_full.shape[1]
             t0 = max(t1 - window_size, 0)
         rows = [label_to_row[lbl] for lbl in node_order]
-        window_values = values_full[rows, t0:t1].astype(np.float64)
-
-        # per-node scale normalisation (z-score) — removes cross-product
-        # magnitude differences before GCN aggregation
-        normed = np.empty_like(window_values, dtype=np.float32)
-        for j, lbl in enumerate(node_order):
-            row = window_values[j]
-            if node_scalers is not None and lbl in node_scalers:
-                normed[j] = node_scalers[lbl].transform(
-                    row.reshape(-1, 1)
-                ).flatten()
-            else:
-                mu, sigma = row.mean(), row.std()
-                normed[j] = (row - mu) / (sigma + 1e-8)
-        window_values = normed
+        # Values are already globally z-scored (df_wide_scaled); no local
+        # re-normalisation is applied so node features are on a consistent
+        # scale across all windows.
+        window_values = values_full[rows, t0:t1].astype(np.float32)
 
         H = G.subgraph(node_order).copy() if product_id in G else G.__class__()
         H.add_nodes_from(node_order)

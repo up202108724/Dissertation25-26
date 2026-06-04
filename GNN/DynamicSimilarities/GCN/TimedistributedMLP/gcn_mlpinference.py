@@ -96,6 +96,42 @@ def _scale_lag_value(raw_value: float, exog_scaler, col_idx: int,
 
 
 # ──────────────────────────────────────────────────────────────────────────
+# Leakage-safe target-node feature patching
+# ──────────────────────────────────────────────────────────────────────────
+def _patch_target_node_features(graph: Data, std_buffer, node_feature_mode: str) -> None:
+    """
+    Overwrite row 0 (the target node) of ``graph.x`` with features derived
+    from ``std_buffer`` — the rolling window of std-scaled *predicted* target
+    values — so the GCN never reads ground-truth test values for the series
+    being forecast.  Mutates ``graph`` in place (caller passes a clone).
+
+    ``std_buffer`` holds ``window_size`` std-scaled values aligned to the
+    graph's node-feature window ``[day - window_size, day)``.  Feature layout
+    must match ``gcn_tdmlpdataset``: 'raw' = the sequence itself, 'stats' =
+    ``[mean, std, min, max, first, last, slope, sum]``.
+    """
+    w = np.asarray(list(std_buffer), dtype=np.float32)
+    if node_feature_mode == 'raw':
+        if graph.x.shape[1] != w.shape[0]:
+            return  # width mismatch (e.g. degenerate pad graph) — skip
+        graph.x[0, :] = torch.from_numpy(w).to(graph.x.dtype)
+    elif node_feature_mode == 'stats':
+        feats = np.array([
+            w.mean(), w.std(), w.min(), w.max(),
+            w[0], w[-1],
+            (w[-1] - w[0]) / max(w.shape[0] - 1, 1),
+            w.sum(),
+        ], dtype=np.float32)
+        if graph.x.shape[1] != feats.shape[0]:
+            return
+        graph.x[0, :] = torch.from_numpy(feats).to(graph.x.dtype)
+    else:
+        raise ValueError(
+            f"node_feature_mode must be 'raw' or 'stats', got {node_feature_mode!r}"
+        )
+
+
+# ──────────────────────────────────────────────────────────────────────────
 # Recursive inference (PER-STEP: deque of L graphs)
 # ──────────────────────────────────────────────────────────────────────────
 @torch.no_grad()
@@ -108,7 +144,10 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
                                     exog_scaler=None,
                                     exog_cols=None,
                                     graph_log_out: Optional[list] = None,
-                                    step_callback=None):
+                                    step_callback=None,
+                                    target_node_std_scaler=None,
+                                    target_node_std_seed=None,
+                                    node_feature_mode: str = 'raw'):
     """
     One-step-at-a-time inference for the per-step GCN + MLP.
 
@@ -145,6 +184,16 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
         ``mean(target_history_unscaled[-W:])``).
     exog_scaler     : sklearn scaler used to scale the exog matrix.  Needed
         whenever any of the col-index dicts is provided.
+    target_node_std_scaler : sklearn StandardScaler fit on the target product
+        (``product_scalers[product_id]``).  When provided together with
+        ``target_node_std_seed``, node-0 features in every future graph are
+        replaced by a prediction-derived window instead of the leaked
+        ground-truth test values.
+    target_node_std_seed   : 1-D np.ndarray of length ``window_size`` with
+        the std-scaled target values for the ``window_size`` days immediately
+        before the test period (from ``df_wide_scaled``).  Initialises the
+        rolling feature buffer.
+    node_feature_mode : 'raw' or 'stats' — must match ``NODE_FEATURE_MODE``.
 
     Returns
     -------
@@ -182,6 +231,20 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
 
     graphs: "deque[Data]" = deque((g.clone() for g in initial_graphs), maxlen=L)
     preds_scaled = []
+
+    # ── Rolling std-scaled buffer for target-node feature patching ────────
+    # Replaces real test-period values in future_graphs' node-0 features with
+    # the model's own rolling predictions, eliminating label leakage.
+    _patch_target = (
+        target_node_std_scaler is not None
+        and target_node_std_seed is not None
+    )
+    if _patch_target:
+        _window_size = len(target_node_std_seed)
+        _std_buffer: deque = deque(
+            np.asarray(target_node_std_seed, dtype=np.float32).tolist(),
+            maxlen=_window_size,
+        )
 
     for step in range(horizon):
         # advance exog of the last lookback row to the step we are about to predict
@@ -249,9 +312,32 @@ def _recursive_forecast_gcn_perstep(model, ts_seed, initial_graphs,
 
         # roll graph deque (push the graph aligned to the day we just predicted)
         if step < len(future_graphs):
-            graphs.append(future_graphs[step].clone())
+            next_graph = future_graphs[step].clone()
         else:
-            graphs.append(graphs[-1].clone())
+            next_graph = graphs[-1].clone()
+
+        
+        # ── leakage fix: patch the target node (row 0) of next_graph ──────
+        # next_graph is aligned to global day (test_start + step); its node-0
+        # feature window is [day - window_size, day), which for step >= 1
+        # contains GROUND-TRUTH test values of the series we forecast.
+        # Replace that row with the model's own rolling predictions
+        # (std-scaled with the product's StandardScaler) so the GCN never
+        # reads the future.  _std_buffer currently spans exactly this graph's
+        # node-feature window; advance it with ŷ_step afterwards.
+        if _patch_target:
+            _patch_target_node_features(next_graph, _std_buffer, node_feature_mode)
+            _y_hat_unscaled_g = float(
+                scaler.inverse_transform(np.array([[y_hat]], dtype=np.float32))[0, 0]
+            )
+            _z_val = float(
+                target_node_std_scaler.transform(
+                    np.array([[_y_hat_unscaled_g]], dtype=np.float32)
+                )[0, 0]
+            )
+            _std_buffer.append(_z_val)
+
+        graphs.append(next_graph)
 
     preds_scaled = np.array(preds_scaled, dtype=np.float32).reshape(-1, 1)
     return scaler.inverse_transform(preds_scaled).flatten()
