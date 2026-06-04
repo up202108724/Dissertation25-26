@@ -71,7 +71,7 @@ PATIENCE = 150
 seeds = [42]
 
 # Which heads to run/compare
-HEADS = ['lstm_simple','seq2one', 'timedistributed']
+HEADS = ['timedistributed']
 
 
 

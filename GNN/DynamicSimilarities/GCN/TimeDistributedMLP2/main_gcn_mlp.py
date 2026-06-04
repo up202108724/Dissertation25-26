@@ -22,6 +22,7 @@ import pickle
 import itertools
 import hashlib
 import csv
+import time
 import numpy as np
 import pandas as pd
 import torch
@@ -39,18 +40,18 @@ from utils import generate_exogenous_features, compute_metrics
 from utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll  # GraphAnalysis/utils.py
 
 # Reused per-step GCN pipeline (model-agnostic)
-from gat_tdmlpdataset import (
+from gcn_tdmlpdataset import (
     GCNTimeSeriesDataset,
     collate_pyg_ts,
     build_pyg_graphs_from_nx_windows,
 )
-from gat_mlpinference import _recursive_forecast_gcn_perstep
+from gcn_mlpinference import _recursive_forecast_gcn_perstep
 
 # Local MLP-headed model + training loop + plotting
-from gat_mlp_model import SimpleGATMLPForecaster
-from gat_mlp_train import train_model
-from mlp import AblationMLPForecaster
-from plots import plot_results
+from gcn_mlp_model import SimpleGCNMLPForecaster
+from gcn_mlp_train import train_model
+from ablationmlp import AblationMLPForecaster
+from GNN.DynamicSimilarities.plots import plot_results
 
 
 # ── Metric typing ──────────────────────────────────────────────────────────
@@ -79,7 +80,8 @@ def infer_metric_type(metric, metric_type=None):
 
 
 # ── Constants ──────────────────────────────────────────────────────────────
-DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/data_andre_fulfilled.feather'))
+FULL_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/data_andre_classified.feather'))
+TOP_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/top_12500.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
@@ -107,14 +109,14 @@ EXOG_COLS = [
 ]
 grid_configs = [
 
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
+    #{'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
+    {'metric': 'spearman', 'thresholds': [0.85]},
 ]
 
 # Training hyperparameters
 BATCH_SIZE = 32
 HIDDEN_SIZES = (128, 64)
-GAT_HIDDEN_SIZE = 64
-GAT_HEADS = 4
+GCN_HIDDEN_SIZE = 64
 MLP_MODEL_TYPE = "tdmlp"
 DROPOUT = 0.2
 EPOCHS = 1000
@@ -137,13 +139,6 @@ USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 GRAPH_EMBEDDINGS_DIM = 16
-PRODUCTS_TO_TEST = [
-  #(911753,6269)
-  (26008, 6269),
-  #(907969, 6269),
-  #(907967, 6269),
-  #(213626, 6269)
-]
 
 # Grid of ablation modes — True: pure TDMLP (no GCN); False: full GCN+MLP.
 ABLATE_Z_VALUES = [True, False]
@@ -194,8 +189,8 @@ ROLLING_MEAN_EXCL_PREFIX = "rolling_mean_excl_"
 # Main runner
 # ──────────────────────────────────────────────────────────────────────────
 def main():
-    print(f"Loading data from {DATA_PATH}...")
-    df = pd.read_feather(DATA_PATH)
+    print(f"Loading data from {FULL_DATA_PATH}...")
+    df = pd.read_feather(FULL_DATA_PATH)
     if DATE_COL in df.index.names:
         if DATE_COL in df.columns:
             df = df.reset_index(drop=True)
@@ -228,6 +223,7 @@ def main():
     product_scalers = {}
     train_df_wide = df_wide_global.iloc[:, global_train_start_idx:global_val_start_idx]
     df_wide_scaled = df_wide_global.copy()
+    
     for item_id_iter in df_wide_global.index:
         z_scaler = StandardScaler()
         z_scaler.fit(train_df_wide.loc[item_id_iter].values.reshape(-1, 1))
@@ -235,6 +231,22 @@ def main():
         df_wide_scaled.loc[item_id_iter] = z_scaler.transform(
             df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         ).flatten()
+        
+    experience_start_time = time.time()
+    
+    top_df = pd.read_feather(TOP_DATA_PATH)
+    products_df = top_df[['item_id', 'store_id']].drop_duplicates().reset_index(drop=True)
+    PRODUCTS_TO_TEST = list(products_df.itertuples(index=False, name=None))
+
+    results_csv = os.path.join(SCRIPT_DIR, "gcn_mlp_results.csv")
+    done_set = set()
+    if os.path.exists(results_csv):
+        done_df = pd.read_csv(results_csv, dtype=str)
+        done_df['threshold'] = done_df['threshold'].fillna('').astype(str)
+        for _, row in done_df.iterrows():
+            # key: (product_id, store_id, seed, metric, threshold, ablate_z)
+            done_set.add((str(row['item_id']), str(row['store_id']), str(row['seed']), str(row['metric']), str(row['threshold']), str(row['ablate_z'])))
+        print(f"Resuming: {len(done_set)} experiments already completed.")
 
     for product_id, store_id in PRODUCTS_TO_TEST:
         print(f"\n{'='*80}")
@@ -284,7 +296,7 @@ def main():
         else:
             exog_train_scaled = exog_val_scaled = exog_test_scaled = None
             exog_scaler = None
-
+       
         for seed in SEEDS:
             os.environ['PYTHONHASHSEED'] = str(seed)
             random.seed(seed)
@@ -326,6 +338,12 @@ def main():
 
                     current_threshold  = param_val if is_threshold_mode else None
                     current_percentile = param_val if not is_threshold_mode else None
+
+                    # Resumable script check
+                    exp_th_str = str(current_threshold) if is_threshold_mode and current_threshold is not None else ""
+                    if (str(product_id), str(store_id), str(seed), str(metric), exp_th_str, str(ablate_z)) in done_set:
+                        print(f"Skipping already completed experiment: Item {product_id}, Store {store_id}, Seed {seed}, Metric {metric}, Threshold {exp_th_str}, Ablation {ablate_z}")
+                        continue
 
                     key = (ablate_z, param_val, window_size, step_size)
                     if key not in results_by_w_s:
@@ -456,16 +474,15 @@ def main():
                             dropout=DROPOUT,
                         ).to(device)
                     else:
-                        model = SimpleGATMLPForecaster(
+                        model = SimpleGCNMLPForecaster(
                             in_channels=in_channels,
-                            gcn_hidden=GAT_HIDDEN_SIZE,
+                            gcn_hidden=GCN_HIDDEN_SIZE,
                             d_g=GRAPH_EMBEDDINGS_DIM,
                             ts_input_size=ts_input_size,
                             lookback_window=lookback_window,
                             hidden_sizes=HIDDEN_SIZES,
                             horizon=1,
                             dropout=DROPOUT,
-                            gat_heads=GAT_HEADS,
                         ).to(device)
                     criterion  = nn.MSELoss()
                     criterion2 = nn.MSELoss()
@@ -505,6 +522,7 @@ def main():
                             history = pickle.load(f)
                             train_losses = history['train_losses']
                             val_losses   = history['val_losses']
+                            train_time   = history.get('train_time', None)
                     else:
                         print("Training new per-step GCN+MLP model...")
                         model, train_losses, val_losses, best_epoch, train_time = train_model(
@@ -561,6 +579,7 @@ def main():
                     target_history_unscaled = np.concatenate([train, val]).astype(np.float32)
 
                     graph_log = [] if RECORD_INFERENCE_GRAPHS else None
+                    _inf_start = time.time()
                     forecast = _recursive_forecast_gcn_perstep(
                         model=model,
                         ts_seed=ts_seed,
@@ -576,6 +595,7 @@ def main():
                         exog_scaler=exog_scaler if EXOG_COLS else None,
                         graph_log_out=graph_log,
                     )
+                    inference_time = time.time() - _inf_start
 
                     if RECORD_INFERENCE_GRAPHS and graph_log:
                         _igcsv = os.path.join(SCRIPT_DIR, "inference_graph_log.csv")
@@ -632,17 +652,18 @@ def main():
 
                     print(f"Finished {metric} @ {param_val} -> RMSE: {rmse}\n")
 
-                    # ── Append to persistent CSV (per metric) ────────────────
-                    csv_results_path = os.path.join(SCRIPT_DIR, f"{metric}.csv")
+                    # ── Append to persistent CSV (global file) ────────────────
+                    csv_results_path = os.path.join(SCRIPT_DIR, "gcn_mlp_results.csv")
                     file_exists = os.path.exists(csv_results_path)
                     with open(csv_results_path, 'a', newline='') as csvfile:
                         writer = csv.writer(csvfile)
                         if not file_exists:
                             writer.writerow([
-                                "product_id", "store_id", "seed", "metric",
+                                "item_id", "store_id", "seed", "metric",
                                 "window_size", "step_size", "threshold", "percentile",
                                 "enable_edges", "enable_second_degree", "ablate_z",
                                 "rmse", "mae", "bias", "r2_score", "pocid",
+                                "train_time_s", "inference_time_s",
                             ])
                         writer.writerow([
                             product_id, store_id, seed, metric,
@@ -651,6 +672,8 @@ def main():
                             current_percentile if current_percentile is not None else "",
                             enable_edges, enable_second_degree, ablate_z,
                             rmse, mae, bias, score, pocid,
+                            f"{train_time:.2f}" if train_time is not None else "",
+                            f"{inference_time:.4f}",
                         ])
 
                 # ── Per-metric combined plot ─────────────────────────────────
@@ -703,7 +726,30 @@ def main():
                             bias=res_dicts['bias'], score=res_dicts['score'],
                             pocid=res_dicts['pocid'],
                         )
-
+    
+    experience_end_time = time.time()
+    elapsed_time = experience_end_time - experience_start_time
+    print(f"\nTotal time of experience : {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes)\n")
+    timing_summary_path = os.path.join(SCRIPT_DIR, "timing_summary.csv")
+    timing_exists = os.path.exists(timing_summary_path)
+    with open(timing_summary_path, 'a', newline='') as _tf:
+        _tw = csv.writer(_tf)
+        if not timing_exists:
+            _tw.writerow(["run_timestamp", "total_elapsed_s", "total_elapsed_min",
+                          "products", "seeds", "metrics"])
+        _tw.writerow([
+            time.strftime('%Y-%m-%d %H:%M:%S'),
+            f"{elapsed_time:.2f}",
+            f"{elapsed_time/60:.2f}",
+            str(PRODUCTS_TO_TEST),
+            str(SEEDS),
+        ])
+    
+    csv_results_path = os.path.join(SCRIPT_DIR, "gcn_mlp_results.csv")
+    with open(csv_results_path, 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["TOTAL_EXPERIMENT_TIME_SECONDS", f"{elapsed_time:.2f}"] + [""] * 16)
+        
     # ── Correlation plots from accumulated CSVs ───────────────────────────
     if SAVE_PLOTS:
         import matplotlib.pyplot as plt

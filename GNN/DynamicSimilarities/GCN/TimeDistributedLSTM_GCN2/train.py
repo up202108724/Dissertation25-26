@@ -1,9 +1,10 @@
 """
-Training loop for the GAT + MLP forecaster.
+Training loop for the GCN + LSTM forecaster.
 
-Mirrors ``LSTM_GCN_1_graph_per_lookback/train.py`` (same batch unpacking via
-collate_pyg_ts) but classifies grad norms under ``mlp`` instead of ``lstm``
-and drops the LSTM-specific logging vocabulary.
+Mirrors the API of ``Graph2vec_FixedThreshold/LSTM/train.py`` so calling
+code can swap one for the other.  Only the per-batch unpack changes:
+batches now come from ``collate_pyg_ts`` and contain a PyG ``Batch`` of
+ego-graphs, the temporal tensor and the labels.
 """
 
 from __future__ import annotations
@@ -34,9 +35,23 @@ def train_model(
     diag_meta=None,
 ):
     """
-    Jointly trains the GAT + MLP end-to-end on the forecasting loss.
+    Jointly trains the GCN + LSTM end-to-end on the forecasting loss.
 
-    Parameters mirror ``LSTM_GCN_1_graph_per_lookback/train.train_model``.
+    Parameters
+    ----------
+    seed              : int            – RNG seed for reproducibility
+    epochs            : int            – maximum number of training epochs
+    model             : SimpleGCNLSTMForecaster
+    train_loader      : DataLoader yielding (pyg_batch, ts_batch, y_batch, target_idx)
+    val_loader        : DataLoader (same format)
+    criterion         : training loss  (e.g. MSE)
+    criterion2        : validation loss (e.g. MAE)
+    optimizer         : optimiser already bound to ``model.parameters()``
+    device            : torch.device
+    best_model_path   : optional path to dump best state_dict
+    scheduler         : optional LR scheduler with ``.step(val_loss)``
+    patience          : early-stopping patience (epochs without improvement)
+    grad_clip         : max-norm for global grad clipping (None to disable)
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -49,8 +64,16 @@ def train_model(
     def _capture_z(_module, _inp, out):
         _z_buf.append(out.detach())
 
-    h_handle = model.z_norm.register_forward_hook(_capture_z) if hasattr(model, 'z_norm') else None
+    # Models without a graph branch (e.g. AblationLSTMForecaster) have no
+    # z_norm; skip the hook and report z stats as NaN for those rows.
+    z_norm_mod = getattr(model, "z_norm", None)
+    h_handle = (
+        z_norm_mod.register_forward_hook(_capture_z)
+        if z_norm_mod is not None
+        else None
+    )
 
+    # diagnostics CSV header (created lazily on first epoch if missing)
     DIAG_FIELDS = [
         "product_id", "store_id", "seed", "metric",
         "window_size", "step_size", "threshold", "percentile",
@@ -58,7 +81,7 @@ def train_model(
         "num_edges_mean",
         "epoch", "train_loss", "val_loss",
         "z_norm_mean", "z_var_mean",
-        "grad_norm_gat", "grad_norm_mlp", "grad_ratio_gat_mlp",
+        "grad_norm_gcn", "grad_norm_lstm", "grad_ratio_gcn_lstm",
     ]
     if diag_csv_path is not None:
         os.makedirs(os.path.dirname(diag_csv_path) or ".", exist_ok=True)
@@ -77,9 +100,11 @@ def train_model(
         model.train()
         epoch_loss = 0.0
         n_batches = 0
-        grad_acc_gat = 0.0
-        grad_acc_mlp = 0.0
-        grad_n       = 0
+        grad_acc_gcn  = 0.0
+        grad_acc_lstm = 0.0
+        grad_n        = 0
+
+        td = getattr(model, "time_distributed", False)
 
         for pyg_batch, ts_batch, y_batch, target_idx, _L in train_loader:
             pyg_batch  = pyg_batch.to(device)
@@ -88,25 +113,33 @@ def train_model(
             target_idx = target_idx.to(device)
 
             optimizer.zero_grad()
-            outputs = model(pyg_batch, target_idx, ts_batch)        # (B, H, 1)
-            preds   = outputs[:, -1, 0].view(-1, 1)
-            loss    = criterion(preds, y_batch)
+            outputs = model(pyg_batch, target_idx, ts_batch)   # (B, L, 1) or (B, H, 1)
+            if td:
+                # dense supervision: loss over all L steps
+                # y_batch must be (B, L, 1) — use GCNSeqTargetDataset + collate_pyg_ts_seq
+                loss = criterion(outputs, y_batch)
+            else:
+                preds = outputs[:, -1, 0].view(-1, 1)           # last-step pred (B, 1)
+                # y_batch is (B, L, 1) from collate_pyg_ts_seq → take last step
+                tgt = y_batch[:, -1, :] if y_batch.dim() == 3 else y_batch
+                loss = criterion(preds, tgt)
             loss.backward()
 
+            # capture per-branch grad norms BEFORE clipping / step
             with torch.no_grad():
-                gn_gat_sq = 0.0
-                gn_mlp_sq = 0.0
+                gn_gcn_sq  = 0.0
+                gn_lstm_sq = 0.0
                 for n, p in model.named_parameters():
                     if p.grad is None:
                         continue
                     g2 = float(p.grad.detach().pow(2).sum().item())
                     if n.startswith("conv") or n.startswith("z_norm"):
-                        gn_gat_sq += g2
-                    elif n.startswith("mlp"):
-                        gn_mlp_sq += g2
-                grad_acc_gat += gn_gat_sq ** 0.5
-                grad_acc_mlp += gn_mlp_sq ** 0.5
-                grad_n       += 1
+                        gn_gcn_sq += g2
+                    elif n.startswith("lstm"):
+                        gn_lstm_sq += g2
+                grad_acc_gcn  += gn_gcn_sq  ** 0.5
+                grad_acc_lstm += gn_lstm_sq ** 0.5
+                grad_n        += 1
 
             if grad_clip is not None:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
@@ -118,8 +151,9 @@ def train_model(
         avg_train_loss = epoch_loss / max(n_batches, 1)
         train_losses.append(avg_train_loss)
 
+        # aggregate z stats captured during training forwards
         if _z_buf:
-            z_cat = torch.cat(_z_buf, dim=0)
+            z_cat = torch.cat(_z_buf, dim=0)                       # (sum B*L, d_g)
             z_norm_mean = float(z_cat.norm(dim=-1).mean().item())
             z_var_mean  = float(z_cat.var(dim=0).mean().item())
             _z_buf.clear()
@@ -127,11 +161,12 @@ def train_model(
             z_norm_mean = float("nan")
             z_var_mean  = float("nan")
 
-        avg_gn_gat = grad_acc_gat / max(grad_n, 1)
-        avg_gn_mlp = grad_acc_mlp / max(grad_n, 1)
-        grad_ratio = avg_gn_gat / (avg_gn_mlp + 1e-12)
+        avg_gn_gcn  = grad_acc_gcn  / max(grad_n, 1)
+        avg_gn_lstm = grad_acc_lstm / max(grad_n, 1)
+        grad_ratio  = avg_gn_gcn / (avg_gn_lstm + 1e-12)
 
         # ── validation ─────────────────────────────────────────────────────
+        # Validation: always last-step MSE so both heads are directly comparable.
         model.eval()
         all_outputs, all_targets = [], []
         with torch.no_grad():
@@ -142,9 +177,10 @@ def train_model(
                 target_idx = target_idx.to(device)
 
                 outputs = model(pyg_batch, target_idx, ts_batch)
-                preds   = outputs[:, -1, 0].view(-1, 1)
+                preds   = outputs[:, -1, 0].view(-1, 1)          # last step, both heads
+                tgt     = y_batch[:, -1, :] if y_batch.dim() == 3 else y_batch
                 all_outputs.append(preds)
-                all_targets.append(y_batch)
+                all_targets.append(tgt)
 
         all_outputs = torch.cat(all_outputs, dim=0).view(-1)
         all_targets = torch.cat(all_targets, dim=0).view(-1)
@@ -154,6 +190,7 @@ def train_model(
         if scheduler is not None:
             scheduler.step(val_loss)
 
+        # ── write per-epoch diagnostics row ────────────────────────────────
         if diag_csv_path is not None:
             meta = diag_meta or {}
             with open(diag_csv_path, "a", newline="") as f:
@@ -175,11 +212,12 @@ def train_model(
                     val_loss,
                     z_norm_mean,
                     z_var_mean,
-                    avg_gn_gat,
-                    avg_gn_mlp,
+                    avg_gn_gcn,
+                    avg_gn_lstm,
                     grad_ratio,
                 ])
 
+        # ── early stopping bookkeeping ─────────────────────────────────────
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_epoch    = epoch + 1
@@ -204,11 +242,12 @@ def train_model(
                 f"Epoch {epoch + 1}/{epochs} | "
                 f"Train: {avg_train_loss:.6f} | Val: {val_loss:.6f} | "
                 f"||z||={z_norm_mean:.3f} Var(z)={z_var_mean:.4f} | "
-                f"|grad_gat|={avg_gn_gat:.2e} |grad_mlp|={avg_gn_mlp:.2e} "
+                f"|grad_gcn|={avg_gn_gcn:.2e} |grad_lstm|={avg_gn_lstm:.2e} "
                 f"ratio={grad_ratio:.2e}"
             )
 
     train_time = time.time() - start_train_time
+
     if h_handle is not None:
         h_handle.remove()
 

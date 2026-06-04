@@ -1,9 +1,9 @@
 """
-Joint GAT + MLP forecaster — trainable replacement for the offline
+Joint GCN + MLP forecaster — trainable replacement for the offline
 Graph2Vec → MLP pipeline.
 
 For each lookback day we build a small ego-graph (target item + similar
-neighbours).  A 2-layer GAT encodes that graph into a vector ``z`` for the
+neighbours).  A 2-layer GCN encodes that graph into a vector ``z`` for the
 target node.  The L per-step embeddings are concatenated with the temporal
 features along the feature axis, the whole (L, 1 + n_exog + d_g) window is
 flattened, and a flat MLP regresses the next value.
@@ -13,7 +13,7 @@ flattened, and a flat MLP regresses the next value.
     pooling           = cat[last_step, mean_over_L]     shape (B, 2H)
     linear head       → (B, horizon)
 
-The whole stack (GAT + MLP) is optimised jointly on the forecasting loss —
+The whole stack (GCN + MLP) is optimised jointly on the forecasting loss —
 no offline embeddings, no Doc2Vec.
 
 The forward signature ``(pyg_batch, target_node_indices, ts_seq) -> (B, H, 1)``
@@ -25,35 +25,31 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GATConv
+from torch_geometric.nn import GCNConv
 
 
-class SimpleGATMLPForecaster(nn.Module):
+class SimpleGCNMLPForecaster(nn.Module):
     """
-    GAT encoder (per-window ego-graph) → broadcast → concat with ts_seq
+    GCN encoder (per-window ego-graph) → broadcast → concat with ts_seq
     → flatten → MLP → linear head.
 
     Parameters
     ----------
-    in_channels      : int   – node-feature dimension fed to the GAT
-    gat_hidden       : int   – hidden width per head in GATConv₁
-    gat_heads        : int   – number of attention heads in GATConv₁
-                               (output dim of layer 1 = gat_hidden * gat_heads)
-    d_g              : int   – GAT output dim (target-node embedding size);
-                               GATConv₂ uses 1 head with concat=False
+    in_channels      : int   – node-feature dimension fed to the GCN
+    gcn_hidden       : int   – hidden width of GCNConv₁
+    d_g              : int   – GCN output dim (target-node embedding size)
     ts_input_size    : int   – per-step temporal feature width (e.g. 1 + n_exog)
     lookback_window  : int   – lookback length L (kept for bookkeeping; the
                               shared per-step MLP is size-invariant in L)
     hidden_sizes     : tuple – widths of the MLP hidden layers
     horizon          : int   – model horizon (1 → wrap recursively at inference)
-    dropout          : float – dropout for GAT attention + MLP
+    dropout          : float – dropout for GCN + MLP
     """
 
     def __init__(
         self,
         in_channels: int,
-        gat_hidden: int = 32,
-        gat_heads: int = 4,
+        gcn_hidden: int = 32,
         d_g: int = 16,
         ts_input_size: int = 1,
         lookback_window: int = 30,
@@ -63,20 +59,10 @@ class SimpleGATMLPForecaster(nn.Module):
     ):
         super().__init__()
 
-        # ── GAT encoder ───────────────────────────────────────────────────
-        # Layer 1: multi-head attention, concat → output (gat_hidden * gat_heads)
-        self.conv1 = GATConv(
-            in_channels, gat_hidden,
-            heads=gat_heads, concat=True,
-            dropout=dropout, edge_dim=1, add_self_loops=True,
-        )
-        # Layer 2: single head, averaged → output d_g
-        self.conv2 = GATConv(
-            gat_hidden * gat_heads, d_g,
-            heads=1, concat=False,
-            dropout=dropout, edge_dim=1, add_self_loops=True,
-        )
-        self.activation = nn.ELU()
+        # ── GCN encoder ───────────────────────────────────────────────────
+        self.conv1 = GCNConv(in_channels, gcn_hidden, add_self_loops=True)
+        self.conv2 = GCNConv(gcn_hidden,  d_g,        add_self_loops=True)
+        self.activation = nn.ReLU()
         self.gnn_drop   = nn.Dropout(p=dropout)
         self.z_norm     = nn.LayerNorm(d_g)
 
@@ -96,9 +82,9 @@ class SimpleGATMLPForecaster(nn.Module):
         self.d_g             = d_g
         self.lookback_window = lookback_window
         self.ts_input_size   = ts_input_size
-        self.horizon         = horizon
+        self.horizon       = horizon
 
-        # diagnostic switch — when True the GAT embedding is zeroed out
+        # diagnostic switch — when True the GCN embedding is zeroed out
         # before being concatenated with the temporal features (ablation).
         self.ablate_z = False
 
@@ -120,21 +106,19 @@ class SimpleGATMLPForecaster(nn.Module):
         B, L, _ = ts_seq.shape
 
         if self.ablate_z:
-            # Skip GAT entirely — output is zeroed, no point paying the cost.
+            # Skip GCN entirely — output is zeroed, no point paying the cost.
             z_seq = torch.zeros(B, L, self.d_g, device=ts_seq.device, dtype=ts_seq.dtype)
         else:
-            # GAT branch — encodes B*L graphs in a single sparse forward.
-            # Edge attributes (similarity weights) are passed as edge_dim=1 features
-            # so the attention mechanism can incorporate them.
-            ea = (
-                pyg_batch.edge_attr
+            # GCN branch — encodes B*L graphs in a single sparse forward.
+            ew = (
+                pyg_batch.edge_attr.squeeze(-1)
                 if (pyg_batch.edge_attr is not None and pyg_batch.edge_attr.numel() > 0)
                 else None
             )
-            h = self.conv1(pyg_batch.x, pyg_batch.edge_index, edge_attr=ea)
+            h = self.conv1(pyg_batch.x, pyg_batch.edge_index, edge_weight=ew)
             h = self.activation(h)
             h = self.gnn_drop(h)
-            h = self.conv2(h, pyg_batch.edge_index, edge_attr=ea)
+            h = self.conv2(h, pyg_batch.edge_index, edge_weight=ew)
             z_flat = self.z_norm(h[target_node_indices])           # (B*L, d_g)
 
             if z_flat.shape[0] != B * L:

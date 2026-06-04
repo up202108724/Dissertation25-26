@@ -1,5 +1,5 @@
 """
-Training loop for the GAT + MLP forecaster.
+Training loop for the GCN + MLP forecaster.
 
 Mirrors ``LSTM_GCN_1_graph_per_lookback/train.py`` (same batch unpacking via
 collate_pyg_ts) but classifies grad norms under ``mlp`` instead of ``lstm``
@@ -34,7 +34,7 @@ def train_model(
     diag_meta=None,
 ):
     """
-    Jointly trains the GAT + MLP end-to-end on the forecasting loss.
+    Jointly trains the GCN + MLP end-to-end on the forecasting loss.
 
     Parameters mirror ``LSTM_GCN_1_graph_per_lookback/train.train_model``.
     """
@@ -58,7 +58,7 @@ def train_model(
         "num_edges_mean",
         "epoch", "train_loss", "val_loss",
         "z_norm_mean", "z_var_mean",
-        "grad_norm_gat", "grad_norm_mlp", "grad_ratio_gat_mlp",
+        "grad_norm_gcn", "grad_norm_mlp", "grad_ratio_gcn_mlp",
     ]
     if diag_csv_path is not None:
         os.makedirs(os.path.dirname(diag_csv_path) or ".", exist_ok=True)
@@ -77,7 +77,7 @@ def train_model(
         model.train()
         epoch_loss = 0.0
         n_batches = 0
-        grad_acc_gat = 0.0
+        grad_acc_gcn = 0.0
         grad_acc_mlp = 0.0
         grad_n       = 0
 
@@ -94,17 +94,17 @@ def train_model(
             loss.backward()
 
             with torch.no_grad():
-                gn_gat_sq = 0.0
+                gn_gcn_sq = 0.0
                 gn_mlp_sq = 0.0
                 for n, p in model.named_parameters():
                     if p.grad is None:
                         continue
                     g2 = float(p.grad.detach().pow(2).sum().item())
                     if n.startswith("conv") or n.startswith("z_norm"):
-                        gn_gat_sq += g2
+                        gn_gcn_sq += g2
                     elif n.startswith("mlp"):
                         gn_mlp_sq += g2
-                grad_acc_gat += gn_gat_sq ** 0.5
+                grad_acc_gcn += gn_gcn_sq ** 0.5
                 grad_acc_mlp += gn_mlp_sq ** 0.5
                 grad_n       += 1
 
@@ -127,9 +127,9 @@ def train_model(
             z_norm_mean = float("nan")
             z_var_mean  = float("nan")
 
-        avg_gn_gat = grad_acc_gat / max(grad_n, 1)
+        avg_gn_gcn = grad_acc_gcn / max(grad_n, 1)
         avg_gn_mlp = grad_acc_mlp / max(grad_n, 1)
-        grad_ratio = avg_gn_gat / (avg_gn_mlp + 1e-12)
+        grad_ratio = avg_gn_gcn / (avg_gn_mlp + 1e-12)
 
         # ── validation ─────────────────────────────────────────────────────
         model.eval()
@@ -175,7 +175,7 @@ def train_model(
                     val_loss,
                     z_norm_mean,
                     z_var_mean,
-                    avg_gn_gat,
+                    avg_gn_gcn,
                     avg_gn_mlp,
                     grad_ratio,
                 ])
@@ -204,7 +204,7 @@ def train_model(
                 f"Epoch {epoch + 1}/{epochs} | "
                 f"Train: {avg_train_loss:.6f} | Val: {val_loss:.6f} | "
                 f"||z||={z_norm_mean:.3f} Var(z)={z_var_mean:.4f} | "
-                f"|grad_gat|={avg_gn_gat:.2e} |grad_mlp|={avg_gn_mlp:.2e} "
+                f"|grad_gcn|={avg_gn_gcn:.2e} |grad_mlp|={avg_gn_mlp:.2e} "
                 f"ratio={grad_ratio:.2e}"
             )
 

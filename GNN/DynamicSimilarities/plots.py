@@ -15,7 +15,7 @@ def plot_results(train, val, test, forecast,
                 target_col='value', title='Forecast vs Actual', save_path=None,
                 rmse=None, mae=None, bias=None, score=None, pocid=None, df_full=None,
                 inference_step_dates=None, neighbour_series=None,
-                inference_step_neighbours=None):
+                inference_step_neighbours=None, all_step_neighbours=None):
     
     # Check if forecast is a dictionary; if not, wrap it in a dictionary for uniformity
     if not isinstance(forecast, dict):
@@ -86,12 +86,29 @@ def plot_results(train, val, test, forecast,
     # Define a common hovertemplate to include date and value
     hover_temp = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
     step_indices = np.arange(len(test_index))
-    hover_temp_step = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}<br>Step: %{customdata}'
+
+    # Build per-step customdata: [step_idx, neighbours_str] when available
+    if all_step_neighbours is not None:
+        step_nbr_strs = [
+            ', '.join(str(n) for n in all_step_neighbours.get(i, [])) or '—'
+            for i in range(len(test_index))
+        ]
+        custom_data = np.array(
+            [[i, s] for i, s in zip(step_indices, step_nbr_strs)], dtype=object
+        )
+        hover_temp_step = (
+            'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
+            '<br>Step: %{customdata[0]}'
+            '<br>Neighbours: %{customdata[1]}<extra></extra>'
+        )
+    else:
+        custom_data = step_indices
+        hover_temp_step = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}<br>Step: %{customdata}'
 
     # Plot forecast vs actual - ax1
     fig.add_trace(go.Scatter(x=train_index, y=train, name='Train', opacity=0.7, mode='lines', hovertemplate=hover_temp), row=1, col=1)
     fig.add_trace(go.Scatter(x=val_index, y=val, name='Validation', opacity=0.7, mode='lines', line=dict(color='orange'), hovertemplate=hover_temp), row=1, col=1)
-    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2), customdata=step_indices, hovertemplate=hover_temp_step), row=1, col=1)
+    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2), customdata=custom_data, hovertemplate=hover_temp_step), row=1, col=1)
     
     import plotly.express as px
     colors = px.colors.qualitative.Plotly
@@ -113,7 +130,7 @@ def plot_results(train, val, test, forecast,
                  f"Bias: {bias_str} | Score: {score_str} | POCID: {pocid_str})"
              )
              
-        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), customdata=step_indices, hovertemplate=hover_temp_step), row=1, col=1)
+        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), customdata=custom_data, hovertemplate=hover_temp_step), row=1, col=1)
     
     
     # Pinpoint specific dates

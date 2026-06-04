@@ -10,8 +10,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
-from mlp import TimeDistributedMLPForecaster
-from gat_mlpdataset import make_windows, WindowDataset
+from ablationmlp import TimeDistributedMLPForecaster
+from gcn_mlpdataset import make_windows, WindowDataset
 @dataclass
 class TrainConfig:
     lookback: int = 30
