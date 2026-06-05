@@ -52,6 +52,11 @@ from ablationlstm import AblationLSTMForecaster
 from train import train_model
 from gcn_influence_plots import plot_gcn_influence, plot_influence_summary
 
+
+from LSTMBaseline.dataset import TimeSeriesDataset as LSTMBaselineDataset
+from LSTMBaseline.lstm import LSTM as LSTMBaseline
+from LSTMBaseline.lstm_train import train_model as train_lstm_baseline
+from LSTMBaseline.lstm_inference import recursive_inference as recursive_forecast_lstm_baseline
 # ── Metric typing ──────────────────────────────────────────────────────────
 DISTANCE_METRICS = {
     'euclidean', 'hamming', 'amplitude_offset', 'slope_consistency',
@@ -112,7 +117,7 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88]},
+    {'metric': 'spearman', 'thresholds': [0.75]},
 ]
 
 window_sizes              = [15]
@@ -128,7 +133,7 @@ HIDDEN_SIZE    = 32
 NUM_LAYERS     = 1
 DROPOUT        = 0.0
 D_G            = 16          # per-step graph embedding dim
-SAVE_MODELS         = False
+SAVE_MODELS         = True
 SAVE_PLOTS          = True
 RUN_LSTM_BASELINE   = True
 USE_EMBEDDINGS = True
@@ -340,6 +345,80 @@ def main():
             # GCN+LSTM requires a graph for every config — no_emb baseline is dropped.
             all_configs = list(grid_configs)
 
+            # ── LSTM Baseline (run once per product+seed) ─────────────────
+            _bl_forecast = None
+            _bl_t_losses: list = []
+            _bl_v_losses: list = []
+            _bl_rmse = _bl_mae = _bl_bias = _bl_score = _bl_pocid = None
+            if RUN_LSTM_BASELINE:
+                print(f"\n{'='*60}")
+                print("Running LSTM Baseline...")
+                print(f"{'='*60}")
+                lstm_input_bl = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
+                bl_model = LSTMBaseline(
+                    input_size=lstm_input_bl,
+                    hidden_size=HIDDEN_SIZE,
+                    num_layers=NUM_LAYERS,
+                    dropout=DROPOUT,
+                ).to(device)
+                bl_train_ds = LSTMBaselineDataset(train_scaled, exog_train_scaled if EXOG_COLS else None, lookback_window)
+                bl_val_ds   = LSTMBaselineDataset(val_scaled,   exog_val_scaled   if EXOG_COLS else None, lookback_window)
+                bl_train_loader = DataLoader(bl_train_ds, batch_size=BATCH_SIZE, shuffle=False)
+                bl_val_loader   = DataLoader(bl_val_ds,   batch_size=BATCH_SIZE, shuffle=False)
+                bl_optimizer = torch.optim.AdamW(bl_model.parameters(), lr=LEARNING_RATE)
+                bl_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    bl_optimizer, mode='min', factor=0.5, patience=PATIENCE // 3,
+                )
+                bl_model_path = os.path.join(
+                    best_models_seed_dir,
+                    f"lstm_baseline_{product_id}_{store_id}_seed_{seed}.pth",
+                )
+                if os.path.exists(bl_model_path):
+                    print(f"Loading existing LSTM baseline from {bl_model_path}...")
+                    bl_model.load_state_dict(torch.load(bl_model_path, map_location=device))
+                else:
+                    bl_model, _bl_t_losses, _bl_v_losses, _, _ = train_lstm_baseline(
+                        seed=seed, epochs=EPOCHS, model=bl_model,
+                        train_loader=bl_train_loader, val_loader=bl_val_loader,
+                        exog_cols=EXOG_COLS,
+                        criterion=nn.MSELoss(), criterion2=nn.MSELoss(),
+                        optimizer=bl_optimizer, device=device,
+                        best_model_path=bl_model_path,
+                        scheduler=bl_scheduler, patience=PATIENCE,
+                    )
+                    bl_model.load_state_dict(torch.load(bl_model_path, map_location=device))
+
+                exog_test_raw = df_p[EXOG_COLS][test_slice].values if EXOG_COLS else None
+                _bl_forecast, _ = recursive_forecast_lstm_baseline(
+                    model=bl_model,
+                    test_start_idx=test_start_idx,
+                    seq_length=lookback_window,
+                    val_scaled=val_scaled,
+                    exog_val_scaled=exog_val_scaled if EXOG_COLS else None,
+                    exog_test_scaled=exog_test_scaled if EXOG_COLS else None,
+                    exog_test=exog_test_raw,
+                    scaler=scaler,
+                    exog_scaler=exog_scaler if EXOG_COLS else None,
+                    df_product=df_p,
+                    device=device,
+                    exog_cols=EXOG_COLS,
+                    forecast_window=forecast_horizon,
+                    seed=seed,
+                    strategy='best_val',
+                    item_id=product_id,
+                    store_id=store_id,
+                    loss_type='MSELoss',
+                    script_dir=SCRIPT_DIR,
+                )
+                _bl_arr   = np.array(_bl_forecast, dtype=float)
+                _bl_valid = ~np.isnan(_bl_arr)
+                if _bl_valid.any():
+                    _bl_rmse  = float(np.sqrt(mean_squared_error(test[_bl_valid], _bl_arr[_bl_valid])))
+                    _bl_mae   = float(mean_absolute_error(test[_bl_valid], _bl_arr[_bl_valid]))
+                    _bl_bias  = float(np.mean(_bl_arr[_bl_valid] - test[_bl_valid]))
+                    _bl_score = float(r2_score(test[_bl_valid], _bl_arr[_bl_valid]))
+                    print(f"LSTM Baseline RMSE: {_bl_rmse:.4f}")
+
             for config in all_configs:
                 metric      = config['metric']
                 thresholds  = config.get('thresholds',  [None])
@@ -364,11 +443,6 @@ def main():
 
                     current_threshold  = param_val if is_threshold_mode else None
                     current_percentile = param_val if not is_threshold_mode else None
-
-                    exp_th_str = str(current_threshold) if is_threshold_mode and current_threshold is not None else ""
-                    if (str(product_id), str(store_id), str(seed), str(metric), exp_th_str, str(ablate_z)) in done_set:
-                        print(f"Skipping already completed experiment: Item {product_id}, Store {store_id}, Seed {seed}, Metric {metric}, Threshold {exp_th_str}, Ablation {ablate_z}")
-                        continue
 
                     key = (ablate_z, param_val, window_size, step_size)
                     if key not in results_by_w_s:
@@ -784,6 +858,17 @@ def main():
                                 new_lbl = f"{prefix}/{lbl}"
                                 for k in merged:
                                     merged[k][new_lbl] = src[k].get(lbl)
+
+                        # Add the LSTM baseline as a final overlay line
+                        if _bl_forecast is not None:
+                            merged['forecasts']['LSTM Baseline']    = _bl_forecast
+                            merged['train_losses']['LSTM Baseline'] = _bl_t_losses
+                            merged['val_losses']['LSTM Baseline']   = _bl_v_losses
+                            merged['rmse']['LSTM Baseline']         = _bl_rmse
+                            merged['mae']['LSTM Baseline']          = _bl_mae
+                            merged['bias']['LSTM Baseline']         = _bl_bias
+                            merged['score']['LSTM Baseline']        = _bl_score
+                            merged['pocid']['LSTM Baseline']        = _bl_pocid
 
                         merged_path = os.path.join(
                             sub_dir,

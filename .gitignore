@@ -18,3 +18,5 @@ MLP_Results/
 grid_search_plots*/
 LSTM_Plot_Results/
 graph_infered_plots/
+diagnostics/
+influence_plots/
