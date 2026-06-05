@@ -191,7 +191,8 @@ def nx_window_to_pyg(
             f"node_feature_mode must be 'raw' or 'stats', got {node_feature_mode!r}"
         )
 
-    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, num_nodes=n)
+    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, num_nodes=n,
+                node_order=list(node_order))
 
 
 # ── dataset ─────────────────────────────────────────────────────────────────
