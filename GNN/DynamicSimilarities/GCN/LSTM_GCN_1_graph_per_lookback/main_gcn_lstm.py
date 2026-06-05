@@ -117,10 +117,10 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.75,0.82]},
+    {'metric': 'spearman', 'thresholds': [0.82,0.85]},
 ]
 
-window_sizes              = [15]
+window_sizes              = [30]
 step_sizes                = [1]
 enable_edges_opts         = [True]
 enable_second_degree_opts = [False]
@@ -519,7 +519,11 @@ def main():
                         fut_start = product_offset + test_start_idx
                         fut_end   = fut_start + forecast_horizon
                         pyg_future_graphs = pyg_aligned_global[fut_start:fut_end]
-                        _inf_nx_graphs = nx_graphs[-forecast_horizon:]
+                        # NX graphs for hover display must mirror pyg_future_graphs:
+                        # pyg_aligned_global[fut_start+j] = pyg_windows[fut_start+j-window_size]
+                        # which comes from nx_graphs[product_offset+test_start_idx-window_size+j].
+                        _inf_start = product_offset + test_start_idx - window_size
+                        _inf_nx_graphs = nx_graphs[_inf_start:_inf_start + forecast_horizon]
 
                     # ── 3. Datasets / loaders (PER-STEP) ─────────────────────
                     use_pin_memory = torch.cuda.is_available()
@@ -726,16 +730,18 @@ def main():
                         target_z_scaler=target_z_scaler,
                     )
 
-                    # ── Capture all-step neighbours (first non-ablation run) ──
-                    if _inf_nx_graphs is not None and not ablate_z and not _all_step_neighbours:
+                    # ── Capture all-step neighbours (per threshold, every non-ablation run) ──
+                    if _inf_nx_graphs is not None and not ablate_z:
                         _test_dates_str = pd.to_datetime(
                             df_p[DATE_COL].iloc[test_start_idx:].values
                         ).strftime('%Y-%m-%d')
+                        th_key = current_threshold if is_threshold_mode else current_percentile
                         all_nbr_ids: set = set()
+                        _all_step_neighbours[th_key] = {}
                         for step_idx in range(len(_inf_nx_graphs)):
                             G_step = _inf_nx_graphs[step_idx]
                             nbrs = [n for n in G_step.nodes() if n != product_id]
-                            _all_step_neighbours[step_idx] = nbrs
+                            _all_step_neighbours[th_key][step_idx] = nbrs
                             all_nbr_ids.update(nbrs)
                         all_nbr_ids.discard(product_id)
                         for nbr_id in all_nbr_ids:

@@ -87,38 +87,50 @@ def plot_results(train, val, test, forecast,
     hover_temp = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
     step_indices = np.arange(len(test_index))
 
-    # Build per-step customdata: [step_idx, neighbours_str] when available
-    if all_step_neighbours is not None:
-        step_nbr_strs = [
-            ', '.join(str(n) for n in all_step_neighbours.get(i, [])) or '—'
+    _hover_plain = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}<br>Step: %{customdata}'
+    _hover_nbrs  = (
+        'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
+        '<br>Step: %{customdata[0]}'
+        '<br>Neighbours: %{customdata[1]}<extra></extra>'
+    )
+
+    def _trace_customdata(label):
+        """Return (customdata, hovertemplate) with threshold-specific neighbours."""
+        if all_step_neighbours is None:
+            return step_indices, _hover_plain
+        # Ablation traces use zeroed GCN embeddings — no meaningful graph neighbours
+        if 'az:ablation' in label:
+            return step_indices, _hover_plain
+        th_key = None
+        if 'th:' in label:
+            try:
+                th_key = float(label.split('th:')[1].split('|')[0])
+            except (IndexError, ValueError):
+                pass
+        step_nbrs = all_step_neighbours.get(th_key) if th_key is not None else None
+        if step_nbrs is None:
+            return step_indices, _hover_plain
+        nbr_strs = [
+            ', '.join(str(n) for n in step_nbrs.get(i, [])) or '—'
             for i in range(len(test_index))
         ]
-        custom_data = np.array(
-            [[i, s] for i, s in zip(step_indices, step_nbr_strs)], dtype=object
-        )
-        hover_temp_step = (
-            'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
-            '<br>Step: %{customdata[0]}'
-            '<br>Neighbours: %{customdata[1]}<extra></extra>'
-        )
-    else:
-        custom_data = step_indices
-        hover_temp_step = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}<br>Step: %{customdata}'
+        cd = np.array([[i, s] for i, s in zip(step_indices, nbr_strs)], dtype=object)
+        return cd, _hover_nbrs
 
     # Plot forecast vs actual - ax1
     fig.add_trace(go.Scatter(x=train_index, y=train, name='Train', opacity=0.7, mode='lines', hovertemplate=hover_temp), row=1, col=1)
     fig.add_trace(go.Scatter(x=val_index, y=val, name='Validation', opacity=0.7, mode='lines', line=dict(color='orange'), hovertemplate=hover_temp), row=1, col=1)
-    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2), customdata=custom_data, hovertemplate=hover_temp_step), row=1, col=1)
-    
+    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2), customdata=step_indices, hovertemplate=_hover_plain), row=1, col=1)
+
     import plotly.express as px
     colors = px.colors.qualitative.Plotly
-    
+
     for idx, (label, fcast) in enumerate(forecast.items()):
         if fcast is None: continue
         color = colors[idx % len(colors)]
         if not is_multi:
             color = 'red'
-        
+
         legend_name = label
         if is_multi:
              pocid_str  = f"{pocid.get(label):.4f}"  if pocid  and pocid.get(label)  is not None else "N/A"
@@ -129,8 +141,9 @@ def plot_results(train, val, test, forecast,
                  f"(RMSE: {rmse[label]:.2f} | MAE: {mae[label]:.2f} | "
                  f"Bias: {bias_str} | Score: {score_str} | POCID: {pocid_str})"
              )
-             
-        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), customdata=custom_data, hovertemplate=hover_temp_step), row=1, col=1)
+
+        cd, ht = _trace_customdata(label)
+        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), customdata=cd, hovertemplate=ht), row=1, col=1)
     
     
     # Pinpoint specific dates
