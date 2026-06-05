@@ -100,8 +100,8 @@ SEEDS = [42]
 
 # Leave as None to run all (item_id, store_id) pairs found in DATA_PATH.
 # Override with a list of tuples to run only a subset, e.g.:
-#PRODUCTS_TO_TEST = [(26008, 6269), (907967, 6269),(911753,6269)]
-PRODUCTS_TO_TEST = None
+PRODUCTS_TO_TEST = [(26008, 6269), (911753,6269)]
+#PRODUCTS_TO_TEST = None
 
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
@@ -117,7 +117,7 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.75]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.82]},
 ]
 
 window_sizes              = [15]
@@ -234,21 +234,7 @@ def main():
             .tolist()
         )
         print(f"Running all {len(PRODUCTS_TO_TEST)} (item_id, store_id) pairs from dataset.")
-
-    results_csv = os.path.join(SCRIPT_DIR, f"{grid_configs[0]['metric']}.csv") if grid_configs else None
-    done_set = set()
-    if results_csv and os.path.exists(results_csv):
-        done_df = pd.read_csv(results_csv, dtype=str)
-        if 'threshold' in done_df.columns:
-            done_df['threshold'] = done_df['threshold'].fillna('').astype(str)
-        else:
-            done_df['threshold'] = ""
-        for _, row in done_df.iterrows():
-            metric_val = str(row['metric']) if 'metric' in row else str(grid_configs[0]['metric'])
-            ablate_val = str(row['ablate_z']) if 'ablate_z' in row else "False"
-            th_val = str(row['threshold'])
-            done_set.add((str(row['product_id']), str(row['store_id']), str(row.get('seed', '42')), metric_val, th_val, ablate_val))
-        print(f"Resuming: {len(done_set)} experiments already completed.")
+            
 
     cat_labels_dict = (
         full_df.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
@@ -960,39 +946,6 @@ def main():
         plot_influence_summary(influence_records, influence_summary_dir)
         print(f"Saved influence summary to: {os.path.abspath(influence_summary_dir)}")
 
-    # ── Correlation plots from accumulated CSVs ───────────────────────────
-    if SAVE_PLOTS:
-        import matplotlib.pyplot as plt
-        print("\nGenerating Correlation Plots across all collected CSVs...")
-        for csv_file in os.listdir(SCRIPT_DIR):
-            if csv_file.endswith('.csv') and csv_file != 'no_emb.csv':
-                metric_name = csv_file.replace('.csv', '')
-                csv_path = os.path.join(SCRIPT_DIR, csv_file)
-                try:
-                    res_df = pd.read_csv(csv_path)
-                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-                    fig.suptitle(f'Threshold vs RMSE and MAE | Metric: {metric_name}', fontsize=16)
-
-                    x_col = 'threshold' if res_df['threshold'].notna().any() else 'percentile'
-                    plot_data = res_df.dropna(subset=[x_col, 'rmse', 'mae']).sort_values(by=x_col)
-                    if plot_data.empty:
-                        continue
-
-                    ax1.plot(plot_data[x_col], plot_data['rmse'], marker='o', linestyle='-', color='b')
-                    ax1.set_title(f'{x_col.capitalize()} vs RMSE'); ax1.set_xlabel(x_col.capitalize())
-                    ax1.set_ylabel('RMSE'); ax1.grid(True)
-
-                    ax2.plot(plot_data[x_col], plot_data['mae'], marker='s', linestyle='-', color='r')
-                    ax2.set_title(f'{x_col.capitalize()} vs MAE'); ax2.set_xlabel(x_col.capitalize())
-                    ax2.set_ylabel('MAE'); ax2.grid(True)
-
-                    plot_save_path = os.path.join(SCRIPT_DIR, f"{metric_name}_correlation_plot.png")
-                    plt.tight_layout()
-                    plt.savefig(plot_save_path)
-                    plt.close()
-                    print(f"Saved correlation plot for {metric_name} at {plot_save_path}")
-                except Exception as e:
-                    print(f"Failed to generate plot for {csv_file}: {e}")
 
 
 if __name__ == '__main__':
