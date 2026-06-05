@@ -96,12 +96,12 @@ lookback_window = 30
 BATCH_SIZE = 32
 
 
-SEEDS = [42]
+SEEDS = [42,26008]
 
 # Leave as None to run all (item_id, store_id) pairs found in DATA_PATH.
 # Override with a list of tuples to run only a subset, e.g.:
-PRODUCTS_TO_TEST = [(26008, 6269), (911753,6269)]
-#PRODUCTS_TO_TEST = None
+#PRODUCTS_TO_TEST = [(26008, 6269), (911753,6269)]
+PRODUCTS_TO_TEST = None
 
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
@@ -117,10 +117,10 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.82,0.85]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85]},
 ]
 
-window_sizes              = [30]
+window_sizes              = [15,30]
 step_sizes                = [1]
 enable_edges_opts         = [True]
 enable_second_degree_opts = [False]
