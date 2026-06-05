@@ -36,8 +36,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/
 
-from utils import generate_exogenous_features, compute_metrics
-from utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll  # GraphAnalysis/utils.py
+from utils import generate_exogenous_features, compute_metrics, neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll # GraphAnalysis/utils.py
 
 # Reused per-step GCN pipeline (model-agnostic)
 from gcn_tdmlpdataset import (
@@ -51,7 +50,13 @@ from gcn_mlpinference import _recursive_forecast_gcn_perstep
 from gcn_mlp_model import SimpleGCNMLPForecaster
 from gcn_mlp_train import train_model
 from ablationmlp import AblationMLPForecaster
-from GNN.DynamicSimilarities.plots import plot_results
+from plots import plot_results, plot_networkx_plotly
+
+
+from MLP_Baseline.train import train_mlp_forecaster, TrainConfig
+from MLP_Baseline.inference import recursive_inference_dynamic_exog
+from MLP_Baseline.utils import ExogenousScaler
+
 
 
 # ── Metric typing ──────────────────────────────────────────────────────────
@@ -109,8 +114,7 @@ EXOG_COLS = [
 ]
 grid_configs = [
 
-    #{'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
-    {'metric': 'spearman', 'thresholds': [0.85]},
+    {'metric': 'spearman', 'thresholds': [0.75,0.78,0.82,0.85]},
 ]
 
 # Training hyperparameters
@@ -133,8 +137,7 @@ STEP_SIZES = [1]
 ENABLE_EDGES_OPTS = [True]
 ENABLE_SECOND_DEGREE_OPTS = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
 USE_RESIDUALS = False
-SAVE_MODELS = False
-SAVE_PLOTS = True
+SAVE_PLOTS = False
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -147,6 +150,10 @@ ABLATION_HIDDEN_SIZES = (128, 64)
 DIAG_CSV_NAME  = "diagnostics.csv"
 # Set True to emit inference_graph_log.csv with per-step neighbourhood data.
 RECORD_INFERENCE_GRAPHS = False
+# Indices into the forecast horizon (0-based) at which to reveal neighbours,
+# record them, and mark with a red vertical line on the plot.
+INFERENCE_STEPS = [45,56,88]
+SAVE_INFERENCE_GRAPHS_PLOTS = True
 
 # Node feature mode for GCN graphs.
 # 'raw'   — full window sequence as node features (shape: n_nodes × window_size)
@@ -236,8 +243,8 @@ def main():
     
     top_df = pd.read_feather(TOP_DATA_PATH)
     products_df = top_df[['item_id', 'store_id']].drop_duplicates().reset_index(drop=True)
-    PRODUCTS_TO_TEST = list(products_df.itertuples(index=False, name=None))
-
+    #PRODUCTS_TO_TEST = list(products_df.itertuples(index=False, name=None))
+    PRODUCTS_TO_TEST = [(26008,6269), (911753, 6269),(907969, 6269)]
     results_csv = os.path.join(SCRIPT_DIR, "gcn_mlp_results.csv")
     done_set = set()
     if os.path.exists(results_csv):
@@ -287,16 +294,18 @@ def main():
         val_ctx        = df_p[TARGET_COL][val_ctx_slice].values
         val_scaled_ctx = scaler.transform(val_ctx.reshape(-1, 1)).flatten()
 
-        if EXOG_COLS:
-            exog_scaler = MinMaxScaler()
-            exog_train_scaled   = exog_scaler.fit_transform(df_p[EXOG_COLS][train_slice].values)
-            exog_val_scaled     = exog_scaler.transform(df_p[EXOG_COLS][val_slice].values)
-            exog_test_scaled    = exog_scaler.transform(df_p[EXOG_COLS][test_slice].values)
-            exog_val_scaled_ctx = exog_scaler.transform(df_p[EXOG_COLS][val_ctx_slice].values)
-        else:
-            exog_train_scaled = exog_val_scaled = exog_test_scaled = None
-            exog_scaler = None
-       
+        
+        # Type-aware scaler: pass-through for binary/cyclical, MinMax for continuous.
+        exog_scaler = ExogenousScaler(continuous_strategy='minmax')
+        exog_scaler.fit(df_p[EXOG_COLS].iloc[train_slice], EXOG_COLS)
+        exog_train_scaled   = exog_scaler.transform(df_p[EXOG_COLS].iloc[train_slice].copy(), EXOG_COLS).values
+        exog_val_scaled     = exog_scaler.transform(df_p[EXOG_COLS].iloc[val_slice].copy(), EXOG_COLS).values
+        exog_test_scaled    = exog_scaler.transform(df_p[EXOG_COLS].iloc[test_slice].copy(), EXOG_COLS).values
+        exog_val_scaled_ctx = exog_scaler.transform(df_p[EXOG_COLS].iloc[val_ctx_slice].copy(), EXOG_COLS).values
+        # Keep UNSCALED copies — needed by the dynamic inference loop.
+        exog_train_unscaled = df_p[EXOG_COLS].iloc[train_slice].copy()
+        exog_val_unscaled = df_p[EXOG_COLS].iloc[val_slice].copy()
+        exog_test_unscaled = df_p[EXOG_COLS].iloc[test_slice].copy()
         for seed in SEEDS:
             os.environ['PYTHONHASHSEED'] = str(seed)
             random.seed(seed)
@@ -308,12 +317,101 @@ def main():
 
             print(f"\n--- RUNNING WITH SEED {seed} ---\n")
 
-            grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots', f'seed_{seed}')
-            best_models_seed_dir  = os.path.join(SCRIPT_DIR, 'best_models',       f'seed_{seed}')
+            grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots', f'seed_{seed}', f'product_{product_id}_store_{store_id}')
+            best_models_seed_dir  = os.path.join(SCRIPT_DIR, 'best_models',       f'seed_{seed}', f'product_{product_id}_store_{store_id}')
             os.makedirs(grid_search_plots_dir, exist_ok=True)
             os.makedirs(best_models_seed_dir,  exist_ok=True)
 
             all_configs = list(grid_configs)
+            ##Baseline execution first
+            # Prepare global config for this strategy
+            cfg = TrainConfig(
+                lookback=lookback_window,
+                horizon=1,
+                batch_size=BATCH_SIZE,
+                train_size=train_size,
+                val_size=val_size,
+                lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY,
+                epochs=EPOCHS,
+                dropout=DROPOUT,
+                patience=PATIENCE,
+                hidden_sizes=HIDDEN_SIZES,
+                device=str(DEVICE)
+            )
+
+            start_train = time.time()
+            model, _, t_losses, v_losses, best_epoch = train_mlp_forecaster(
+                df=df_p, cfg=cfg, seed=seed, loss_type=LOSS_TYPE,
+                product_id=f"{product_id}_{store_id}", scaler=scaler, target_channel=0,
+                target_col=TARGET_COL, exog_cols=EXOG_COLS, test_size=forecast_horizon,
+                exog_scaler=exog_scaler,
+            )
+            train_time = time.time() - start_train
+
+            
+
+            # Leak-safe recursive inference: lag/rolling cols are recomputed
+            # from the running prediction buffer, never from ground-truth test.
+            # Full train+val target passed so lag_364 resolves correctly.
+            recent_target_unscaled = np.concatenate([train, val]).astype(np.float32)
+            recent_exog_unscaled_df = exog_val_unscaled.iloc[-lookback_window:].reset_index(drop=True)
+
+            start_infer = time.time()
+            forecast = recursive_inference_dynamic_exog(
+                model=model,
+                target_scaler=scaler,
+                exog_scaler=exog_scaler,
+                exog_cols=EXOG_COLS,
+                history_target_unscaled=recent_target_unscaled,
+                history_exog_unscaled=recent_exog_unscaled_df,
+                future_exog_unscaled=exog_test_unscaled.reset_index(drop=True),
+                target_channel=0,
+                device=str(device),
+            )
+            infer_time = time.time() - start_infer
+                
+            # Metrics
+            rmse = np.sqrt(mean_squared_error(test, forecast))
+            mae = mean_absolute_error(test, forecast)
+            bias = np.mean(forecast - test)
+                
+            # POCID
+            diff_original = test[1:] - test[:-1]
+            diff_pred = forecast[1:] - forecast[:-1]
+            is_positive = (diff_original * diff_pred) > 0
+            pocid = is_positive.sum() / len(is_positive) if len(is_positive) > 0 else 0.0
+                
+            # Score
+            score = 0.5 * rmse + 0.25 * mae + 0.25 * abs(bias)
+
+            # ── Save baseline result to CSV immediately ───────────────────
+            csv_results_path = os.path.join(SCRIPT_DIR, "gcn_mlp_results.csv")
+            _bl_csv_exists = os.path.exists(csv_results_path)
+            with open(csv_results_path, 'a', newline='') as _bl_csv:
+                _bl_w = csv.writer(_bl_csv)
+                if not _bl_csv_exists:
+                    _bl_w.writerow([
+                        "item_id", "store_id", "seed", "metric",
+                        "window_size", "step_size", "threshold", "percentile",
+                        "enable_edges", "enable_second_degree", "ablate_z",
+                        "rmse", "mae", "bias", "r2_score", "pocid",
+                        "train_time_s", "inference_time_s",
+                    ])
+                _bl_w.writerow([
+                    product_id, store_id, seed, "N/A",
+                    "N/A", "N/A", "", "",
+                    "N/A", "N/A", "baseline",
+                    rmse, mae, bias, score, pocid,
+                    f"{train_time:.2f}" if train_time is not None else "",
+                    f"{infer_time:.4f}",
+                ])
+            print(f"Baseline result written to CSV (RMSE={rmse:.4f})")
+
+            # Store baseline results for inclusion as a line in the combined plot
+            _bl_forecast = forecast
+            _bl_t_losses = t_losses
+            _bl_v_losses = v_losses
+            _bl_rmse, _bl_mae, _bl_bias, _bl_score, _bl_pocid = rmse, mae, bias, score, pocid
 
             for config in all_configs:
                 metric      = config['metric']
@@ -331,6 +429,11 @@ def main():
 
                 metric_type = infer_metric_type(metric)
 
+                # Accumulate neighbour info across configs; populated by the first non-ablation run.
+                _inference_step_dates = []
+                _neighbour_series: dict = {}
+                _inference_step_neighbours: dict = {}  # date -> list of neighbour IDs
+
                 for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
                     # When ablating, z is zeroed so the threshold has no effect.
                     if ablate_z and param_val != params[0]:
@@ -339,12 +442,7 @@ def main():
                     current_threshold  = param_val if is_threshold_mode else None
                     current_percentile = param_val if not is_threshold_mode else None
 
-                    # Resumable script check
-                    exp_th_str = str(current_threshold) if is_threshold_mode and current_threshold is not None else ""
-                    if (str(product_id), str(store_id), str(seed), str(metric), exp_th_str, str(ablate_z)) in done_set:
-                        print(f"Skipping already completed experiment: Item {product_id}, Store {store_id}, Seed {seed}, Metric {metric}, Threshold {exp_th_str}, Ablation {ablate_z}")
-                        continue
-
+            
                     key = (ablate_z, param_val, window_size, step_size)
                     if key not in results_by_w_s:
                         results_by_w_s[key] = {
@@ -378,6 +476,7 @@ def main():
                         pyg_val           = [_dummy] * (test_start_idx - val_start_idx)
                         pyg_seed_graphs   = [_dummy] * lookback_window
                         pyg_future_graphs = [_dummy] * forecast_horizon
+                        _inf_nx_graphs    = None
                     else:
                         # ── 1. Build per-window NX graphs ────────────────────
                         # Always use df_wide_scaled (per-product z-score, fit on train only).
@@ -407,6 +506,8 @@ def main():
                         )
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
+                        
+                        _inf_nx_graphs = nx_graphs[-forecast_horizon:] if SAVE_INFERENCE_GRAPHS_PLOTS else None
 
                         # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
                         pyg_windows = build_pyg_graphs_from_nx_windows(
@@ -504,43 +605,30 @@ def main():
                     if enable_second_degree:
                         prefix_star = "2nddegree_" + prefix_star
                     res_tag = f"_res_{MODEL_TYPE}" if USE_RESIDUALS else ""
+                    az_tag = "_ablation" if ablate_z else ""
                     param_label = (f"th_{current_threshold}" if is_threshold_mode
                                    else f"pct_{current_percentile}")
                     base_name = (
                         f"best_gcnmlp_perstep_{prefix_star}{product_id}_{metric}"
-                        f"_w{window_size}_s{step_size}_{param_label}{res_tag}_seed_{seed}"
+                        f"_w{window_size}_s{step_size}_{param_label}{res_tag}{az_tag}_seed_{seed}"
                     )
-                    best_model_path = os.path.join(best_models_dir, f"{base_name}.pth")
-                    history_path    = os.path.join(best_models_dir, f"{base_name}_history.pkl")
+                    best_model_path  = os.path.join(best_models_dir, f"{base_name}.pth")
+                    history_path     = os.path.join(best_models_dir, f"{base_name}_history.pkl")
+                    combined_pkl_path = os.path.join(best_models_dir, f"{base_name}_combined.pkl")
                     print(f"Resolved checkpoint: {best_model_path}")
 
-                    # ── 6. Train (or reload) ─────────────────────────────────
-                    if os.path.exists(best_model_path) and os.path.exists(history_path):
-                        print(f"Loading existing model from {best_model_path}...")
-                        model.load_state_dict(torch.load(best_model_path, map_location=device))
-                        with open(history_path, 'rb') as f:
-                            history = pickle.load(f)
-                            train_losses = history['train_losses']
-                            val_losses   = history['val_losses']
-                            train_time   = history.get('train_time', None)
-                    else:
-                        print("Training new per-step GCN+MLP model...")
-                        model, train_losses, val_losses, best_epoch, train_time = train_model(
-                            seed=seed, epochs=EPOCHS, model=model,
-                            train_loader=train_loader, val_loader=val_loader,
-                            criterion=criterion, criterion2=criterion2,
-                            optimizer=optimizer, device=device,
-                            best_model_path=best_model_path if SAVE_MODELS else None,
-                            scheduler=scheduler, patience=PATIENCE,
-                        )
-                        if SAVE_MODELS:
-                            with open(history_path, 'wb') as f:
-                                pickle.dump({
-                                    'train_losses': train_losses, 'val_losses': val_losses,
-                                    'best_epoch': best_epoch, 'train_time': train_time,
-                                }, f)
-
-                    if SAVE_MODELS and os.path.exists(best_model_path):
+                    # ── 6. Train ─────────────────────────────────────────────
+                    print("Training new per-step GCN+MLP model...")
+                    model, train_losses, val_losses, best_epoch, train_time = train_model(
+                        seed=seed, epochs=EPOCHS, model=model,
+                        train_loader=train_loader, val_loader=val_loader,
+                        criterion=criterion, criterion2=criterion2,
+                        optimizer=optimizer, device=device,
+                        best_model_path=best_model_path,
+                        scheduler=scheduler, patience=PATIENCE,
+                    )
+                    # Load best-epoch weights for inference
+                    if os.path.exists(best_model_path):
                         print(f"Loading best weights from {best_model_path} for inference...")
                         model.load_state_dict(torch.load(best_model_path, map_location=device))
 
@@ -578,8 +666,56 @@ def main():
                             rolling_mean_excl_col_indices[i] = W
                     target_history_unscaled = np.concatenate([train, val]).astype(np.float32)
 
+                    # ── Build per-step graph-save callback ───────────────────
+                    if _inf_nx_graphs is not None:
+                        _param_label_plot = (f"th_{current_threshold}" if is_threshold_mode
+                                             else f"pct_{current_percentile}")
+                        _graph_plot_dir = os.path.join(
+                            SCRIPT_DIR, 'graph_infered_plots', str(product_id),
+                            f'seed_{seed}', metric, _param_label_plot,
+                        )
+                        os.makedirs(_graph_plot_dir, exist_ok=True)
+                        print(f"\nWill save {len(_inf_nx_graphs)} inference graph plots during inference...")
+
+                        def _make_step_cb(graphs, plot_dir, lbl, w, s, pid, met):
+                            def _cb(step_idx):
+                                if step_idx < len(graphs):
+                                    _title = (
+                                        f"Product {pid} | {met} | {lbl} | "
+                                        f"w{w}_s{s} | inference step {step_idx + 1}"
+                                    )
+                                    _sp = os.path.join(
+                                        plot_dir,
+                                        f"graph_{met}_{lbl}_w{w}_s{s}_step{step_idx + 1:04d}.html",
+                                    )
+                                    plot_networkx_plotly(G=graphs[step_idx], title=_title,
+                                                         save_path=_sp, target_node=pid)
+                            return _cb
+
+                        _step_callback = _make_step_cb(
+                            _inf_nx_graphs, _graph_plot_dir, _param_label_plot,
+                            window_size, step_size, product_id, metric,
+                        )
+                    else:
+                        _step_callback = None
+
                     graph_log = [] if RECORD_INFERENCE_GRAPHS else None
                     _inf_start = time.time()
+
+                    # Std-scaled seed window for target-node feature patching:
+                    # window_size values immediately before the test period,
+                    # taken from df_wide_scaled (no leakage).
+                    # Only applicable for the full GCN run (not ablation).
+                    if not ablate_z:
+                        _std_seed_end   = product_offset + test_start_idx
+                        _std_seed_start = _std_seed_end - window_size
+                        _target_std_seed = (
+                            df_wide_scaled.loc[product_id].values[_std_seed_start:_std_seed_end]
+                            .astype(np.float32)
+                        )
+                    else:
+                        _target_std_seed = None
+
                     forecast = _recursive_forecast_gcn_perstep(
                         model=model,
                         ts_seed=ts_seed,
@@ -593,9 +729,47 @@ def main():
                         lag_col_indices=lag_col_indices if EXOG_COLS else None,
                         rolling_mean_excl_col_indices=rolling_mean_excl_col_indices if EXOG_COLS else None,
                         exog_scaler=exog_scaler if EXOG_COLS else None,
+                        exog_cols=EXOG_COLS if EXOG_COLS else None,
                         graph_log_out=graph_log,
+                        step_callback=_step_callback,
+                        target_node_std_scaler=product_scalers[product_id] if not ablate_z else None,
+                        target_node_std_seed=_target_std_seed,
+                        node_feature_mode=NODE_FEATURE_MODE,
                     )
                     inference_time = time.time() - _inf_start
+
+                    # ── Capture inference-step neighbours ────────────────────
+                    # Only populated on the first non-ablation run so we always
+                    # have real graph data (ablation has no meaningful ego graph).
+                    if _inf_nx_graphs is not None and not ablate_z and not _inference_step_dates:
+                        _test_dates = df_p[DATE_COL].iloc[test_start_idx:].values
+                        _test_dates_str = pd.to_datetime(_test_dates).strftime('%Y-%m-%d')
+                        _step_neighbours_map: dict = {}
+                        for step_idx in INFERENCE_STEPS:
+                            if step_idx < len(_inf_nx_graphs):
+                                G_step = _inf_nx_graphs[step_idx]
+                                nbrs = [n for n in G_step.nodes() if n != product_id]
+                                step_date = _test_dates[step_idx]
+                                _inference_step_dates.append(step_date)
+                                _step_neighbours_map[step_idx] = nbrs
+                                _inference_step_neighbours[step_date] = nbrs
+                                print(
+                                    f"  [Inference step {step_idx}] "
+                                    f"date={pd.Timestamp(step_date).date()} "
+                                    f"| {len(nbrs)} neighbours: {nbrs}"
+                                )
+                        # Collect unique neighbours across all selected steps
+                        all_nbr_ids: set = set()
+                        for nbrs in _step_neighbours_map.values():
+                            all_nbr_ids.update(nbrs)
+                        all_nbr_ids.discard(product_id)
+                        for nbr_id in all_nbr_ids:
+                            if nbr_id in df_wide_global.index:
+                                avail = [c for c in _test_dates_str if c in df_wide_global.columns]
+                                if avail:
+                                    _neighbour_series[nbr_id] = (
+                                        df_wide_global.loc[nbr_id, avail].values.astype(float)
+                                    )
 
                     if RECORD_INFERENCE_GRAPHS and graph_log:
                         _igcsv = os.path.join(SCRIPT_DIR, "inference_graph_log.csv")
@@ -713,6 +887,15 @@ def main():
 
                     if SAVE_PLOTS:
                         print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
+                        # Inject baseline as a reference line in the combined plot
+                        res_dicts['forecasts']['baseline']    = _bl_forecast
+                        res_dicts['train_losses']['baseline'] = _bl_t_losses
+                        res_dicts['val_losses']['baseline']   = _bl_v_losses
+                        res_dicts['rmse']['baseline']         = _bl_rmse
+                        res_dicts['mae']['baseline']          = _bl_mae
+                        res_dicts['bias']['baseline']         = _bl_bias
+                        res_dicts['score']['baseline']        = _bl_score
+                        res_dicts['pocid']['baseline']        = _bl_pocid
                         plot_results(
                             train, val, test, res_dicts['forecasts'],
                             train_index, val_index, test_index,
@@ -725,6 +908,9 @@ def main():
                             rmse=res_dicts['rmse'], mae=res_dicts['mae'],
                             bias=res_dicts['bias'], score=res_dicts['score'],
                             pocid=res_dicts['pocid'],
+                            inference_step_dates=_inference_step_dates if _inference_step_dates else None,
+                            neighbour_series=_neighbour_series if _neighbour_series else None,
+                            inference_step_neighbours=_inference_step_neighbours if _inference_step_neighbours else None,
                         )
     
     experience_end_time = time.time()

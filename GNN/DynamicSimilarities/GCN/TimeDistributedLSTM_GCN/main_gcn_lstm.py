@@ -16,7 +16,6 @@ import pickle
 import itertools
 import time
 import csv as _csv_mod
-import hashlib
 import numpy as np
 import pandas as pd
 import torch
@@ -27,31 +26,35 @@ from torch_geometric.data import Batch, Data
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-# ── Paths & sys.path setup ─────────────────────────────────────────────────
+# ── Paths & sys.path setup (same convention as the single-graph runner) ────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, SCRIPT_DIR)                                          # local modules (inference, train, ...)
-sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/ (plots, utils)
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/
 
-# Shared modules from DynamicSimilarities/
-from plots import plot_results
-from utils import (
-    generate_exogenous_features, compute_metrics, neighbourhood_graph,
-    compute_distances_1vsAll, compute_similarities_1vsAll,
-)
+
+from inference import _recursive_forecast_gcn_perstep
+from utils import generate_exogenous_features, compute_metrics
+
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/
+from plots import plot_results, plot_networkx_plotly
+from GNN.DynamicSimilarities.gcn_influence_plots import plot_gcn_influence, plot_influence_summary
+from utils import generate_exogenous_features, compute_metrics, neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll # GraphAnalysis/utils.py
 
 # Local (per-step) GCN+LSTM modules
-from inference import _recursive_forecast_gcn_perstep
-from graph_plot import plot_networkx_plotly
 from gcn_lstm_dataset import (
-    GCNTimeSeriesDataset,
-    collate_pyg_ts,
+    GCNSeqTargetDataset,
+    collate_pyg_ts_seq,
     build_pyg_graphs_from_nx_windows,
 )
 from gcn_lstm_model import SimpleGCNLSTMForecaster
+from ablationlstm import AblationLSTMForecaster
 from train import train_model
-from gcn_influence_plots import plot_gcn_influence, plot_influence_summary
 
-
+from TimeDistributedLSTM.lstm_train import train as train_lstm_baseline
+from TimeDistributedLSTM.lstm_inference import recursive_inference as recursive_forecast_lstm_baseline
+from TimeDistributedLSTM.lstm_timedistributed import LSTM as LSTM_Baseline
+from TimeDistributedLSTM.dataset import SeqTargetDataset as LSTM_Baseline_Dataset
 # ── Metric typing ──────────────────────────────────────────────────────────
 DISTANCE_METRICS = {
     'euclidean', 'hamming', 'amplitude_offset', 'slope_consistency',
@@ -78,25 +81,23 @@ def infer_metric_type(metric, metric_type=None):
 
 
 # ── Constants (same defaults as LSTM_GCN/main.py) ──────────────────────────
-DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/data_andre_classified.feather'))
+# ── Constants ──────────────────────────────────────────────────────────────
+FULL_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/data_andre_classified.feather'))
 TOP_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/top_12500.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
-
-val_size = 31
-forecast_horizon = 153
-train_size = 761 - val_size - forecast_horizon
-lookback_window = 30
-BATCH_SIZE = 32
-
-
 SEEDS = [42]
+
+val_size = 30
+forecast_horizon = 153
+train_size = 761 - val_size - forecast_horizon  # 455
+lookback_window = 30
 
 # Leave as None to run all (item_id, store_id) pairs found in DATA_PATH.
 # Override with a list of tuples to run only a subset, e.g.:
-#PRODUCTS_TO_TEST = [(26008, 6269), (907967, 6269),(911753,6269)]
-PRODUCTS_TO_TEST = None
+PRODUCTS_TO_TEST = [(26008, 6269), (907967, 6269),(911753,6269)]
+#PRODUCTS_TO_TEST = None
 
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
@@ -112,7 +113,7 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88]},
+    {'metric': 'spearman', 'thresholds': [0.82]},
 ]
 
 window_sizes              = [15]
@@ -134,6 +135,13 @@ USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 GCN_NODE_FEATURES = 8           # output width of _window_node_features(); used for ablation dummy graphs
 
+# Node feature mode for the GCN ego-graphs (must match across dataset build,
+# inference patching and the ablation dummy-graph width):
+#   'raw'   — full window sequence as node features (width = window_size)
+#   'stats' — 8-dim statistical summary per node
+#             (mean, std, min, max, first, last, slope, sum)
+NODE_FEATURE_MODE = 'raw'
+
 # ── Diagnostic switches ───────────────────────────────────────────────────
 # Grid of ablation modes to run in a single execution:
 #   True  — GCN z-embedding zeroed (ablation)
@@ -142,6 +150,13 @@ ABLATE_Z_VALUES = [True, False]
 # Per-epoch diagnostics (||z||, Var(z), ‖∇gcn‖/‖∇lstm‖) are appended to
 # this CSV.  Suffix "_ablation" is added automatically when ABLATE_Z=True.
 DIAG_CSV_NAME  = "diagnostics.csv"
+
+# ── Inference-graph saving (mirrors the GCN+MLP pipeline) ─────────────────
+# Save one Plotly HTML of the inferred ego-graph per forecast step.
+SAVE_INFERENCE_GRAPHS_PLOTS = True
+# Set True to also emit inference_graph_log.csv with per-step neighbourhood data.
+RECORD_INFERENCE_GRAPHS = True
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -199,8 +214,8 @@ ROLLING_MEAN_EXCL_PREFIX = "rolling_mean_excl_"
 # Main runner
 # ──────────────────────────────────────────────────────────────────────────
 def main():
-    print(f"Loading data from {DATA_PATH}...")
-    df = pd.read_feather(DATA_PATH)
+    print(f"Loading data from {FULL_DATA_PATH}...")
+    df = pd.read_feather(FULL_DATA_PATH)
     if DATE_COL in df.index.names:
         if DATE_COL in df.columns:
             df = df.reset_index(drop=True)
@@ -218,16 +233,27 @@ def main():
     # Build the list of (item_id, store_id) pairs to iterate over
     global PRODUCTS_TO_TEST
     if PRODUCTS_TO_TEST is None:
-        print(f"Loading top products from {TOP_DATA_PATH}...")
-        top_df = pd.read_feather(TOP_DATA_PATH)
-        PRODUCTS_TO_TEST = (
-            top_df[["item_id", "store_id"]]
-            .drop_duplicates()
-            .sort_values(["item_id", "store_id"])
-            .apply(lambda r: (int(r["item_id"]), int(r["store_id"])), axis=1)
-            .tolist()
-        )
-        print(f"Running all {len(PRODUCTS_TO_TEST)} (item_id, store_id) pairs from dataset.")
+        try:
+            print(f"Loading top products from {TOP_DATA_PATH}...")
+            top_df = pd.read_feather(TOP_DATA_PATH)
+            PRODUCTS_TO_TEST = (
+                top_df[["item_id", "store_id"]]
+                .drop_duplicates()
+                .sort_values(["item_id", "store_id"])
+                .apply(lambda r: (int(r["item_id"]), int(r["store_id"])), axis=1)
+                .tolist()
+            )
+            print(f"Running all {len(PRODUCTS_TO_TEST)} (item_id, store_id) pairs from top dataset.")
+        except Exception as e:
+            print(f"Could not load top products file ({e}). Falling back to all products in full dataset.")
+            PRODUCTS_TO_TEST = (
+                full_df[["item_id", "store_id"]]
+                .drop_duplicates()
+                .sort_values(["item_id", "store_id"])
+                .apply(lambda r: (int(r["item_id"]), int(r["store_id"])), axis=1)
+                .tolist()
+            )
+            print(f"Running all {len(PRODUCTS_TO_TEST)} (item_id, store_id) pairs from full dataset.")
 
     results_csv = os.path.join(SCRIPT_DIR, f"{grid_configs[0]['metric']}.csv") if grid_configs else None
     done_set = set()
@@ -254,8 +280,11 @@ def main():
     df_wide_global.columns = pd.to_datetime(df_wide_global.columns).strftime('%Y-%m-%d')
 
     Lcols = len(df_wide_global.columns)
-    global_train_start_idx = max(0, Lcols - forecast_horizon - val_size - train_size)
-    global_val_start_idx   = Lcols - forecast_horizon - val_size
+    forecast_horizon_global = 153
+    val_size_global         = 153
+    train_size_global       = 455
+    global_train_start_idx = max(0, Lcols - forecast_horizon_global - val_size_global - train_size_global)
+    global_val_start_idx   = Lcols - forecast_horizon_global - val_size_global
 
     # per-product StandardScaler fit on training window, applied to whole history
     product_scalers = {}
@@ -269,12 +298,11 @@ def main():
             df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         ).flatten()
 
-    # ── Timing bookkeeping ───────────────────────────────────────────────
-    timings_csv_path = os.path.join(SCRIPT_DIR, "timings.csv")
+    
     seed_times = {}                  # seed -> cumulative seconds across products
     product_seed_times = []          # (product_id, store_id, seed, seconds)
+    influence_records = []           # one row per (product, seed, w, s) for the GCN-influence summary
     total_t0 = time.time()
-    influence_records = []           # collected across all products for summary plot
 
     for product_id, store_id in PRODUCTS_TO_TEST:
         print(f"\n{'='*80}")
@@ -285,6 +313,12 @@ def main():
             full_df[(full_df['item_id'] == product_id) & (full_df['store_id'] == store_id)]
             .sort_values(DATE_COL).reset_index(drop=True)
         )
+
+        forecast_horizon = 153
+        seq_length       = 30
+        train_size       = 455
+        val_size         = 153
+        BATCH_SIZE       = 32
 
         required_rows = forecast_horizon + val_size + train_size
         if len(df_p) < required_rows:
@@ -338,14 +372,97 @@ def main():
             # GCN+LSTM requires a graph for every config — no_emb baseline is dropped.
             all_configs = list(grid_configs)
 
+            # ── Baseline execution first: pure LSTM (no graph) ───────────────
+            # Direct analogue of the MLP pipeline's baseline block.  Trained once
+            # per (product, seed); stored and injected as a reference line into
+            # every combined / merged plot below.
+            print("\n--- Training LSTM baseline (no graph) ---")
+            lstm_input_size_bl = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
+            bl_model = LSTM_Baseline(
+                input_size=lstm_input_size_bl,
+                hidden_size=HIDDEN_SIZE,
+                num_layers=NUM_LAYERS,
+                dropout=DROPOUT,
+                time_distributed=True,
+            ).to(device)
+            bl_criterion  = nn.MSELoss()
+            bl_optimizer  = torch.optim.Adam(bl_model.parameters(), lr=LEARNING_RATE)
+            bl_scheduler  = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                bl_optimizer, mode='min', factor=0.5, patience=PATIENCE // 3,
+            )
+
+            bl_train_dataset = LSTM_Baseline_Dataset(
+                train_scaled, exog_train_scaled if EXOG_COLS else None, seq_length,
+            )
+            bl_val_dataset = LSTM_Baseline_Dataset(
+                val_scaled, exog_val_scaled if EXOG_COLS else None, seq_length,
+            )
+            bl_train_loader = DataLoader(bl_train_dataset, batch_size=BATCH_SIZE, shuffle=False)
+            bl_val_loader   = DataLoader(bl_val_dataset, batch_size=1, shuffle=False)
+
+            bl_models_dir = os.path.join(best_models_seed_dir, 'lstm_baseline')
+            os.makedirs(bl_models_dir, exist_ok=True)
+            bl_model_path = os.path.join(
+                bl_models_dir, f"lstm_baseline_{product_id}_{store_id}_seed_{seed}.pth",
+            )
+
+            bl_model, _bl_t_losses, _bl_v_losses, _bl_best_epoch, _bl_train_time = train_lstm_baseline(
+                seed, bl_model, bl_train_loader, bl_val_loader,
+                bl_criterion, bl_optimizer, device, bl_model_path,
+                bl_scheduler, PATIENCE, EPOCHS,
+            )
+            if os.path.exists(bl_model_path):
+                bl_model.load_state_dict(torch.load(bl_model_path, map_location=device))
+
+            # Raw (unscaled) test exog — needed by the recursive baseline loop.
+            exog_test_unscaled_bl = df_p[EXOG_COLS][test_slice].values if EXOG_COLS else None
+            _bl_forecast, _bl_infer_time = recursive_forecast_lstm_baseline(
+                bl_model, seq_length,
+                val_scaled, exog_val_scaled, exog_test_scaled, exog_test_unscaled_bl,
+                scaler, exog_scaler, device, EXOG_COLS, forecast_horizon,
+            )
+
+            # Baseline metrics (computed in raw scale, same as the GCN forecasts).
+            _bl_valid_mask = ~np.isnan(_bl_forecast)
+            _bl_valid_test = test[_bl_valid_mask]
+            _bl_valid_fc   = np.array(_bl_forecast)[_bl_valid_mask]
+            _bl_rmse = _bl_mae = _bl_bias = _bl_score = _bl_pocid = None
+            try:
+                _bl_rmse, _bl_mae, _bl_bias, _bl_score, _bl_pocid = compute_metrics(
+                    _bl_valid_test, _bl_valid_fc)
+            except Exception:
+                if len(_bl_valid_test) > 0:
+                    _bl_rmse  = float(np.sqrt(mean_squared_error(_bl_valid_test, _bl_valid_fc)))
+                    _bl_mae   = float(mean_absolute_error(_bl_valid_test, _bl_valid_fc))
+                    _bl_bias  = float(np.mean(_bl_valid_fc - _bl_valid_test))
+                    _bl_score = float(r2_score(_bl_valid_test, _bl_valid_fc))
+            print(f"LSTM baseline -> RMSE: {_bl_rmse}")
+
             for config in all_configs:
                 metric      = config['metric']
                 thresholds  = config.get('thresholds',  [None])
                 percentiles = config.get('percentiles', [None])
 
+                # ── Write the LSTM baseline row to this metric's CSV ─────────
+                _bl_csv_path = os.path.join(SCRIPT_DIR, f"{metric}.csv")
+                _bl_csv_exists = os.path.exists(_bl_csv_path)
+                with open(_bl_csv_path, 'a', newline='') as _blf:
+                    _blw = _csv_mod.writer(_blf)
+                    if not _bl_csv_exists:
+                        _blw.writerow([
+                            "product_id", "store_id", "seed", "metric",
+                            "window_size", "step_size", "threshold", "percentile",
+                            "enable_edges", "enable_second_degree", "ablate_z",
+                            "rmse", "mae", "bias", "r2_score", "pocid",
+                        ])
+                    _blw.writerow([
+                        product_id, store_id, seed, "baseline",
+                        "", "", "", "",
+                        "", "", "baseline",
+                        _bl_rmse, _bl_mae, _bl_bias, _bl_score, _bl_pocid,
+                    ])
+
                 results_by_w_s = {}
-                _neighbour_series: dict = {}
-                _all_step_neighbours: dict = {}  # step_idx -> neighbour IDs (every forecast step)
 
                 is_threshold_mode = thresholds is not None and thresholds != [None]
                 params   = thresholds if is_threshold_mode else percentiles
@@ -353,6 +470,11 @@ def main():
                     ABLATE_Z_VALUES, params, window_sizes, step_sizes,
                     enable_edges_opts, enable_second_degree_opts,
                 )
+
+                # Accumulate neighbour info across configs; populated by the first non-ablation run.
+                _neighbour_series: dict = {}
+                _all_step_neighbours: dict = {}        # step_idx -> neighbour IDs (every step)
+                _full_no_z_forecasts: dict = {}        # (w,s) -> in-model z-ablation forecast (same weights, z=0)
 
                 for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
                     # When ablating, z is zeroed so the threshold has no effect on
@@ -392,15 +514,18 @@ def main():
                         # single-node placeholder graphs instead.
                         fixed_threshold = None
                         results_by_w_s[key]['threshold'] = fixed_threshold
+                        _dummy_in_channels = (
+                            GCN_NODE_FEATURES if NODE_FEATURE_MODE == 'stats' else window_size
+                        )
                         _dummy = Data(
-                            x=torch.zeros(1, GCN_NODE_FEATURES, dtype=torch.float32),
+                            x=torch.zeros(1, _dummy_in_channels, dtype=torch.float32),
                             edge_index=torch.tensor([[0], [0]], dtype=torch.long),
                             edge_attr=torch.zeros(1, 1, dtype=torch.float32),
                             num_nodes=1,
                         )
                         pyg_train         = [_dummy] * (val_start_idx  - train_start_idx)
                         pyg_val           = [_dummy] * (test_start_idx - val_start_idx)
-                        pyg_seed_graphs   = [_dummy] * lookback_window
+                        pyg_seed_graphs   = [_dummy] * seq_length
                         pyg_future_graphs = [_dummy] * forecast_horizon
                         _inf_nx_graphs    = None
                     else:
@@ -432,10 +557,13 @@ def main():
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
 
+                        _inf_nx_graphs = nx_graphs[-forecast_horizon:] if SAVE_INFERENCE_GRAPHS_PLOTS else None
+
                         # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
                         pyg_windows = build_pyg_graphs_from_nx_windows(
                             nx_graphs, current_df_wide, product_id,
                             window_size=window_size, step_size=step_size,
+                            node_feature_mode=NODE_FEATURE_MODE,
                         )
                         T_global = current_df_wide.shape[1]
                         pyg_aligned_global = _align_pyg_windows_to_timeline(
@@ -448,40 +576,45 @@ def main():
                         pyg_val   = pyg_aligned_global[product_offset + val_start_idx:
                                                        product_offset + test_start_idx]
 
-                        # Inference seed: the L per-day graphs ending at the last validation day.
-                        seed_start = product_offset + test_start_idx - lookback_window
-                        seed_end   = product_offset + test_start_idx
+                        # Inference seed: L per-day graphs whose NEWEST entry is
+                        # aligned[test_start] (strictly-before-test_start).  This matches
+                        # the training convention where the last lookback step that
+                        # predicts day D uses graph aligned[D].  (The previous version
+                        # ended at aligned[test_start-1], one day stale vs. training.)
+                        seed_start = product_offset + test_start_idx - seq_length + 1
+                        seed_end   = product_offset + test_start_idx + 1
                         pyg_seed_graphs = pyg_aligned_global[seed_start:seed_end]
 
-                        # Future graphs aligned to each forecast day t in [test_start, test_start+H)
-                        fut_start = product_offset + test_start_idx
+                        # Future graphs: future_graphs[k] = aligned[test_start+1+k] is the
+                        # graph appended AFTER predicting day test_start+k, so it becomes the
+                        # newest graph used to predict day test_start+k+1 (= aligned[that day]).
+                        fut_start = product_offset + test_start_idx + 1
                         fut_end   = fut_start + forecast_horizon
                         pyg_future_graphs = pyg_aligned_global[fut_start:fut_end]
-                        _inf_nx_graphs = nx_graphs[-forecast_horizon:]
 
-                    # ── 3. Datasets / loaders (PER-STEP) ─────────────────────
+                    # ── 3. Datasets / loaders (TIME-DISTRIBUTED) ─────────────
                     use_pin_memory = torch.cuda.is_available()
-                    train_dataset = GCNTimeSeriesDataset(
+                    train_dataset = GCNSeqTargetDataset(
                         target_data=train_scaled,
                         exog_data=exog_train_scaled if EXOG_COLS else None,
-                        seq_length=lookback_window,
+                        seq_length=seq_length,
                         pyg_graphs=pyg_train,
                         graph_window_size=window_size,
                     )
                     train_loader = DataLoader(
                         train_dataset, batch_size=BATCH_SIZE, shuffle=False,
-                        pin_memory=use_pin_memory, collate_fn=collate_pyg_ts,
+                        pin_memory=use_pin_memory, collate_fn=collate_pyg_ts_seq,
                     )
-                    val_dataset = GCNTimeSeriesDataset(
+                    val_dataset = GCNSeqTargetDataset(
                         target_data=val_scaled,
                         exog_data=exog_val_scaled if EXOG_COLS else None,
-                        seq_length=lookback_window,
+                        seq_length=seq_length,
                         pyg_graphs=pyg_val,
                         graph_window_size=window_size,
                     )
                     val_loader = DataLoader(
                         val_dataset, batch_size=BATCH_SIZE, shuffle=False,
-                        pin_memory=use_pin_memory, collate_fn=collate_pyg_ts,
+                        pin_memory=use_pin_memory, collate_fn=collate_pyg_ts_seq,
                     )
 
                     # ── 4. Model + optimiser ─────────────────────────────────
@@ -492,16 +625,27 @@ def main():
 
                     in_channels     = pyg_train[0].x.shape[1]    # 8 from _window_node_features
                     lstm_input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0)
-                    model = SimpleGCNLSTMForecaster(
-                        in_channels=in_channels,
-                        gcn_hidden=HIDDEN_SIZE,
-                        d_g=D_G,
-                        lstm_input_size=lstm_input_size,
-                        lstm_hidden=HIDDEN_SIZE,
-                        lstm_layers=NUM_LAYERS,
-                        horizon=1,
-                        dropout=DROPOUT,
-                    ).to(device)
+                    if ablate_z:
+                        # Pure LSTM — no graph input, no wasted zero d_g columns.
+                        model = AblationLSTMForecaster(
+                            lstm_input_size=lstm_input_size,
+                            lstm_hidden=HIDDEN_SIZE,
+                            lstm_layers=NUM_LAYERS,
+                            horizon=1,
+                            dropout=DROPOUT,
+                        ).to(device)
+                    else:
+                        model = SimpleGCNLSTMForecaster(
+                            in_channels=in_channels,
+                            gcn_hidden=HIDDEN_SIZE,
+                            d_g=D_G,
+                            lstm_input_size=lstm_input_size,
+                            lstm_hidden=HIDDEN_SIZE,
+                            lstm_layers=NUM_LAYERS,
+                            horizon=1,
+                            dropout=DROPOUT,
+                            time_distributed=True,
+                        ).to(device)
                     model.ablate_z = ablate_z
                     criterion  = nn.MSELoss()
                     criterion2 = nn.MSELoss()
@@ -534,14 +678,20 @@ def main():
                     print(f"Resolved checkpoint: {best_model_path}")
 
                     # ── 6. Train (or reload) ─────────────────────────────────
+                    _checkpoint_ok = False
                     if os.path.exists(best_model_path) and os.path.exists(history_path):
                         print(f"Loading existing model from {best_model_path}...")
-                        model.load_state_dict(torch.load(best_model_path, map_location=device))
-                        with open(history_path, 'rb') as f:
-                            history = pickle.load(f)
-                            train_losses = history['train_losses']
-                            val_losses   = history['val_losses']
-                    else:
+                        try:
+                            model.load_state_dict(torch.load(best_model_path, map_location=device))
+                            with open(history_path, 'rb') as f:
+                                history = pickle.load(f)
+                                train_losses = history['train_losses']
+                                val_losses   = history['val_losses']
+                            _checkpoint_ok = True
+                        except (RuntimeError, Exception) as _ckpt_err:
+                            print(f"Checkpoint incompatible with current model architecture "
+                                  f"({_ckpt_err}). Retraining from scratch.")
+                    if not _checkpoint_ok:
                         print("Training new per-step GCN+LSTM model...")
                         diag_suffix = "_ablation" if ablate_z else ""
                         # Per-product diagnostics folder:
@@ -584,6 +734,9 @@ def main():
                             optimizer=optimizer, device=device,
                             best_model_path=best_model_path if SAVE_MODELS else None,
                             scheduler=scheduler, patience=PATIENCE,
+                            # Per-epoch z-health (Var(z), ||z||, grad ratio) → diagnostics.csv,
+                            # consumed by the GCN-influence plot.  Ablation models have no
+                            # z_norm so their rows report z stats as NaN (harmless).
                             diag_csv_path=diag_csv_path, diag_meta=diag_meta,
                         )
                         if SAVE_MODELS:
@@ -604,15 +757,15 @@ def main():
                     # LSTM seed: last L target values of val, exog rows aligned so last row = exog_test[0]
                     if EXOG_COLS:
                         exog_seed_rows = np.vstack([
-                            exog_val_scaled[-(lookback_window - 1):],
+                            exog_val_scaled[-(seq_length - 1):],
                             exog_test_scaled[0:1],
                         ])
                         ts_seed = np.column_stack([
-                            val_scaled[-lookback_window:].reshape(-1, 1),
+                            val_scaled[-seq_length:].reshape(-1, 1),
                             exog_seed_rows,
                         ]).astype(np.float32)
                     else:
-                        ts_seed = val_scaled[-lookback_window:].reshape(-1, 1).astype(np.float32)
+                        ts_seed = val_scaled[-seq_length:].reshape(-1, 1).astype(np.float32)
 
                     # Build position->k map for the lag columns present in EXOG_COLS
                     lag_col_indices = {
@@ -647,6 +800,41 @@ def main():
                             # to match df_wide_scaled space used for distance metrics.
                             target_z_scaler = product_scalers[product_id]
 
+                    # ── Build per-step graph-save callback ───────────────────
+                    if _inf_nx_graphs is not None:
+                        _param_label_plot = (f"th_{current_threshold}" if is_threshold_mode
+                                             else f"pct_{current_percentile}")
+                        _graph_plot_dir = os.path.join(
+                            SCRIPT_DIR, 'graph_infered_plots', str(product_id),
+                            f'seed_{seed}', metric, _param_label_plot,
+                        )
+                        os.makedirs(_graph_plot_dir, exist_ok=True)
+                        print(f"\nWill save {len(_inf_nx_graphs)} inference graph plots during inference...")
+
+                        def _make_step_cb(graphs, plot_dir, lbl, w, s, pid, met):
+                            def _cb(step_idx):
+                                if step_idx < len(graphs):
+                                    _title = (
+                                        f"Product {pid} | {met} | {lbl} | "
+                                        f"w{w}_s{s} | inference step {step_idx + 1}"
+                                    )
+                                    _sp = os.path.join(
+                                        plot_dir,
+                                        f"graph_{met}_{lbl}_w{w}_s{s}_step{step_idx + 1:04d}.html",
+                                    )
+                                    plot_networkx_plotly(G=graphs[step_idx], title=_title,
+                                                         save_path=_sp, target_node=pid)
+                            return _cb
+
+                        _step_callback = _make_step_cb(
+                            _inf_nx_graphs, _graph_plot_dir, _param_label_plot,
+                            window_size, step_size, product_id, metric,
+                        )
+                    else:
+                        _step_callback = None
+
+                    graph_log = [] if RECORD_INFERENCE_GRAPHS else None
+
                     forecast = _recursive_forecast_gcn_perstep(
                         model=model,
                         ts_seed=ts_seed,
@@ -662,13 +850,47 @@ def main():
                         exog_scaler=exog_scaler if EXOG_COLS else None,
                         initial_target_window=initial_target_window,
                         target_z_scaler=target_z_scaler,
+                        node_feature_mode=NODE_FEATURE_MODE,
+                        graph_log_out=graph_log,
+                        step_callback=_step_callback,
                     )
 
-                    # ── Capture all-step neighbours (first non-ablation run) ──
+                    # ── In-model z-ablation: same trained weights, GCN embedding
+                    # zeroed.  Isolates how much THIS model relies on the graph
+                    # (vs the separately trained ablation model).  Stored per (w,s)
+                    # for the GCN-influence plot built in the merged block below.
+                    if not ablate_z:
+                        _saved_flag = model.ablate_z
+                        model.ablate_z = True
+                        forecast_no_z = _recursive_forecast_gcn_perstep(
+                            model=model,
+                            ts_seed=ts_seed,
+                            initial_graphs=pyg_seed_graphs,
+                            future_graphs=pyg_future_graphs,
+                            exog_test_scaled=exog_test_scaled if EXOG_COLS else None,
+                            scaler=scaler,
+                            horizon=forecast_horizon,
+                            device=device,
+                            target_history_unscaled=target_history_unscaled if EXOG_COLS else None,
+                            lag_col_indices=lag_col_indices if EXOG_COLS else None,
+                            rolling_mean_excl_col_indices=rolling_mean_excl_col_indices if EXOG_COLS else None,
+                            exog_scaler=exog_scaler if EXOG_COLS else None,
+                            initial_target_window=initial_target_window,
+                            target_z_scaler=target_z_scaler,
+                            node_feature_mode=NODE_FEATURE_MODE,
+                            graph_log_out=None,
+                            step_callback=None,
+                        )
+                        model.ablate_z = _saved_flag
+                        _full_no_z_forecasts[(window_size, step_size)] = np.asarray(forecast_no_z)
+
+                    # ── Capture per-step neighbours (first non-ablation run) ──
                     if _inf_nx_graphs is not None and not ablate_z and not _all_step_neighbours:
                         _test_dates_str = pd.to_datetime(
                             df_p[DATE_COL].iloc[test_start_idx:].values
                         ).strftime('%Y-%m-%d')
+                        # Per-step neighbours for EVERY inference step — drives the
+                        # hover ("Neighbours: ...") on the forecast/actual lines.
                         all_nbr_ids: set = set()
                         for step_idx in range(len(_inf_nx_graphs)):
                             G_step = _inf_nx_graphs[step_idx]
@@ -676,6 +898,7 @@ def main():
                             _all_step_neighbours[step_idx] = nbrs
                             all_nbr_ids.update(nbrs)
                         all_nbr_ids.discard(product_id)
+                        # Actual neighbour time series (drawn as faint lines on the plot).
                         for nbr_id in all_nbr_ids:
                             if nbr_id in df_wide_global.index:
                                 avail = [c for c in _test_dates_str if c in df_wide_global.columns]
@@ -683,6 +906,29 @@ def main():
                                     _neighbour_series[nbr_id] = (
                                         df_wide_global.loc[nbr_id, avail].values.astype(float)
                                     )
+
+                    if RECORD_INFERENCE_GRAPHS and graph_log:
+                        _igcsv = os.path.join(SCRIPT_DIR, "inference_graph_log.csv")
+                        _igexists = os.path.exists(_igcsv)
+                        with open(_igcsv, 'a', newline='') as _gf:
+                            _gw = _csv_mod.writer(_gf)
+                            if not _igexists:
+                                _gw.writerow([
+                                    "product_id", "store_id", "seed", "metric",
+                                    "window_size", "step_size",
+                                    "threshold", "percentile", "ablate_z",
+                                    "step", "n_nodes", "src_node", "tgt_node", "edge_weight",
+                                ])
+                            for _row in graph_log:
+                                _gw.writerow([
+                                    product_id, store_id, seed, metric,
+                                    window_size, step_size,
+                                    current_threshold if current_threshold is not None else "",
+                                    current_percentile if current_percentile is not None else "",
+                                    ablate_z,
+                                    _row['step'], _row['n_nodes'],
+                                    _row['src_node'], _row['tgt_node'], _row['edge_weight'],
+                                ])
 
                     valid_mask     = ~np.isnan(forecast)
                     valid_test     = test[valid_mask]
@@ -754,6 +1000,8 @@ def main():
                     for k in grouped_results[key]:
                         grouped_results[key][k].update(res_dicts[k])
 
+                import hashlib
+
                 # ── Merged overlay: GCN+LSTM vs Ablation on the same plot ────
                 if SAVE_PLOTS:
                     ws_combos = set((w, s) for (az, w, s) in grouped_results.keys())
@@ -779,9 +1027,23 @@ def main():
                         for prefix, src_key in [("GCN", full_key), ("Ablation", abl_key)]:
                             src = grouped_results[src_key]
                             for lbl in src['forecasts']:
+                                # 'baseline' was injected into both sides above;
+                                # add it once explicitly to avoid duplicate lines.
+                                if lbl == 'baseline':
+                                    continue
                                 new_lbl = f"{prefix}/{lbl}"
                                 for k in merged:
                                     merged[k][new_lbl] = src[k].get(lbl)
+
+                        # Single shared LSTM-baseline reference line.
+                        merged['forecasts']['baseline']    = _bl_forecast
+                        merged['train_losses']['baseline'] = _bl_t_losses
+                        merged['val_losses']['baseline']   = _bl_v_losses
+                        merged['rmse']['baseline']         = _bl_rmse
+                        merged['mae']['baseline']          = _bl_mae
+                        merged['bias']['baseline']         = _bl_bias
+                        merged['score']['baseline']        = _bl_score
+                        merged['pocid']['baseline']        = _bl_pocid
 
                         merged_path = os.path.join(
                             sub_dir,
@@ -805,43 +1067,46 @@ def main():
                             all_step_neighbours=_all_step_neighbours if _all_step_neighbours else None,
                         )
 
-                        # ── GCN influence plot (per-threshold) ───────────────
-                        noz_forecasts = grouped_results[abl_key]['forecasts']
-                        noz_arr = next(iter(noz_forecasts.values())) if noz_forecasts else None
-                        diag_csv_path_infl = os.path.join(
-                            SCRIPT_DIR, "diagnostics", str(product_id), DIAG_CSV_NAME
-                        )
-                        for lbl, zon_forecast in grouped_results[full_key]['forecasts'].items():
-                            if noz_arr is None:
-                                continue
-                            clean_lbl = (lbl.replace("|az:full", "")
-                                           .replace("|", "_").replace(":", ""))
-                            influence_dir = os.path.join(
-                                SCRIPT_DIR, "influence_plots", f"seed_{seed}",
-                                f"item_{product_id}", metric,
+                        # ── GCN-influence plot (z-on vs in-model z-off) ──────
+                        _full_lbls = [l for l in grouped_results[full_key]['forecasts']
+                                      if l != 'baseline']
+                        full_fc = (grouped_results[full_key]['forecasts'][_full_lbls[0]]
+                                   if _full_lbls else None)
+                        noz_fc = _full_no_z_forecasts.get((w, s))
+                        if full_fc is not None and noz_fc is not None:
+                            _infl_dir = os.path.join(
+                                SCRIPT_DIR, 'gcn_influence_plots', f'seed_{seed}',
+                                f'product_{product_id}_store_{store_id}',
                             )
-                            os.makedirs(influence_dir, exist_ok=True)
-                            infl_path = os.path.join(influence_dir, f"influence_{clean_lbl}.html")
-                            stats = plot_gcn_influence(
-                                test=test,
-                                test_index=test_index,
-                                full_forecast=zon_forecast,
-                                full_no_z_forecast=noz_arr,
-                                diag_csv_path=diag_csv_path_infl,
-                                seed=seed,
-                                title=(f"GCN Influence — {product_id} | {metric} "
-                                       f"| seed {seed} | {lbl}"),
-                                save_path=infl_path,
+                            os.makedirs(_infl_dir, exist_ok=True)
+                            _infl_path = os.path.join(
+                                _infl_dir,
+                                f"item_{product_id}_{metric}_w{w}_s{s}_influence.html",
                             )
-                            stats.update({
-                                "product_id": product_id,
-                                "store_id": store_id,
-                                "seed": seed,
-                                "metric": metric,
-                                "label": lbl,
-                            })
-                            influence_records.append(stats)
-                            print(f"Saved influence plot: {os.path.abspath(infl_path)}")
+                            _diag_csv = os.path.join(
+                                SCRIPT_DIR, "diagnostics", str(product_id), "diagnostics.csv",
+                            )
+                            try:
+                                _stats = plot_gcn_influence(
+                                    test=test, test_index=test_index,
+                                    full_forecast=full_fc, full_no_z_forecast=noz_fc,
+                                    baseline_forecast=_bl_forecast,
+                                    all_step_neighbours=_all_step_neighbours or None,
+                                    neighbour_series=_neighbour_series or None,
+                                    diag_csv_path=_diag_csv if os.path.exists(_diag_csv) else None,
+                                    seed=seed,
+                                    title=(f'GCN Influence — {metric} | Seed={seed} | '
+                                           f'W={w} | S={s} | Item={product_id}'),
+                                    save_path=_infl_path,
+                                )
+                                influence_records.append({
+                                    'product_id': product_id, 'store_id': store_id,
+                                    'seed': seed, 'w': w, 's': s, 'metric': metric,
+                                    **_stats,
+                                })
+                                print(f"Saved GCN-influence plot to: {os.path.abspath(_infl_path)}")
+                            except Exception as _e:
+                                print(f"Failed to build GCN-influence plot for {product_id}: {_e}")
             # ── Per-seed timing (this product) ─────────────────────────────────────
             seed_elapsed = time.time() - seed_t0
             seed_times[seed] = seed_times.get(seed, 0.0) + seed_elapsed
@@ -858,20 +1123,15 @@ def main():
         print(f"  Seed {s}: total {t:.1f} s  ({t/60:.2f} min)  across {len(PRODUCTS_TO_TEST)} products")
     print(f"  TOTAL    : {total_elapsed:.1f} s  ({total_elapsed/60:.2f} min)")
 
-    with open(timings_csv_path, "w", newline="") as fh:
-        w = _csv_mod.writer(fh)
-        w.writerow(["product_id", "store_id", "seed", "seconds"])
-        for pid, sid, sd, sec in product_seed_times:
-            w.writerow([pid, sid, sd, f"{sec:.3f}"])
-        for sd, sec in sorted(seed_times.items()):
-            w.writerow(["TOTAL_SEED", "", sd, f"{sec:.3f}"])
-        w.writerow(["TOTAL_ALL", "", "", f"{total_elapsed:.3f}"])
-    print(f"  Timings written to: {timings_csv_path}")
-    # ── Influence summary across all products ────────────────────────────
+    # ── Aggregate GCN-influence summary across all products ───────────────
     if SAVE_PLOTS and influence_records:
-        influence_summary_dir = os.path.join(SCRIPT_DIR, "influence_plots")
-        plot_influence_summary(influence_records, influence_summary_dir)
-        print(f"Saved influence summary to: {os.path.abspath(influence_summary_dir)}")
+        _infl_summary_dir = os.path.join(SCRIPT_DIR, 'gcn_influence_plots')
+        try:
+            plot_influence_summary(influence_records, _infl_summary_dir)
+            print(f"\nSaved GCN-influence summary ({len(influence_records)} runs) "
+                  f"to {os.path.abspath(_infl_summary_dir)}")
+        except Exception as _e:
+            print(f"Failed to build GCN-influence summary: {_e}")
 
     # ── Correlation plots from accumulated CSVs ───────────────────────────
     if SAVE_PLOTS:
