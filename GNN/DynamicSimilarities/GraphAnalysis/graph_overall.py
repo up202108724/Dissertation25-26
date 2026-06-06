@@ -304,7 +304,7 @@ def report_distribution(all_weights, per_item_threshold, per_item_counts,
 
     # --- Histogram plot ---
     plt.figure(figsize=(14, 6))
-    sns.histplot(all_weights, bins=bins, kde=True, color='skyblue')
+    sns.histplot(all_weights, bins=bins, kde=False, color='skyblue')
     plt.title(f"{header_tag.capitalize()} Distribution of Edge "
               f"{metric_type.capitalize()} ({metric}) | window={window_size}, "
               f"step={step_size} | {len(item_ids)} items, "
@@ -380,23 +380,24 @@ def plot_per_item_comparison(per_item, metric, metric_type, window_size,
 if __name__ == "__main__":
     # ---------------- Configuration ----------------
     # MODE: 'none' | 'threshold' | 'percentile'
-    MODE = "percentile"
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, SCRIPT_DIR)                                          # local modules (inference, train, ...)
+    sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/ (plots, utils)
 
-    #ITEM_IDS = [26008, 907969, 907967, 213626, 213628,
-    #            213625, 26862, 156753, 53682, 34497]
-    ITEM_IDS = [26008]
+    MODE = "percentile"             # 'none' | 'threshold' | 'percentile'
     METRIC = "spearman"               # 'pearson' | 'spearman' | 'kendall' |
                                  # 'cid' | 'dtw' | 'manhattan' | ...
     METRIC_TYPE = "similarity"     # 'similarity' or 'distance'
     WINDOW_SIZE = 30
     STEP_SIZE = 1
 
-    THRESHOLD = 2.5              # used iff MODE == 'threshold'
+    THRESHOLD = 0.75              # used iff MODE == 'threshold'
     PERCENTILE = 1               # used iff MODE == 'percentile'
     ENABLE_EDGES_WITHIN_STAR = True   # ignored when MODE == 'none'
-
-    TRAIN_SIZE = 455
-    VAL_SIZE = 154
+    TOTAL_TIME_STEPS = 761
+    FORECAST_HORIZON = 153
+    VAL_SIZE = 31
+    TRAIN_SIZE = TOTAL_TIME_STEPS - VAL_SIZE - FORECAST_HORIZON
     USE_TRAIN_VAL_ONLY = True
     # For distance metrics on raw counts (CID/DTW/Euclidean/...) values are
     # dominated by magnitude. Z-normalize each item using train slice stats
@@ -408,14 +409,25 @@ if __name__ == "__main__":
 
     # ---------------- Load dataset ----------------
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    FULL_DATA_PATH = os.path.join(BASE_DIR, '..', '..', '..',
+                                  'dataset', 'data_andre_classified.feather')
     DATA_PATH = os.path.join(BASE_DIR, '..', '..', '..',
-                             'dataset', 'data_andre.feather')
-    print(f"Loading data from {DATA_PATH}...")
-    df = pd.read_feather(DATA_PATH)
+                             'dataset', 'top_12500.feather')
 
-    df_wide = (df.pivot_table(index='item_id', columns='date',
-                              values='value', aggfunc='sum')
-                 .fillna(0))
+    # Focal products: the 61 items in DATA_PATH
+    print(f"Loading focal products from {DATA_PATH}...")
+    df_focal = pd.read_feather(DATA_PATH)
+    ITEM_IDS = df_focal['item_id'].unique().tolist()
+    print(f"Focal products: {len(ITEM_IDS)}")
+
+    # Neighbour pool: full dataset (all products serve as candidate neighbours)
+    print(f"Loading full neighbour dataset from {FULL_DATA_PATH}...")
+    df_full = pd.read_feather(FULL_DATA_PATH)
+
+    df_wide = (df_full.pivot_table(index='item_id', columns='date',
+                                   values='value', aggfunc='sum')
+                      .fillna(0))
+    print(f"Full dataset: {df_wide.shape[0]} products, {df_wide.shape[1]} time steps")
 
     if USE_TRAIN_VAL_ONLY:
         df_wide = df_wide.iloc[:, :TRAIN_SIZE + VAL_SIZE]
@@ -436,22 +448,6 @@ if __name__ == "__main__":
             ).flatten()
         df_wide = df_wide_scaled
 
-    # ---------------- Collect ----------------
-    all_weights, per_item, per_item_th, per_item_counts = collect_edge_weights(
-        df_wide=df_wide,
-        item_ids=ITEM_IDS,
-        metric=METRIC,
-        metric_type=METRIC_TYPE,
-        window_size=WINDOW_SIZE,
-        step_size=STEP_SIZE,
-        train_end_idx=train_end_idx,
-        mode=MODE,
-        threshold=THRESHOLD,
-        percentile=PERCENTILE,
-        enable_edges_within_star=ENABLE_EDGES_WITHIN_STAR,
-        verbose=True,
-    )
-
     # ---------------- Output dir per mode ----------------
     if MODE == "threshold":
         mode_dir = f"W{WINDOW_SIZE}_S{STEP_SIZE}_th{THRESHOLD}"
@@ -460,37 +456,47 @@ if __name__ == "__main__":
     else:
         mode_dir = f"W{WINDOW_SIZE}_S{STEP_SIZE}_all"
 
-    out_dir = os.path.join(OUT_BASE,
-                           f"{METRIC}_{METRIC_TYPE}",
-                           MODE,
-                           mode_dir)
+    out_base_dir = os.path.join(OUT_BASE, f"{METRIC}_{METRIC_TYPE}", MODE, mode_dir)
 
-    # ---------------- Report ----------------
-    report_distribution(
-        all_weights=all_weights,
-        per_item_threshold=per_item_th,
-        per_item_counts=per_item_counts,
-        metric=METRIC,
-        metric_type=METRIC_TYPE,
-        window_size=WINDOW_SIZE,
-        step_size=STEP_SIZE,
-        mode=MODE,
-        threshold=THRESHOLD,
-        percentile=PERCENTILE,
-        item_ids=ITEM_IDS,
-        out_dir=out_dir,
-    )
+    # ---------------- Per-product loop ----------------
+    for item_id in ITEM_IDS:
+        print(f"\n{'='*70}")
+        print(f"Processing item_id={item_id} ({ITEM_IDS.index(item_id)+1}/{len(ITEM_IDS)})")
+        print(f"{'='*70}")
 
-    plot_per_item_comparison(
-        per_item=per_item,
-        metric=METRIC,
-        metric_type=METRIC_TYPE,
-        window_size=WINDOW_SIZE,
-        step_size=STEP_SIZE,
-        mode=MODE,
-        threshold=THRESHOLD,
-        percentile=PERCENTILE,
-        out_dir=out_dir,
-    )
+        all_weights, per_item, per_item_th, per_item_counts = collect_edge_weights(
+            df_wide=df_wide,
+            item_ids=[item_id],
+            metric=METRIC,
+            metric_type=METRIC_TYPE,
+            window_size=WINDOW_SIZE,
+            step_size=STEP_SIZE,
+            train_end_idx=train_end_idx,
+            mode=MODE,
+            threshold=THRESHOLD,
+            percentile=PERCENTILE,
+            enable_edges_within_star=ENABLE_EDGES_WITHIN_STAR,
+            verbose=True,
+        )
 
-    print(f"\nAll artifacts saved under: {out_dir}")
+        if len(all_weights) == 0:
+            print(f"  [SKIP] No edges collected for item_id={item_id}.")
+            continue
+
+        out_dir = os.path.join(out_base_dir, str(item_id))
+        report_distribution(
+            all_weights=all_weights,
+            per_item_threshold=per_item_th,
+            per_item_counts=per_item_counts,
+            metric=METRIC,
+            metric_type=METRIC_TYPE,
+            window_size=WINDOW_SIZE,
+            step_size=STEP_SIZE,
+            mode=MODE,
+            threshold=THRESHOLD,
+            percentile=PERCENTILE,
+            item_ids=[item_id],
+            out_dir=out_dir,
+        )
+
+    print(f"\nAll artifacts saved under: {out_base_dir}")

@@ -18,6 +18,31 @@ DISTANCE_METRICS = {
 }
 SIMILARITY_METRICS = {'pearson', 'spearman', 'kendall'}
 
+def _save_node_features_csv(
+    pyg_windows, product_id, store_id, metric, threshold, window_size, mode, script_dir
+):
+    """
+    Dump node features from every PyG window graph to a CSV.
+    Each row: window_idx, node_idx, feat_0, feat_1, ..., feat_N
+    """
+    out_dir = os.path.join(script_dir, "node_features")
+    os.makedirs(out_dir, exist_ok=True)
+    th_str = f"{threshold:.4f}" if threshold is not None else "None"
+    fname = f"node_features_{product_id}_{store_id}_{metric}_th{th_str}_w{window_size}_{mode}.csv"
+    out_path = os.path.join(out_dir, fname)
+
+    import csv
+    with open(out_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        n_feats = pyg_windows[0].x.shape[1] if len(pyg_windows) > 0 else 0
+        feat_cols = [f"feat_{i}" for i in range(n_feats)]
+        writer.writerow(["window_idx", "node_idx"] + feat_cols)
+        for w_idx, graph in enumerate(pyg_windows):
+            x = graph.x.numpy() if hasattr(graph.x, "numpy") else graph.x
+            for n_idx, row in enumerate(x):
+                writer.writerow([w_idx, n_idx] + row.tolist())
+    print(f"Node features saved to: {out_path}")
+
 
 def infer_metric_type(metric, metric_type=None):
     if metric_type is not None:

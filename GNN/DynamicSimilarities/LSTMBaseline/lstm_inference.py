@@ -5,10 +5,10 @@ import os
 import time
 
     
-def recursive_inference(model, test_start_idx, seq_length, 
+def recursive_inference(model, test_start_idx, seq_length,
                        val_scaled, exog_val_scaled, exog_test_scaled, exog_test,
                        scaler, exog_scaler, df_product, device, exog_cols,
-                       forecast_window, seed, strategy, item_id, store_id, loss_type, script_dir):
+                       forecast_window, strategy, item_id, store_id, loss_type, script_dir):
     model.eval()
     
     current_seq = val_scaled[-seq_length:].tolist()
@@ -32,7 +32,7 @@ def recursive_inference(model, test_start_idx, seq_length,
                 pass
                     
     # Setup inference log file
-    inf_log_dir = os.path.join(script_dir, f'inference_logs/seed_{seed}/{loss_type}/{strategy}')
+    inf_log_dir = os.path.join(script_dir, f'inference_logs/{loss_type}/{strategy}')
     os.makedirs(inf_log_dir, exist_ok=True)
     inf_log_path = os.path.join(inf_log_dir, f'inference_item{item_id}_store{store_id}.csv')
                     
