@@ -96,8 +96,8 @@ lookback_window = 30
 BATCH_SIZE = 32
 
 
-SEEDS = [42,26008]
-
+#SEEDS = [42,26008]
+SEEDS = [42, 1000, 26008, 555555, 213626, 907969, 5219788, 13451285, 23616558, 6186268165]
 # Leave as None to run all (item_id, store_id) pairs found in DATA_PATH.
 # Override with a list of tuples to run only a subset, e.g.:
 #PRODUCTS_TO_TEST = [(26008, 6269), (911753,6269)]

@@ -433,6 +433,7 @@ def main():
                 _inference_step_dates = []
                 _neighbour_series: dict = {}
                 _inference_step_neighbours: dict = {}  # date -> list of neighbour IDs
+                all_step_neighbours: dict = {}  # th_val -> {step_idx: [nbrs]}
 
                 for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
                     # When ablating, z is zeroed so the threshold has no effect.
@@ -738,6 +739,13 @@ def main():
                     )
                     inference_time = time.time() - _inf_start
 
+                    # ── Capture per-step neighbours for hover tooltip ─────────
+                    if _inf_nx_graphs is not None and not ablate_z:
+                        _step_nbrs: dict = {}
+                        for _si, _G in enumerate(_inf_nx_graphs):
+                            _step_nbrs[_si] = [n for n in _G.nodes() if n != product_id]
+                        all_step_neighbours[fixed_threshold] = _step_nbrs
+
                     # ── Capture inference-step neighbours ────────────────────
                     # Only populated on the first non-ablation run so we always
                     # have real graph data (ablation has no meaningful ego graph).
@@ -911,6 +919,7 @@ def main():
                             inference_step_dates=_inference_step_dates if _inference_step_dates else None,
                             neighbour_series=_neighbour_series if _neighbour_series else None,
                             inference_step_neighbours=_inference_step_neighbours if _inference_step_neighbours else None,
+                            all_step_neighbours=all_step_neighbours if all_step_neighbours else None,
                         )
     
     experience_end_time = time.time()

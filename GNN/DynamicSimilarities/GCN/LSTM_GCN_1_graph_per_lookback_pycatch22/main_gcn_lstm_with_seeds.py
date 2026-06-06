@@ -94,8 +94,8 @@ BATCH_SIZE = 32
 
 # Leave as None to run all (item_id, store_id) pairs found in DATA_PATH.
 # Override with a list of tuples to run only a subset, e.g.:
-PRODUCTS_TO_TEST = [(26008, 6269)]
-#PRODUCTS_TO_TEST = None
+#PRODUCTS_TO_TEST = [(26008, 6269)]
+PRODUCTS_TO_TEST = None
 
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
@@ -111,7 +111,7 @@ EXOG_COLS = [
     "is_bridge_day",
 ]
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.70,0.72,0.75]},
+    {'metric': 'spearman', 'thresholds': [0.70]},
 ]
 
 window_sizes              = [30]
@@ -138,7 +138,7 @@ SAVE_EMBEDDINGS = False
 #   'stats'    8-dim statistical summary per node
 #   'catch22'  22 catch22 shape/dynamics features (scale-invariant)
 #   'catch24'  22 catch22 + DN_Mean + DN_Spread_Std (24-d; restores scale)
-node_feature_modeS = ['catch24', 'stats', 'raw']
+node_feature_modes = ['catch24', 'stats', 'raw']
 
 def _node_feature_width(mode, window_size):
     """Node-feature dim for a given mode — used to size ablation dummy graphs."""
@@ -417,7 +417,7 @@ def main():
             params   = thresholds if is_threshold_mode else percentiles
             iterator = itertools.product(
                 ABLATE_Z_VALUES, params, window_sizes, step_sizes,
-                enable_edges_opts, enable_second_degree_opts, node_feature_modeS,
+                enable_edges_opts, enable_second_degree_opts, node_feature_modes,
             )
 
             for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree, node_feature_mode in iterator:

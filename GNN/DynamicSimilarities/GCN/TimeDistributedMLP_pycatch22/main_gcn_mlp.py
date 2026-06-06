@@ -131,7 +131,7 @@ LOSS_TYPE = 'mse'
 PATIENCE = 150
 ##########################
 #SEEDS = [42]
-SEEDS = [42, 1000, 26008, 555555, 100000000000, 213626, 907969, 5219788, 13451285, 6186268165]
+SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 6186268165]
 WINDOW_SIZES = [30]     
 STEP_SIZES = [1]
 ENABLE_EDGES_OPTS = [True]
@@ -158,7 +158,7 @@ SAVE_INFERENCE_GRAPHS_PLOTS = False
 # 'stats'   — 8-dim statistical summary per node (mean, std, min, max, first, last, slope, sum)
 # 'catch22' — 22 catch22 shape/dynamics features (scale-invariant)
 # 'catch24' — 22 catch22 + DN_Mean + DN_Spread_Std (24-d; restores scale)
-node_feature_modeS = ['catch24', 'stats', 'raw']
+node_feature_modes = ['catch24', 'stats', 'raw']
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -434,17 +434,21 @@ def main():
                 params   = thresholds if is_threshold_mode else percentiles
                 iterator = itertools.product(
                     ABLATE_Z_VALUES, params, WINDOW_SIZES, STEP_SIZES,
-                    ENABLE_EDGES_OPTS, ENABLE_SECOND_DEGREE_OPTS, node_feature_modeS,
+                    ENABLE_EDGES_OPTS, ENABLE_SECOND_DEGREE_OPTS, node_feature_modes,
                 )
 
                 metric_type = infer_metric_type(metric)
+
+                # Accumulated per-step neighbour map: threshold -> {step_idx: [nbr_ids]}
+                # Populated by the first non-ablation run; reused by all subsequent traces.
+                all_step_neighbours: dict = {}
 
                 for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree, node_feature_mode in iterator:
                     # When ablating, z is zeroed so the threshold has no effect; the
                     # node-feature mode is also irrelevant (no graph is consumed).
                     if ablate_z and param_val != params[0]:
                         continue
-                    if ablate_z and node_feature_mode != node_feature_modeS[0]:
+                    if ablate_z and node_feature_mode != node_feature_modes[0]:
                         continue
 
                     current_threshold  = param_val if is_threshold_mode else None
@@ -517,7 +521,7 @@ def main():
                         print(f"Resolved graph threshold={current_threshold}: {fixed_threshold}")
                         results_by_w_s[key]['threshold'] = fixed_threshold
                         
-                        _inf_nx_graphs = nx_graphs[-forecast_horizon:] if SAVE_INFERENCE_GRAPHS_PLOTS else None
+                        _inf_nx_graphs = nx_graphs[-forecast_horizon:]
 
                         # ── 2. NX -> per-window PyG, align to timeline (per-day) ──
                         pyg_windows = build_pyg_graphs_from_nx_windows(
@@ -695,26 +699,26 @@ def main():
                     target_history_unscaled = np.concatenate([train, val]).astype(np.float32)
 
                     # ── Build per-step graph-save callback ───────────────────
-                    if _inf_nx_graphs is not None:
+                    if _inf_nx_graphs is not None and SAVE_INFERENCE_GRAPHS_PLOTS:
                         _param_label_plot = (f"th_{current_threshold}" if is_threshold_mode
                                              else f"pct_{current_percentile}")
                         _graph_plot_dir = os.path.join(
                             SCRIPT_DIR, 'graph_infered_plots', str(product_id),
-                            f'seed_{seed}', metric, _param_label_plot,
+                            f'seed_{seed}', metric, _param_label_plot, f"nf_{node_feature_mode}",
                         )
                         os.makedirs(_graph_plot_dir, exist_ok=True)
                         print(f"\nWill save {len(_inf_nx_graphs)} inference graph plots during inference...")
 
-                        def _make_step_cb(graphs, plot_dir, lbl, w, s, pid, met):
+                        def _make_step_cb(graphs, plot_dir, lbl, w, s, pid, met, nf_mode):
                             def _cb(step_idx):
                                 if step_idx < len(graphs):
                                     _title = (
                                         f"Product {pid} | {met} | {lbl} | "
-                                        f"w{w}_s{s} | inference step {step_idx + 1}"
+                                        f"w{w}_s{s} | nf:{nf_mode} | inference step {step_idx + 1}"
                                     )
                                     _sp = os.path.join(
                                         plot_dir,
-                                        f"graph_{met}_{lbl}_w{w}_s{s}_step{step_idx + 1:04d}.html",
+                                        f"graph_{met}_{lbl}_w{w}_s{s}_nf-{nf_mode}_step{step_idx + 1:04d}.html",
                                     )
                                     plot_networkx_plotly(G=graphs[step_idx], title=_title,
                                                          save_path=_sp, target_node=pid)
@@ -722,7 +726,7 @@ def main():
 
                         _step_callback = _make_step_cb(
                             _inf_nx_graphs, _graph_plot_dir, _param_label_plot,
-                            window_size, step_size, product_id, metric,
+                            window_size, step_size, product_id, metric, node_feature_mode,
                         )
                     else:
                         _step_callback = None
@@ -765,6 +769,16 @@ def main():
                         node_feature_mode=node_feature_mode,
                     )
                     inference_time = time.time() - _inf_start
+
+                    # ── Capture per-step neighbours for hover tooltip ─────────
+                    # Build {step_idx: [nbr_ids]} for every forecast step and
+                    # store it keyed by threshold so _trace_customdata in plots.py
+                    # can attach it to the matching forecast trace's customdata.
+                    if _inf_nx_graphs is not None and not ablate_z:
+                        _step_nbrs: dict = {}
+                        for _si, _G in enumerate(_inf_nx_graphs):
+                            _step_nbrs[_si] = [n for n in _G.nodes() if n != product_id]
+                        all_step_neighbours[fixed_threshold] = _step_nbrs
 
                     if RECORD_INFERENCE_GRAPHS and graph_log:
                         _igcsv = os.path.join(SCRIPT_DIR, "inference_graph_log.csv")
@@ -906,6 +920,7 @@ def main():
                             rmse=res_dicts['rmse'], mae=res_dicts['mae'],
                             bias=res_dicts['bias'], score=res_dicts['score'],
                             pocid=res_dicts['pocid'],
+                            all_step_neighbours=all_step_neighbours if all_step_neighbours else None,
                         )
     
     experience_end_time = time.time()
