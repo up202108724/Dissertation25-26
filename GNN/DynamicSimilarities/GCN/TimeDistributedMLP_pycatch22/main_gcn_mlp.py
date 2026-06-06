@@ -131,7 +131,7 @@ LOSS_TYPE = 'mse'
 PATIENCE = 150
 ##########################
 #SEEDS = [42]
-SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 6186268165]
+SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 618626816]
 WINDOW_SIZES = [30]     
 STEP_SIZES = [1]
 ENABLE_EDGES_OPTS = [True]
@@ -139,7 +139,7 @@ ENABLE_SECOND_DEGREE_OPTS = [False]  # We will keep this False for the main anal
 USE_RESIDUALS = False
 SAVE_PLOTS = True
 USE_EMBEDDINGS = True
-SAVE_EMBEDDINGS = False
+SAVE_EMBEDDINGS = True
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 GRAPH_EMBEDDINGS_DIM = 16
 
