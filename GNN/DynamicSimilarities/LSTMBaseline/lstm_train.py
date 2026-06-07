@@ -211,7 +211,13 @@ def train_model_sliding_window(seed, epochs, model, full_train_scaled, exog_scal
     train_time = time.time() - start_train_time
     return model, all_train_losses, all_val_losses, best_overall_epoch, train_time
 
-def train_model(epochs, model, train_loader, val_loader, exog_cols, criterion, criterion2, optimizer, device, best_model_path, scheduler=None, patience=10):
+def train_model(seed,epochs, model, train_loader, val_loader, exog_cols, criterion, criterion2, optimizer, device, best_model_path, scheduler=None, patience=10):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+
+    
     start_train_time = time.time()
     train_losses = []
     val_losses = []
