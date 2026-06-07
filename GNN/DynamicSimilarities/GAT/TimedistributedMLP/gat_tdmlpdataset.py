@@ -40,7 +40,48 @@ from torch.utils.data import Dataset
 from torch_geometric.data import Batch, Data
 
 
-# ── node feature builders ─────────────────────────────────────────────────
+'''
+# ── node feature builder ───────────────────────────────────────────────────
+def _window_node_features_catch22(
+    window_values: np.ndarray, catch24: bool = True
+) -> np.ndarray:
+    """
+    catch22 (CAnonical Time-series CHaracteristics) node features.
+
+    window_values : (n_nodes, window_size) raw values per node over the window
+    catch24       : when True append DN_Mean + DN_Spread_Std (24 features),
+                    restoring the absolute-scale information that the 22 shape
+                    features discard via catch22's internal z-normalisation.
+    Returns       : (n_nodes, 24) if catch24 else (n_nodes, 22)
+
+    catch22 strictly z-normalises each series before extracting shape/dynamics
+    features (autocorrelation, entropy, linearity, …), so scale is lost unless
+    catch24 is used.  Short or flat windows (e.g. a 30-day run of zeros — common
+    in erratic retail data) make several features ill-defined and return NaN;
+    those are replaced with 0.0 so a single degenerate node cannot poison the
+    whole graph during GCN message passing.
+    """
+    if window_values.ndim != 2:
+        raise ValueError("window_values must be 2D (n_nodes, window_size)")
+
+
+    n_nodes = window_values.shape[0]
+    width = _CATCH24_WIDTH if catch24 else _CATCH22_WIDTH
+    feats = np.zeros((n_nodes, width), dtype=np.float32)
+    for i in range(n_nodes):
+        ts = np.asarray(window_values[i], dtype=np.float64).tolist()   # C backend wants a list
+        try:
+            vals = pycatch22.catch22_all(ts, catch24=catch24)["values"]
+            feats[i] = np.asarray(vals, dtype=np.float32)
+        except Exception:
+            # flat / constant series can crash the C backend → leave zeros
+            feats[i] = 0.0
+    # NaN/Inf guard (critical on short 30-day windows, see docstring)
+    np.nan_to_num(feats, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+    return feats
+'''
+
+
 def _window_node_features(window_values: np.ndarray) -> np.ndarray:
     """
     window_values : (n_nodes, window_size) raw values per node over the window
@@ -49,7 +90,6 @@ def _window_node_features(window_values: np.ndarray) -> np.ndarray:
     if window_values.ndim != 2:
         raise ValueError("window_values must be 2D (n_nodes, window_size)")
     return window_values.astype(np.float32)
-
 
 def _window_node_stats_features(window_values: np.ndarray) -> np.ndarray:
     """
@@ -71,6 +111,27 @@ def _window_node_stats_features(window_values: np.ndarray) -> np.ndarray:
 
     feats = np.stack([mean, std, mn, mx, first, last, slope, s], axis=1)
     return feats.astype(np.float32)
+
+def _window_node_features_hybrid(window_values: np.ndarray) -> np.ndarray:
+    # 1. Get the 8 basic stats
+    mean  = window_values.mean(axis=1)
+    std   = window_values.std(axis=1)
+    mn    = window_values.min(axis=1)
+    mx    = window_values.max(axis=1)
+    first = window_values[:, 0]
+    last  = window_values[:, -1]
+    slope = (last - first) / max(window_values.shape[1] - 1, 1)
+    s     = window_values.sum(axis=1)
+    
+    stats = np.stack([mean, std, mn, mx, first, last, slope, s], axis=1)
+    
+    # 2. Get just the last 7 days (short enough to not confuse the GNN Linear layer)
+    recent_7_days = window_values[:, -7:]
+    
+    # 3. Combine: 8 stats + 7 raw days = 15 robust features
+    feats = np.concatenate([stats, recent_7_days], axis=1)
+    return feats.astype(np.float32)
+
 
 
 # ── NX-window -> PyG ego-graph ────────────────────────────────────────────
