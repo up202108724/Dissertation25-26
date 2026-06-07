@@ -529,7 +529,7 @@ def main():
                             window_size=window_size, step_size=step_size,
                             node_feature_mode=node_feature_mode,
                         )
-
+                        '''
                         # ── Dump target-node features to CSV ─────────────────
                         nf_rows = [g.x[0].numpy() for g in pyg_windows]
                         nf_dim  = nf_rows[0].shape[0]
@@ -545,7 +545,7 @@ def main():
                         nf_df.to_csv(nf_csv_path, index=False)
                         print(f"Target node features saved -> {nf_csv_path}")
                         # ─────────────────────────────────────────────────────
-
+                        '''
                         T_global = current_df_wide.shape[1]
                         pyg_aligned_global = _align_pyg_windows_to_timeline(
                             pyg_windows, window_size=window_size,
