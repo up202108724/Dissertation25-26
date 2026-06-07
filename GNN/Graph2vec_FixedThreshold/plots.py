@@ -1,17 +1,21 @@
 import pandas as pd
 import numpy as np
+import networkx as nx
+import plotly.colors as pcolors
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 
-def plot_results(train, val, test, forecast, 
-                train_index, val_index, test_index, 
+def plot_results(train, val, test, forecast,
+                train_index, val_index, test_index,
                 train_losses, val_losses, metric=None, embedding_strategy=None,
                 window_size=None, step_size=None, threshold=None, percentile=None,
                 enable_edges_within_star=None, seed=None,
                 target_col='value', title='Forecast vs Actual', save_path=None,
-                rmse=None, mae=None, bias=None, score=None, pocid=None, df_full=None):
+                rmse=None, mae=None, bias=None, score=None, pocid=None, df_full=None,
+                inference_step_dates=None, neighbour_series=None,
+                inference_step_neighbours=None, all_step_neighbours=None):
     
     # Check if forecast is a dictionary; if not, wrap it in a dictionary for uniformity
     if not isinstance(forecast, dict):
@@ -74,33 +78,72 @@ def plot_results(train, val, test, forecast,
         pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
         full_title += f"RMSE: {rmse[label]:.4f} | MAE: {mae[label]:.4f} | Bias: {bias[label]:.4f} | Score: {score[label]:.4f} | POCID: {pocid_str}"
         
-    fig = make_subplots(rows=3, cols=1, 
-                        subplot_titles=(full_title, 'Test vs Forecast', 'Training and Validation Loss'),
-                        vertical_spacing=0.1)
+    fig = make_subplots(rows=2, cols=1,
+                        subplot_titles=(full_title, 'Training and Validation Loss'),
+                        vertical_spacing=0.10,
+                        row_heights=[0.70, 0.30])
     
     # Define a common hovertemplate to include date and value
     hover_temp = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
+    step_indices = np.arange(len(test_index))
+
+    _hover_plain = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}<br>Step: %{customdata}'
+    _hover_nbrs  = (
+        'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
+        '<br>Step: %{customdata[0]}'
+        '<br>Neighbours: %{customdata[1]}<extra></extra>'
+    )
+
+    def _trace_customdata(label):
+        """Return (customdata, hovertemplate) with threshold-specific neighbours."""
+        if all_step_neighbours is None:
+            return step_indices, _hover_plain
+        # Ablation traces use zeroed GCN embeddings — no meaningful graph neighbours
+        if 'az:ablation' in label:
+            return step_indices, _hover_plain
+        th_key = None
+        if 'th:' in label:
+            try:
+                th_key = float(label.split('th:')[1].split('|')[0])
+            except (IndexError, ValueError):
+                pass
+        step_nbrs = all_step_neighbours.get(th_key) if th_key is not None else None
+        if step_nbrs is None:
+            return step_indices, _hover_plain
+        nbr_strs = [
+            ', '.join(str(n) for n in step_nbrs.get(i, [])) or '—'
+            for i in range(len(test_index))
+        ]
+        cd = np.array([[i, s] for i, s in zip(step_indices, nbr_strs)], dtype=object)
+        return cd, _hover_nbrs
 
     # Plot forecast vs actual - ax1
     fig.add_trace(go.Scatter(x=train_index, y=train, name='Train', opacity=0.7, mode='lines', hovertemplate=hover_temp), row=1, col=1)
     fig.add_trace(go.Scatter(x=val_index, y=val, name='Validation', opacity=0.7, mode='lines', line=dict(color='orange'), hovertemplate=hover_temp), row=1, col=1)
-    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2), hovertemplate=hover_temp), row=1, col=1)
-    
+    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test', mode='lines', line=dict(color='green', width=2), customdata=step_indices, hovertemplate=_hover_plain), row=1, col=1)
+
     import plotly.express as px
     colors = px.colors.qualitative.Plotly
-    
+
     for idx, (label, fcast) in enumerate(forecast.items()):
         if fcast is None: continue
         color = colors[idx % len(colors)]
         if not is_multi:
             color = 'red'
-        
+
         legend_name = label
         if is_multi:
-             pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
-             legend_name = f"{label} (RMSE: {rmse[label]:.2f}, MAE: {mae[label]:.2f})"
-             
-        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), hovertemplate=hover_temp), row=1, col=1)
+             pocid_str  = f"{pocid.get(label):.4f}"  if pocid  and pocid.get(label)  is not None else "N/A"
+             bias_str   = f"{bias.get(label):.4f}"   if bias   and bias.get(label)   is not None else "N/A"
+             score_str  = f"{score.get(label):.4f}"  if score  and score.get(label)  is not None else "N/A"
+             legend_name = (
+                 f"{label} "
+                 f"(RMSE: {rmse[label]:.2f} | MAE: {mae[label]:.2f} | "
+                 f"Bias: {bias_str} | Score: {score_str} | POCID: {pocid_str})"
+             )
+
+        cd, ht = _trace_customdata(label)
+        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), customdata=cd, hovertemplate=ht), row=1, col=1)
     
     
     # Pinpoint specific dates
@@ -147,34 +190,75 @@ def plot_results(train, val, test, forecast,
                                row=1, col=1)
                  color_idx += 1
                  
-    # Set tick format for x-axis to 3 months     
+    # ── Neighbour time series (ego-graph nodes at selected inference steps) ──
+    if neighbour_series is not None and len(neighbour_series) > 0:
+        test_arr = np.array(test, dtype=float)
+        t_min, t_max = np.nanmin(test_arr), np.nanmax(test_arr)
+        t_range = t_max - t_min if t_max > t_min else 1.0
+        nbr_palette = pcolors.qualitative.Pastel + pcolors.qualitative.Light24
+        for i, (nbr_id, nbr_vals) in enumerate(neighbour_series.items()):
+            nbr_vals = np.array(nbr_vals, dtype=float)
+            # Align length to test_index (truncate or pad with NaN)
+            n_exp = len(test_index)
+            if len(nbr_vals) < n_exp:
+                nbr_vals = np.concatenate([nbr_vals, np.full(n_exp - len(nbr_vals), np.nan)])
+            else:
+                nbr_vals = nbr_vals[:n_exp]
+            # Normalise to the target test range so shapes are comparable
+            n_min, n_max = np.nanmin(nbr_vals), np.nanmax(nbr_vals)
+            n_range = n_max - n_min if n_max > n_min else 1.0
+            nbr_scaled = (nbr_vals - n_min) / n_range * t_range + t_min
+            color = nbr_palette[i % len(nbr_palette)]
+            hover = f'Neighbour: {nbr_id}<br>Date: %{{x|%Y-%m-%d}}<br>Normalised: %{{y:.2f}}'
+            shared_kwargs = dict(
+                x=test_index, y=nbr_scaled,
+                mode='lines',
+                line=dict(color=color, width=1),
+                hovertemplate=hover,
+            )
+            fig.add_trace(go.Scatter(**shared_kwargs, name=f'Nbr {nbr_id}'), row=1, col=1)
+
+    # ── Red vlines at selected inference steps ────────────────────────────
+    if inference_step_dates is not None:
+        test_arr = np.array(test, dtype=float)
+        _y_mid = float(np.nanmean(test_arr))
+        for step_date in inference_step_dates:
+            x_val = pd.Timestamp(step_date).isoformat()
+            fig.add_vline(x=x_val, line_dash='solid', line_color='red',
+                          line_width=1.5, opacity=0.6, row=1, col=1)
+            # Invisible marker on the vline so hovering shows neighbour info
+            if inference_step_neighbours is not None:
+                nbrs = inference_step_neighbours.get(step_date, [])
+                nbr_text = ', '.join(str(n) for n in nbrs) if nbrs else 'none'
+                hover_txt = (
+                    f"<b>Inference step</b>: {pd.Timestamp(step_date).date()}"
+                    f"<br><b>Neighbours ({len(nbrs)})</b>: {nbr_text}"
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=[pd.Timestamp(step_date)],
+                        y=[_y_mid],
+                        mode='markers',
+                        marker=dict(size=12, opacity=0.0, color='red',
+                                    symbol='diamond', line=dict(width=1, color='darkred')),
+                        hovertemplate=hover_txt + '<extra></extra>',
+                        name='Graph neighbours',
+                        legendgroup='graph_neighbours',
+                        showlegend=False,
+                    ),
+                    row=1, col=1,
+                )
+
+    # Set tick format for x-axis to 3 months
     fig.update_xaxes(
-        title_text='Date', 
-        dtick="M3", 
+        title_text='Date',
+        dtick="M3",
         tickformat="%b\n%Y",
         row=1, col=1
     )
     fig.update_yaxes(title_text=target_col, row=1, col=1)
     
-    # Plot forecast vs actual test only - ax2
-    fig.add_trace(go.Scatter(x=test_index, y=test, name='Actual Test (Zoom)', mode='lines', line=dict(color='green', width=2), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
-    
-    for idx, (label, fcast) in enumerate(forecast.items()):
-        if fcast is None: continue
-        color = colors[idx % len(colors)]
-        if not is_multi:
-            color = 'red'
-        fig.add_trace(go.Scatter(x=test_index, y=fcast, name=label + ' (Zoom)', legendgroup=label, mode='lines', line=dict(color=color, width=2), showlegend=False, hovertemplate=hover_temp), row=2, col=1)
-    
-    fig.update_xaxes(
-        title_text='Date',
-        dtick="M3",
-        tickformat="%b\n%Y",
-        row=2, col=1
-    )
-    fig.update_yaxes(title_text=target_col, row=2, col=1)
-
-    # Plot training loss - ax3
+    # Plot training loss - ax2
     if not isinstance(train_losses, dict):
         train_losses = {'Forecast': train_losses}
         val_losses = {'Forecast': val_losses}
@@ -189,15 +273,18 @@ def plot_results(train, val, test, forecast,
         name_t = 'Train Loss' if not is_multi else f'Train Loss ({label})'
         name_v = 'Validation Loss' if not is_multi else f'Val Loss ({label})'
         
-        fig.add_trace(go.Scatter(x=epochs, y=t_loss, name=name_t, legendgroup=label, mode='lines', line=dict(color=color, dash='solid')), row=3, col=1)
-        fig.add_trace(go.Scatter(x=epochs, y=v_loss, name=name_v, legendgroup=label, mode='lines', line=dict(color=color, dash='dot')), row=3, col=1)
+        fig.add_trace(go.Scatter(x=epochs, y=t_loss, name=name_t, legendgroup=label, mode='lines', line=dict(color=color, dash='solid')), row=2, col=1)
+        fig.add_trace(go.Scatter(x=epochs, y=v_loss, name=name_v, legendgroup=label, mode='lines', line=dict(color=color, dash='dot')), row=2, col=1)
+
+    fig.update_yaxes(title_text='Loss', row=2, col=1)
+    fig.update_xaxes(title_text='Epoch', row=2, col=1)
     
-    fig.update_yaxes(title_text='Loss', row=3, col=1)
-    fig.update_xaxes(title_text='Epoch', row=3, col=1)
-    
-    fig.update_layout(height=1200, width=1000, 
+    fig.update_layout(height=1400, width=1800,
                       hovermode="x unified",
-                      template="plotly_white")
+                      template="plotly_white",
+                      margin=dict(l=60, r=40, t=120, b=60),
+                      legend=dict(orientation="v", yanchor="top", y=1.0,
+                                  xanchor="left", x=1.02))
     
     if save_path:
         if save_path.endswith('.html'):
@@ -209,5 +296,126 @@ def plot_results(train, val, test, forecast,
                 fig.write_image(save_path)
             except Exception:
                 fig.write_html(save_path + '.html')
+    else:
+        fig.show()
+        
+def plot_networkx_plotly(G, title="Network Graph", save_path=None, target_node=None):
+    """
+    Plots a NetworkX graph using Plotly.
+    Calculates the graph layout using spring_layout and creates interactive hovering.
+    """
+    # 1. Get Node Positions
+    pos = nx.spring_layout(G, seed=42, k=0.5)
+
+    # 2. Add edges and edge hover points to Plotly traces
+    edge_x = []
+    edge_y = []
+    edge_mid_x = []
+    edge_mid_y = []
+    edge_text = []
+    
+    for u, v, data in G.edges(data=True):
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+
+        edge_mid_x.append((x0 + x1) / 2)
+        edge_mid_y.append((y0 + y1) / 2)
+        
+        weight = data.get('weight', 'N/A')
+        sim = data.get('similarity', None)
+        val_str = f"Weight (Dist): {weight:.4f}" if isinstance(weight, float) else f"Weight: {weight}"
+        if sim is not None:
+            val_str += f"<br>Similarity: {sim:.4f}" if isinstance(sim, float) else f"<br>Similarity: {sim}"
+            
+        edge_text.append(f"{u} - {v}<br>{val_str}")
+
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=0.5, color='#888'),
+        hoverinfo='none',
+        mode='lines',
+        showlegend=False
+    )
+
+    edge_hover_trace = go.Scatter(
+        x=edge_mid_x, y=edge_mid_y,
+        mode='markers',
+        marker=dict(size=10, color='rgba(0,0,0,0)'), # Invisible maker but large enough to hover easily
+        hoverinfo='text',
+        text=edge_text,
+        showlegend=False
+    )
+
+    # 3. Add nodes to Plotly grouped by category
+    categories = {}
+    for node_id, data in G.nodes(data=True):
+        cat = data.get('cat_label', 'Unknown Category')
+        if cat not in categories:
+            categories[cat] = {
+                'x': [], 'y': [], 'sizes': [], 'lines_w': [], 
+                'lines_c': [], 'text': [], 'hovertext': []
+            }
+        
+        x, y = pos[node_id]
+        degree = len(list(G.neighbors(node_id)))
+        
+        categories[cat]['x'].append(x)
+        categories[cat]['y'].append(y)
+        categories[cat]['text'].append(str(node_id))
+        
+        if target_node is not None and node_id == target_node:
+            categories[cat]['hovertext'].append(f'🎯 TARGET NODE: {node_id}<br>Category: {cat}<br>Connections: {degree}')
+            categories[cat]['sizes'].append(35)
+            categories[cat]['lines_w'].append(3)
+            categories[cat]['lines_c'].append('red')
+        else:
+            categories[cat]['hovertext'].append(f'Node: {node_id}<br>Category: {cat}<br>Connections: {degree}')
+            categories[cat]['sizes'].append(20)  # Larger so text fits
+            categories[cat]['lines_w'].append(1)
+            categories[cat]['lines_c'].append('black')
+
+    traces = [edge_trace, edge_hover_trace]
+    palette = pcolors.qualitative.Plotly
+    
+    import hashlib
+    for cat, d in categories.items():
+        # Use a deterministic hash to ensure consistent color across different graphs and Python runs
+        color_idx = int(hashlib.md5(str(cat).encode()).hexdigest(), 16) % len(palette)
+        color = palette[color_idx]
+        
+        node_trace = go.Scatter(
+            x=d['x'], y=d['y'],
+            mode='markers+text',
+            hoverinfo='text',
+            text=d['text'],
+            hovertext=d['hovertext'],
+            textposition="top center",
+            textfont=dict(size=12, color='black'),
+            marker=dict(
+                color=color,
+                size=d['sizes'],
+                line=dict(width=d['lines_w'], color=d['lines_c'])
+            ),
+            name=str(cat)
+        )
+        traces.append(node_trace)
+
+    # 4. Create final figure layout
+    fig = go.Figure(data=traces,
+             layout=go.Layout(
+                title=dict(text=title, font=dict(size=16)),
+                showlegend=True,  # Show category legend
+                legend=dict(title=dict(text='Categories')),
+                hovermode='closest',
+                margin=dict(b=20,l=5,r=5,t=40),
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                plot_bgcolor='white'
+             )
+    )
+    if save_path:
+        fig.write_html(save_path)
     else:
         fig.show()

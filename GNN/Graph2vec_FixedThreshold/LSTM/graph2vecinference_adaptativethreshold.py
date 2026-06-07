@@ -121,7 +121,7 @@ def graph2vec_inference(
     device, item_id, store_id, seed, criterion, val_scaled, test_scaled=None,
     exog_val_scaled=None, exog_test_scaled=None, exog_test_raw=None, exog_cols=None, save_plot_path=None,
     node_embeddings=None, graph2vec_model=None, enable_edges_within_star=True, enable_second_degree=False, percentile=None,
-    create_plots=False, product_scalers=None, return_graphs=False
+    create_plots=False, product_scalers=None, return_graphs=False, ablate_z=False
 ):
     
     model.eval()
@@ -304,6 +304,8 @@ def graph2vec_inference(
                         gathered_inference_graphs.append(new_G)
                         
                         new_emb = get_dynamic_embedding(new_G, graph2vec_model, dimensions=emb_dim)
+                        if ablate_z:
+                            new_emb = np.zeros_like(new_emb)
                         current_emb_seq = current_emb_seq[1:] + [new_emb.tolist()]
                         
                         if create_plots:

@@ -24,30 +24,30 @@ from plots import plot_results #ensure available
 from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
 from train import train_model
 from graph2vecinference_adaptativethreshold import graph2vec_inference
+from ablationlstm import AblationLSTMForecaster
 
 # Constants
 # Resolve DATA_PATH perfectly from the file directory upwards
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre.feather'))
+FULL_DATA_PATH = os.path.join(SCRIPT_DIR, '..', '..','..', 'dataset', 'data_andre_classified.feather')
+TOP_DATA_PATH = os.path.join(SCRIPT_DIR, '..', '..','..', 'dataset', 'top_12500.feather')
+DATE_COL = 'date'
+TARGET_COL = 'value'
+
+
+val_size = 30
+forecast_horizon = 153
+train_size = 761 - val_size - forecast_horizon
+lookback_window = 30
+BATCH_SIZE = 32
+seq_length = lookback_window
 DATE_COL = 'date'
 TARGET_COL = 'value'
 #SEEDS = [42, 1000, 26008, 213626, 907969, 5219788,13451285]  # Add more seeds as needed
-SEEDS =[42,1000,26008,213626]
+SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 618626816] # Add more seeds as needed
  
 # Add the products and stores you want to iterate over
-PRODUCTS_TO_TEST = [
-  (26008, 6269),
-  (907969,6269),
-  (210036, 6269),
-  (907967,6269),
-  (213626,6269),
-  #(213628, 6269),
-  #(213625, 6269),
-  #(26862, 6269),
-  #(156753, 6269),
-  #(53682, 6269),
-  #(34497, 6269)
-]
+PRODUCTS_TO_TEST = None
 
 # EXOG_COLS definition
 #EXOG_COLS = []
@@ -70,10 +70,10 @@ EXOG_COLS = [
 # Grid Search Parameters Setup
 
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]}
+    {'metric': 'spearman', 'thresholds': [0.70]}
 ]
 
-window_sizes = [15]     
+window_sizes = [30]     
 step_sizes = [1]
 enable_edges_opts = [True]
 enable_second_degree_opts = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
@@ -82,7 +82,7 @@ MODEL_TYPE = 'ridge'
 EPOCHS = 1000
 PATIENCE = 100
 LEARNING_RATE = 0.001
-HIDDEN_SIZE = 32
+HIDDEN_SIZE = 64
 NUM_LAYERS = 1
 DROPOUT = 0.0
 SAVE_MODELS = False
@@ -90,12 +90,12 @@ SAVE_PLOTS = True
 USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+ABLATE_Z_VALUES = [True, False]
 
 def main():
     # Load and Preprocess Data (Once for all products)
-    print(f"Loading data from {DATA_PATH}...")
-    df = pd.read_feather(DATA_PATH)
+    print(f"Loading data from {FULL_DATA_PATH}...")
+    df = pd.read_feather(FULL_DATA_PATH)
 
     if DATE_COL in df.index.names:
         if DATE_COL in df.columns:
@@ -144,6 +144,12 @@ def main():
         # Transform the entire continuous history for the graph
         full_ts = df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         df_wide_scaled.loc[item_id_iter] = z_scaler.transform(full_ts).flatten()
+        
+    global PRODUCTS_TO_TEST
+    if PRODUCTS_TO_TEST is None:
+        top_df = pd.read_feather(TOP_DATA_PATH)
+        products_df = top_df[['item_id', 'store_id']].drop_duplicates().reset_index(drop=True)
+        PRODUCTS_TO_TEST = list(products_df.itertuples(index=False, name=None))
 
     for product_id, store_id in PRODUCTS_TO_TEST:
         print(f"\n{'='*80}")
@@ -153,12 +159,7 @@ def main():
         # Filter for the specific product and store
         df = full_df[(full_df['item_id'] == product_id) & (full_df['store_id'] == store_id)].sort_values(DATE_COL).reset_index(drop=True)
 
-        forecast_horizon = 152
-        seq_length = 30
-        train_size = 455
-        val_size = 154
-        lookback_window = 7 
-        BATCH_SIZE = 32
+        
 
         required_rows = forecast_horizon + val_size + train_size
         if len(df) < required_rows:
@@ -220,8 +221,7 @@ def main():
             os.makedirs(grid_search_plots_dir, exist_ok=True)
             os.makedirs(best_models_seed_dir, exist_ok=True)
 
-            # 1. Run Baseline (no embeddings) first
-            all_configs = [{'metric': 'no_emb'}] + grid_configs if USE_EMBEDDINGS else [{'metric': 'no_emb'}]
+            all_configs = [{'metric': 'no_emb'}] + grid_configs
             base_forecast, base_train_losses, base_val_losses = None, None, None
             base_rmse, base_mae, base_bias, base_score, base_pocid = None, None, None, None, None
 
@@ -234,45 +234,44 @@ def main():
 
                 if metric == 'no_emb':
                     is_threshold_mode = False
-                    iterator = [(None, 15, 1, False, False)]
+                    params = [None]
+                    iterator = itertools.product([False], [None], window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
                 else:
                     is_threshold_mode = thresholds is not None and thresholds != [None]
                     params = thresholds if is_threshold_mode else percentiles
-                    iterator = itertools.product(params, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
+                    iterator = itertools.product(ABLATE_Z_VALUES, params, window_sizes, step_sizes, enable_edges_opts, enable_second_degree_opts)
             
-                for param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
+                for ablate_z, param_val, window_size, step_size, enable_edges, enable_second_degree in iterator:
+                    if ablate_z and param_val != params[0]:
+                        continue
+
+                    # use_embeddings controls whether graph embeddings are loaded.
+                    # For non-baseline metrics this is always True — ablation zeroes
+                    # the loaded embeddings rather than omitting them, so that both
+                    # the ablation and full model share the same input_size.
                     use_embeddings = (metric != 'no_emb')
                     
-                    current_threshold = param_val if use_embeddings and is_threshold_mode else None
-                    current_percentile = param_val if use_embeddings and not is_threshold_mode else None
+                    current_threshold = param_val if is_threshold_mode else None
+                    current_percentile = param_val if not is_threshold_mode else None
 
-                    key = (param_val, window_size, step_size)
+                    key = (ablate_z, param_val, window_size, step_size)
                     if key not in results_by_w_s:
                         results_by_w_s[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
                             'rmse': {}, 'mae': {}, 'bias': {}, 'score': {}, 'pocid': {},
                             'threshold': None
                         }
-                        if metric != 'no_emb' and base_forecast is not None:
-                            results_by_w_s[key]['forecasts']["No Embeddings"] = base_forecast
-                            results_by_w_s[key]['train_losses']["No Embeddings"] = base_train_losses
-                            results_by_w_s[key]['val_losses']["No Embeddings"] = base_val_losses
-                            results_by_w_s[key]['rmse']["No Embeddings"] = base_rmse
-                            results_by_w_s[key]['mae']["No Embeddings"] = base_mae
-                            results_by_w_s[key]['bias']["No Embeddings"] = base_bias
-                            results_by_w_s[key]['score']["No Embeddings"] = base_score
-                            results_by_w_s[key]['pocid']["No Embeddings"] = base_pocid
 
                     print(f"\n{'='*60}")
                     if use_embeddings:
                         param_str = f"threshold={current_threshold}" if is_threshold_mode else f"percentile={current_percentile}"
                         print(f"Running Experiment: metric={metric}, {param_str}, window_size={window_size}, enable_edges={enable_edges}, 2nd_degree={enable_second_degree}")
                     else:
-                        print("Running Experiment: BASELINE (no graph embeddings)")
+                        print("Running Experiment: ABLATION (no graph embeddings via AblationLSTM)")
                     print(f"{'='*60}")
 
                     fixed_threshold = None
-                    if use_embeddings:
+                    if metric != 'no_emb':
                         metric_type = infer_metric_type(metric)
                         
                         # Use norm-scaled df for distances
@@ -304,6 +303,9 @@ def main():
                             
                         embedding_dim = graph_embeddings.shape[1] if len(graph_embeddings.shape) > 1 else 1
 
+                        if ablate_z:
+                            graph_embeddings = np.zeros_like(graph_embeddings)
+
                         padding = np.zeros((window_size - 1, embedding_dim))
                         aligned_embeddings = np.vstack([padding, graph_embeddings])
 
@@ -317,7 +319,21 @@ def main():
                         emb_val = None
                         embedding_dim = 0
 
+                    # ablation and full model share input_size (zeroed embeddings still
+                    # occupy the same columns); baseline (no_emb) has embedding_dim=0.
                     input_size = 1 + (len(EXOG_COLS) if EXOG_COLS else 0) + embedding_dim
+
+                    # Prepend the last seq_length training rows so the val dataset has
+                    # enough context to form at least val_size windows.
+                    val_target_ctx = np.concatenate([train_scaled[-seq_length:], val_scaled])
+                    val_exog_ctx = (
+                        np.concatenate([exog_train_scaled[-seq_length:], exog_val_scaled])
+                        if EXOG_COLS and len(EXOG_COLS) > 0 else None
+                    )
+                    val_emb_ctx = (
+                        np.concatenate([emb_train[-seq_length:], emb_val])
+                        if emb_train is not None else None
+                    )
 
                     train_dataset = TimeSeriesDataset(
                         target_data=train_scaled, 
@@ -330,10 +346,10 @@ def main():
                     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=use_pin_memory)
                 
                     val_dataset = TimeSeriesDataset(
-                        target_data=val_scaled, 
-                        exog_data=exog_val_scaled if EXOG_COLS and len(EXOG_COLS) > 0 else None, 
+                        target_data=val_target_ctx, 
+                        exog_data=val_exog_ctx,
                         seq_length=seq_length,
-                        embeddings=emb_val,
+                        embeddings=val_emb_ctx,
                         graph_window_size=window_size
                     )
                     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=use_pin_memory)
@@ -344,7 +360,19 @@ def main():
                     if torch.cuda.is_available():
                         torch.cuda.manual_seed(seed)
                         
-                    model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
+                    if ablate_z:
+                        # AblationLSTMForecaster receives the same input_size as the full
+                        # model (zeroed embedding columns included) — only real embeddings
+                        # are replaced with zeros, not removed from the input.
+                        model = AblationLSTMForecaster(
+                            lstm_input_size=input_size,
+                            lstm_hidden=HIDDEN_SIZE,
+                            lstm_layers=NUM_LAYERS,
+                            dropout=DROPOUT
+                        ).to(device)
+                    else:
+                        model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
+                        
                     criterion = nn.MSELoss()
                     criterion2 = nn.MSELoss()  
                     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -364,10 +392,12 @@ def main():
                             csv_basename = os.path.basename(csv_path)
                             base_name = csv_basename.replace('embeddings_', f'best_lstm_{product_id}_')
                             
+                            ablate_tag = "ablation_" if ablate_z else ""
+                            
                             if USE_RESIDUALS:
-                                base_name = base_name.replace('.csv', f'_res_{MODEL_TYPE}.pth')
+                                base_name = base_name.replace('.csv', f'_res_{MODEL_TYPE}_{ablate_tag}seed_{seed}.pth')
                             else:
-                                base_name = base_name.replace('.csv', '.pth')
+                                base_name = base_name.replace('.csv', f'_{ablate_tag}seed_{seed}.pth')
 
                             hist_name = base_name.replace('.pth', '_history.pkl')
                             best_model_path = os.path.join(best_models_dir, base_name)
@@ -378,10 +408,12 @@ def main():
                             if enable_second_degree:
                                 prefix_star = "2nddegree_" + prefix_star
                             
+                            ablate_tag = "ablation_" if ablate_z else ""
+                            
                             prefix = f"best_lstm_{prefix_star}{product_id}_{metric}_res_{MODEL_TYPE}" if USE_RESIDUALS else f"best_lstm_{prefix_star}{product_id}_{metric}"
                             param_label = f"th_{current_threshold}" if is_threshold_mode else f"pct_{current_percentile}"
-                            best_model_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_{param_label}_seed_{seed}.pth')
-                            history_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_{param_label}_seed_{seed}_history.pkl')
+                            best_model_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_{param_label}_{ablate_tag}seed_{seed}.pth')
+                            history_path = os.path.join(best_models_dir, f'{prefix}_{window_size}_{step_size}_{param_label}_{ablate_tag}seed_{seed}_history.pkl')
                     else:
                         best_model_path = os.path.join(best_models_dir, f'best_lstm_{product_id}_no_emb_seed_{seed}.pth')
                         history_path = os.path.join(best_models_dir, f'best_lstm_{product_id}_no_emb_seed_{seed}_history.pkl')
@@ -391,7 +423,7 @@ def main():
 
                     if os.path.exists(best_model_path) and os.path.exists(history_path):
                         print(f"Loading existing model from {best_model_path}...")
-                        model.load_state_dict(torch.load(best_model_path))
+                        model.load_state_dict(torch.load(best_model_path, weights_only=True))
                         with open(history_path, 'rb') as f:
                             history = pickle.load(f)
                             train_losses = history['train_losses']
@@ -446,6 +478,7 @@ def main():
                         graph2vec_model=graph2vec_model if use_embeddings else None,
                         enable_edges_within_star=enable_edges,
                         enable_second_degree=enable_second_degree,
+                        ablate_z=ablate_z,
                         percentile=current_percentile if not is_threshold_mode else None,  # Passes percentile mode if used (otherwise None)
                         threshold=inf_threshold,  # Pass the threshold inferred from the percentile
                         create_plots=False  # We will create combined plots later, so disable individual plotting here
@@ -467,11 +500,14 @@ def main():
                 
                     th_str = f"{inf_threshold:.4f}" if inf_threshold is not None else "N/A"
                     
-                    if use_embeddings:
+                    if metric == 'no_emb':
+                        label_name = "Baseline (no embeddings)"
+                    elif ablate_z:
                         param_str_label = f"th:{current_threshold}" if is_threshold_mode else f"pct:{current_percentile} (val:{th_str})"
-                        label_name = f"{param_str_label}|w:{window_size}|st:{step_size}|e:{enable_edges}|2nd:{enable_second_degree}"
+                        label_name = f"{param_str_label}|w:{window_size}|st:{step_size}|e:{enable_edges}|2nd:{enable_second_degree}|az:ablation"
                     else:
-                        label_name = "No Embeddings"
+                        param_str_label = f"th:{current_threshold}" if is_threshold_mode else f"pct:{current_percentile} (val:{th_str})"
+                        label_name = f"{param_str_label}|w:{window_size}|st:{step_size}|e:{enable_edges}|2nd:{enable_second_degree}|az:full"
                 
                     if metric == 'no_emb':
                         base_forecast, base_train_losses, base_val_losses = forecast, train_losses, val_losses
@@ -497,8 +533,9 @@ def main():
                     with open(csv_results_path, 'a', newline='') as csvfile:
                         writer = csv.writer(csvfile)
                         if not file_exists:
-                            writer.writerow(["product_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "rmse", "mae", "bias", "r2_score", "pocid"])
+                            writer.writerow(["product_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "ablate_z", "rmse", "mae", "bias", "r2_score", "pocid"])
                         
+                        csv_ablate_val = "baseline" if metric == 'no_emb' else ablate_z
                         writer.writerow([
                             product_id, 
                             store_id, 
@@ -510,6 +547,7 @@ def main():
                             current_percentile if use_embeddings else "", 
                             enable_edges if use_embeddings else "", 
                             enable_second_degree if use_embeddings else "", 
+                            csv_ablate_val,
                             rmse, 
                             mae, 
                             bias, 
@@ -523,26 +561,29 @@ def main():
 
                 if metric == 'no_emb':
                     values_str = "no_thresholds"
-                    sub_dir = os.path.join(grid_search_plots_dir, 'no_emb', f'window_{15}', f'step_{1}', f'item_{product_id}', values_str)
+                    no_emb_w = window_sizes[0]
+                    no_emb_s = step_sizes[0]
+                    no_emb_key = (False, None, no_emb_w, no_emb_s)
+                    sub_dir = os.path.join(grid_search_plots_dir, 'no_emb', f'window_{no_emb_w}', f'step_{no_emb_s}', f'item_{product_id}', values_str)
                     os.makedirs(sub_dir, exist_ok=True)
                     save_plot_path = os.path.join(sub_dir, f"item_{product_id}_store_{store_id}_no_emb_seed_{seed}.html")
                     emb_title = f'Baseline LSTM Forecast (No Embeddings | Seed={seed})'
                     
                     if SAVE_PLOTS:
                         print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
-                        plot_results(train, val, test, results_by_w_s[(None, 15, 1)]['forecasts'], train_index, val_index, test_index,
-                                     results_by_w_s[(None, 15, 1)]['train_losses'], results_by_w_s[(None, 15, 1)]['val_losses'], metric=metric, embedding_strategy='graph2vec',
-                                     window_size=15, step_size=1, threshold=None, percentile=None,
+                        plot_results(train, val, test, results_by_w_s[no_emb_key]['forecasts'], train_index, val_index, test_index,
+                                     results_by_w_s[no_emb_key]['train_losses'], results_by_w_s[no_emb_key]['val_losses'], metric=metric, embedding_strategy='graph2vec',
+                                     window_size=no_emb_w, step_size=no_emb_s, threshold=None, percentile=None,
                                      target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
-                                     save_path=save_plot_path, rmse=results_by_w_s[(None, 15, 1)]['rmse'], mae=results_by_w_s[(None, 15, 1)]['mae'], 
-                                     bias=results_by_w_s[(None, 15, 1)]['bias'], score=results_by_w_s[(None, 15, 1)]['score'], pocid=results_by_w_s[(None, 15, 1)]['pocid'])
+                                     save_path=save_plot_path, rmse=results_by_w_s[no_emb_key]['rmse'], mae=results_by_w_s[no_emb_key]['mae'], 
+                                     bias=results_by_w_s[no_emb_key]['bias'], score=results_by_w_s[no_emb_key]['score'], pocid=results_by_w_s[no_emb_key]['pocid'])
                 else:
                     metric_type = infer_metric_type(metric)
                     
                     # Group by window and step to combine all thresholds in a single plot
                     grouped_results = {}
-                    for (p, w, s), res_dicts in results_by_w_s.items():
-                        key = (w, s)
+                    for (ablate_z_key, p, w, s), res_dicts in results_by_w_s.items():
+                        key = (ablate_z_key, w, s)
                         if key not in grouped_results:
                             grouped_results[key] = {
                                 'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -558,30 +599,45 @@ def main():
                         grouped_results[key]['pocid'].update(res_dicts['pocid'])
 
                     import hashlib
-                    for (w, s), res_dicts in grouped_results.items():
+                    # Merged overlay logic matching the new 3-element dict key format
+                    ws_combos = set((w, s) for (az, w, s) in grouped_results.keys())
+                    for (w, s) in ws_combos:
+                        full_key = (False, w, s)
+                        abl_key  = (True,  w, s)
+                        if full_key not in grouped_results or abl_key not in grouped_results:
+                            continue
+
                         if thresholds is not None and len(thresholds) > 0 and percentiles is None:
                             raw_str = "_".join(map(str, thresholds))
                         else:
                             raw_str = "_".join(map(str, percentiles))
                         
-                        # Hash the configuration to avoid Extremely Long Path issues
                         values_str = hashlib.md5(raw_str.encode()).hexdigest()[:8]
                         
                         sub_dir = os.path.join(grid_search_plots_dir, metric_type, f'window_{w}', f'step_{s}', f'item_{product_id}', values_str)
                         os.makedirs(sub_dir, exist_ok=True)
                         
-                        # Shorten the filename to avoid Windows MAX_PATH (260 chars) limitation
+                        # Merge forecasts/losses/metrics from both sides, prefixing labels
+                        merged = {k: {} for k in ('forecasts', 'train_losses', 'val_losses',
+                                                   'rmse', 'mae', 'bias', 'score', 'pocid')}
+                        for prefix, src_key in [("G2V", full_key), ("Ablation", abl_key)]:
+                            src = grouped_results[src_key]
+                            for lbl in src['forecasts']:
+                                new_lbl = f"{prefix}/{lbl}"
+                                for k in merged:
+                                    merged[k][new_lbl] = src[k].get(lbl)
+                        
                         save_plot_path = os.path.join(sub_dir, f"item_{product_id}_{metric}_seed_{seed}_all_configs.html")
-                        emb_title = f'Graph2Vec Forecasts ({metric} | Seed={seed} | W={w} | S={s})'
+                        emb_title = f'Graph2Vec Forecasts vs Ablation (z=0) ({metric} | Seed={seed} | W={w} | S={s})'
 
                         if SAVE_PLOTS:
                             print(f"Saving combined plot to: {os.path.abspath(save_plot_path)}")
-                            plot_results(train, val, test, res_dicts['forecasts'], train_index, val_index, test_index,
-                                         res_dicts['train_losses'], res_dicts['val_losses'], metric=metric, embedding_strategy='graph2vec',
+                            plot_results(train, val, test, merged['forecasts'], train_index, val_index, test_index,
+                                         merged['train_losses'], merged['val_losses'], metric=metric, embedding_strategy='graph2vec',
                                          window_size=w, step_size=s, threshold=None, percentile=None,
                                          target_col=TARGET_COL, title=f'{emb_title} (Item={product_id})', seed=seed,
-                                         save_path=save_plot_path, rmse=res_dicts['rmse'], mae=res_dicts['mae'], 
-                                         bias=res_dicts['bias'], score=res_dicts['score'], pocid=res_dicts['pocid'])
+                                         save_path=save_plot_path, rmse=merged['rmse'], mae=merged['mae'], 
+                                         bias=merged['bias'], score=merged['score'], pocid=merged['pocid'])
                                      
     # Generate correlation plots at the very end
     if SAVE_PLOTS:

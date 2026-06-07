@@ -58,7 +58,7 @@ EXOG_COLS = [
 ]
 grid_configs = [
 
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]},
+    {'metric': 'spearman', 'thresholds': [0.70]},
 ]
 
 # Training hyperparameters
@@ -73,9 +73,8 @@ MODEL_TYPE = 'ridge'
 LOSS_TYPE = 'mse'
 PATIENCE = 150
 ##########################
-SEEDS = [42]
-#seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
-WINDOW_SIZES = [15]     
+SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 618626816] # Add more seeds as needed
+WINDOW_SIZES = [30]     
 STEP_SIZES = [1]
 ENABLE_EDGES_OPTS = [True]
 ENABLE_SECOND_DEGREE_OPTS = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
@@ -86,6 +85,8 @@ USE_EMBEDDINGS = True
 SAVE_EMBEDDINGS = False
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 GRAPH_EMBEDDINGS_DIM = 16
+ABLATE_Z_VALUES = [True, False]
+ABLATION_HIDDEN_SIZES = (128, 64)
 # TARGET_CATEGORIES is no longer used since we test everything in the feather file
 
 # -----------------------------------------------------------------------------
@@ -147,9 +148,12 @@ def main():
         # Using string matching to be safe with float representations
         done_df['threshold'] = done_df['threshold'].fillna('').astype(str)
         done_df['percentile'] = done_df['percentile'].fillna('').astype(str)
+        if 'ablate_z' in done_df.columns:
+            done_df['ablate_z'] = done_df['ablate_z'].fillna('').astype(str)
         for _, row in done_df.iterrows():
-            # key: (product_id, store_id, seed, metric, threshold)
-            done_set.add((str(row['item_id']), str(row['store_id']), str(row['seed']), str(row['metric']), str(row['threshold'])))
+            ablate_z_val = str(row['ablate_z']) if 'ablate_z' in done_df.columns else "False"
+            # key: (product_id, store_id, seed, metric, threshold, ablate_z)
+            done_set.add((str(row['item_id']), str(row['store_id']), str(row['seed']), str(row['metric']), str(row['threshold']), ablate_z_val))
         print(f"Resuming: {len(done_set)} experiments already completed.")
 
     for product_id, store_id in PRODUCTS_TO_TEST:
@@ -227,13 +231,18 @@ def main():
 
                 if metric == 'no_emb':
                     is_threshold_mode = False
-                    iterator = [(None, 15, 1, False, False)]
+                    iterator = [(False, None, 30, 1, False, False)]
                 else:
                     is_threshold_mode = thresholds is not None and thresholds != [None]
                     params = thresholds if is_threshold_mode else percentiles
-                    iterator = itertools.product(params, WINDOW_SIZES, STEP_SIZES, ENABLE_EDGES_OPTS, ENABLE_SECOND_DEGREE_OPTS)
+                    iterator = itertools.product(ABLATE_Z_VALUES, params, WINDOW_SIZES, STEP_SIZES, ENABLE_EDGES_OPTS, ENABLE_SECOND_DEGREE_OPTS)
             
-                for param_val, window_sz, step_sz, enable_edges, enable_second_degree in iterator:
+                for ablate_z, param_val, window_sz, step_sz, enable_edges, enable_second_degree in iterator:
+                    # When ablating, z is zeroed so the param has no effect on model.
+                    # Just run it once per threshold set.
+                    if ablate_z and param_val != params[0]:
+                        continue
+                    
                     use_embeddings = (metric != 'no_emb')
                     
                     current_threshold = param_val if use_embeddings and is_threshold_mode else None
@@ -241,11 +250,11 @@ def main():
 
                     # Resumable script check
                     exp_th_str = str(current_threshold) if use_embeddings and is_threshold_mode else ""
-                    if (str(product_id), str(store_id), str(seed), str(metric), exp_th_str) in done_set:
-                        print(f"Skipping already completed experiment: Item {product_id}, Store {store_id}, Seed {seed}, Metric {metric}, Threshold {exp_th_str}")
+                    if (str(product_id), str(store_id), str(seed), str(metric), exp_th_str, str(ablate_z)) in done_set:
+                        print(f"Skipping already completed experiment: Item {product_id}, Store {store_id}, Seed {seed}, Metric {metric}, Threshold {exp_th_str}, Ablate Z: {ablate_z}")
                         continue
 
-                    key = (param_val, window_sz, step_sz)
+                    key = (ablate_z, param_val, window_sz, step_sz)
                     if key not in results_by_w_s:
                         results_by_w_s[key] = {
                             'forecasts': {}, 'train_losses': {}, 'val_losses': {},
@@ -287,6 +296,10 @@ def main():
                             cat_labels=cat_labels_dict,
                             save_embeddings=SAVE_EMBEDDINGS
                         )
+                        
+                        if ablate_z:
+                            graph_embeddings = np.zeros_like(graph_embeddings)
+
                         results_by_w_s[key]['threshold'] = fixed_threshold
                     else:
                         graph_embeddings = None
@@ -370,14 +383,10 @@ def main():
                     
                     if use_embeddings:
                         param_str_label = f"th:{current_threshold}" if is_threshold_mode else f"pct:{current_percentile} (val:{th_str})"
-                        label_name = f"{param_str_label}|w:{window_sz}|st:{step_sz}|e:{enable_edges}|2nd:{enable_second_degree}"
+                        az_str = "ablation" if ablate_z else "full"
+                        label_name = f"{param_str_label}|w:{window_sz}|st:{step_sz}|e:{enable_edges}|2nd:{enable_second_degree}|az:{az_str}"
                     else:
-                        label_name = "No Embeddings"
-                
-                    if metric == 'no_emb':
-                        base_forecast, base_train_losses, base_val_losses = forecast, t_losses, v_losses
-                        base_rmse, base_mae, base_bias = rmse, mae, bias
-                        base_score, base_pocid = score, pocid
+                        label_name = "TDMLP-Baseline (Ablated)"
 
                     results_by_w_s[key]['forecasts'][label_name] = forecast
                     results_by_w_s[key]['train_losses'][label_name] = t_losses
@@ -402,9 +411,10 @@ def main():
                     with open(csv_results_path, 'a', newline='') as csvfile:
                         writer = csv.writer(csvfile)
                         if not file_exists:
-                            writer.writerow(["item_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "rmse", "mae", "bias", "r2_score", "pocid", "train_time", "inference_time", "best_epoch"])
+                            writer.writerow(["item_id", "store_id", "seed", "metric", "window_size", "step_size", "threshold", "percentile", "enable_edges", "enable_second_degree", "ablate_z", "rmse", "mae", "bias", "r2_score", "pocid", "train_time", "inference_time", "best_epoch"])
                         
-                        writer.writerow([product_id, store_id, seed, metric, 15 if metric == 'no_emb' else window_sz, 1 if metric == 'no_emb' else step_sz, current_threshold if use_embeddings else "", current_percentile if use_embeddings else "", enable_edges if use_embeddings else "", enable_second_degree if use_embeddings else "", rmse, mae, bias, score, pocid, round(train_time, 4), round(infer_time, 4), best_epoch])
+                        csv_ablate_val = "baseline" if metric == 'no_emb' else ablate_z
+                        writer.writerow([product_id, store_id, seed, metric, 30 if metric == 'no_emb' else window_sz, 1 if metric == 'no_emb' else step_sz, current_threshold if use_embeddings else "", current_percentile if use_embeddings else "", enable_edges if use_embeddings else "", enable_second_degree if use_embeddings else "", csv_ablate_val, rmse, mae, bias, score, pocid, round(train_time, 4), round(infer_time, 4), best_epoch])
 
             if SAVE_PLOTS:
                 plot_dir = os.path.join(script_dir, f'grid_search_plots/seed_{seed}/{LOSS_TYPE}')
