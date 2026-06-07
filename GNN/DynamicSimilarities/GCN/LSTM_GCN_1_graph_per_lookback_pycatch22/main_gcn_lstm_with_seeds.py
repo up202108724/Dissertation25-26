@@ -138,7 +138,7 @@ SAVE_EMBEDDINGS = False
 #   'stats'    8-dim statistical summary per node
 #   'catch22'  22 catch22 shape/dynamics features (scale-invariant)
 #   'catch24'  22 catch22 + DN_Mean + DN_Spread_Std (24-d; restores scale)
-node_feature_modes = ['catch24', 'stats', 'raw']
+node_feature_modes = ['stats','raw']
 
 def _node_feature_width(mode, window_size):
     """Node-feature dim for a given mode — used to size ablation dummy graphs."""
@@ -413,6 +413,9 @@ def main():
             _neighbour_series: dict = {}
             _all_step_neighbours: dict = {}  # step_idx -> neighbour IDs (every forecast step)
 
+            grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots')
+            os.makedirs(grid_search_plots_dir, exist_ok=True)
+
             is_threshold_mode = thresholds is not None and thresholds != [None]
             params   = thresholds if is_threshold_mode else percentiles
             iterator = itertools.product(
@@ -444,9 +447,6 @@ def main():
                       f"window_size={window_size}, enable_edges={enable_edges}, "
                       f"2nd_degree={enable_second_degree}")
                 print(f"{'='*60}")
-
-                grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots', node_feature_mode)
-                os.makedirs(grid_search_plots_dir, exist_ok=True)
 
                 # ── 1 & 2. Graph pipeline (skipped for ablation) ─────────
                 metric_type = infer_metric_type(metric)
@@ -747,7 +747,8 @@ def main():
                                    else f"pct:{current_percentile} (val:{th_str})")
                 az_str = "ablation" if ablate_z else "full"
                 label_name = (f"{param_str_label}|w:{window_size}|st:{step_size}"
-                              f"|e:{enable_edges}|2nd:{enable_second_degree}|az:{az_str}")
+                              f"|e:{enable_edges}|2nd:{enable_second_degree}"
+                              f"|nf:{node_feature_mode}|az:{az_str}")
 
                 results_by_w_s[key]['forecasts'][label_name]    = forecast
                 results_by_w_s[key]['train_losses'][label_name] = train_losses
