@@ -24,7 +24,9 @@ from plots import plot_results #ensure available
 from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings, infer_metric_type
 from train import train_model
 from graph2vecinference_adaptativethreshold import graph2vec_inference
-from ablationlstm import AblationLSTMForecaster
+# AblationLSTMForecaster not needed here: ablation is handled by zeroing
+# the embedding columns in the input data, so both ablation and full runs
+# use the standard LSTM class with identical input_size.
 
 # Constants
 # Resolve DATA_PATH perfectly from the file directory upwards
@@ -35,7 +37,7 @@ DATE_COL = 'date'
 TARGET_COL = 'value'
 
 
-val_size = 30
+val_size = 31
 forecast_horizon = 153
 train_size = 761 - val_size - forecast_horizon
 lookback_window = 30
@@ -360,18 +362,9 @@ def main():
                     if torch.cuda.is_available():
                         torch.cuda.manual_seed(seed)
                         
-                    if ablate_z:
-                        # AblationLSTMForecaster receives the same input_size as the full
-                        # model (zeroed embedding columns included) — only real embeddings
-                        # are replaced with zeros, not removed from the input.
-                        model = AblationLSTMForecaster(
-                            lstm_input_size=input_size,
-                            lstm_hidden=HIDDEN_SIZE,
-                            lstm_layers=NUM_LAYERS,
-                            dropout=DROPOUT
-                        ).to(device)
-                    else:
-                        model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
+                    # Both ablation (zeroed embeddings) and full model use the same LSTM.
+                    # input_size is identical for both; ablation just has zero-filled emb columns.
+                    model = LSTM(input_size=input_size, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS, dropout=DROPOUT).to(device)
                         
                     criterion = nn.MSELoss()
                     criterion2 = nn.MSELoss()  
@@ -525,9 +518,9 @@ def main():
                 
                     print(f"Finished {metric} @ {param_val} -> RMSE: {rmse:.4f}\n")
                     
-                    # Append results to a persistent CSV file
+                    # Append results to a persistent CSV file (all metrics/runs in one file)
                     import csv
-                    csv_results_path = os.path.join(script_dir, f"{metric}.csv")
+                    csv_results_path = os.path.join(script_dir, "results.csv")
                     file_exists = os.path.exists(csv_results_path)
                     
                     with open(csv_results_path, 'a', newline='') as csvfile:
