@@ -402,7 +402,6 @@ def main():
                     device=device,
                     exog_cols=EXOG_COLS,
                     forecast_window=forecast_horizon,
-                    seed=seed,
                     strategy='best_val',
                     item_id=product_id,
                     store_id=store_id,

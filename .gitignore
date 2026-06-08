@@ -20,4 +20,5 @@ LSTM_Plot_Results/
 graph_infered_plots/
 diagnostics/
 influence_plots/
-i
+results.csv
+results_correlation_plot

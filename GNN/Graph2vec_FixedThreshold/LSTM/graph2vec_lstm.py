@@ -32,22 +32,10 @@ DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_and
 DATE_COL = 'date'
 TARGET_COL = 'value'
 #SEEDS = [42, 1000, 26008, 213626, 907969, 5219788,13451285]  # Add more seeds as needed
-SEEDS =[42,1000,26008,213626]
+SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 618626816] # Add more seeds as needed
  
 # Add the products and stores you want to iterate over
-PRODUCTS_TO_TEST = [
-  (26008, 6269),
-  (907969,6269),
-  (210036, 6269),
-  (907967,6269),
-  (213626,6269),
-  #(213628, 6269),
-  #(213625, 6269),
-  #(26862, 6269),
-  #(156753, 6269),
-  #(53682, 6269),
-  #(34497, 6269)
-]
+PRODUCTS_TO_TEST =None
 
 # EXOG_COLS definition
 #EXOG_COLS = []
@@ -70,10 +58,10 @@ EXOG_COLS = [
 # Grid Search Parameters Setup
 
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.75,0.82,0.85,0.88,0.91]}
+    {'metric': 'spearman', 'thresholds': [0.70]}
 ]
 
-window_sizes = [15]     
+window_sizes = [30]     
 step_sizes = [1]
 enable_edges_opts = [True]
 enable_second_degree_opts = [False]  # We will keep this False for the main analysis, but you can set to True to include second-degree neighbors in the graph construction
