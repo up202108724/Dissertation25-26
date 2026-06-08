@@ -5,12 +5,15 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import os
 import seaborn as sns
-import torch
+import sys
 from tslearn.metrics import cdist_dtw
 import torch
 from tslearn.metrics import dtw
-# Graph construction utils
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)                                          # local modules (inference, train, ...)
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/ (plots, utils)
 
+from plots import plot_networkx_plotly
 def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
     """
     Computes similarities between target_ts (1D) and all_ts (2D) using PyTorch.
@@ -617,10 +620,7 @@ def plot_dynamic_graphs(graphs, product_id, metric, plot_dir, residuals=False, e
             
         plot_path = os.path.join(current_plot_dir, f'{plot_prefix}graph_{product_id}_{start_d}_to_{end_d}.html')
         try:
-            try:
-                from graph_plot import plot_networkx_plotly
-            except ImportError:
-                from GNN.DynamicSimilarities.GraphAnalysis.graph_plot import plot_networkx_plotly
+            
             print(f"Saving plot to {plot_path} with {len(G_to_plot.nodes)} nodes and {len(G_to_plot.edges)} edges...")
             
             # Construct comprehensive title
