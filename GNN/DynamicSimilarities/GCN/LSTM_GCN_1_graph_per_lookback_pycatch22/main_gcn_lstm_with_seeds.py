@@ -138,7 +138,7 @@ SAVE_EMBEDDINGS = False
 #   'stats'    8-dim statistical summary per node
 #   'catch22'  22 catch22 shape/dynamics features (scale-invariant)
 #   'catch24'  22 catch22 + DN_Mean + DN_Spread_Std (24-d; restores scale)
-node_feature_modes = ['stats','raw']
+node_feature_modes = ['catch24', 'stats', 'raw']
 
 def _node_feature_width(mode, window_size):
     """Node-feature dim for a given mode — used to size ablation dummy graphs."""
@@ -152,7 +152,7 @@ def _node_feature_width(mode, window_size):
 ABLATE_Z_VALUES = [True, False]
 # Seeds for independent runs — each seed fully controls torch/numpy/random init.
 
-SEEDS = [42, 1000, 26008, 555555, 100000000000, 213626, 907969, 5219788, 13451285, 6186268165]
+SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 618626816]
 # Per-epoch diagnostics (||z||, Var(z), ‖∇gcn‖/‖∇lstm‖) are appended to
 # this CSV.  Suffix "_ablation" is added automatically when ABLATE_Z=True.
 DIAG_CSV_NAME  = "diagnostics.csv"
@@ -413,11 +413,12 @@ def main():
             _neighbour_series: dict = {}
             _all_step_neighbours: dict = {}  # step_idx -> neighbour IDs (every forecast step)
 
-            grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots')
-            os.makedirs(grid_search_plots_dir, exist_ok=True)
-
             is_threshold_mode = thresholds is not None and thresholds != [None]
             params   = thresholds if is_threshold_mode else percentiles
+            
+            grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots', f'seed_{seed}', f'product_{product_id}_store_{store_id}')
+            os.makedirs(grid_search_plots_dir, exist_ok=True)
+            
             iterator = itertools.product(
                 ABLATE_Z_VALUES, params, window_sizes, step_sizes,
                 enable_edges_opts, enable_second_degree_opts, node_feature_modes,
@@ -427,6 +428,8 @@ def main():
                 # When ablating, z is zeroed so the threshold has no effect on
                 # the trained weights.  Skip all but the first threshold value.
                 if ablate_z and param_val != params[0]:
+                    continue
+                if ablate_z and node_feature_mode != node_feature_modes[0]:
                     continue
 
                 current_threshold  = param_val if is_threshold_mode else None
@@ -445,7 +448,7 @@ def main():
                              else f"percentile={current_percentile}")
                 print(f"Running Experiment: ablate_z={ablate_z}, metric={metric}, {param_str}, "
                       f"window_size={window_size}, enable_edges={enable_edges}, "
-                      f"2nd_degree={enable_second_degree}")
+                      f"2nd_degree={enable_second_degree}, node_features={node_feature_mode}")
                 print(f"{'='*60}")
 
                 # ── 1 & 2. Graph pipeline (skipped for ablation) ─────────
@@ -590,7 +593,7 @@ def main():
                                else f"pct_{current_percentile}")
                 base_name = (
                     f"best_gcnlstm_perstep_{prefix_star}{product_id}_{metric}"
-                    f"_w{window_size}_s{step_size}_{param_label}{res_tag}_exp{seed}"
+                    f"_w{window_size}_s{step_size}_{param_label}_nf{node_feature_mode}{res_tag}_exp{seed}"
                 )
                 best_model_path = os.path.join(best_models_dir, f"{base_name}.pth")
                 history_path    = os.path.join(best_models_dir, f"{base_name}_history.pkl")
@@ -747,8 +750,7 @@ def main():
                                    else f"pct:{current_percentile} (val:{th_str})")
                 az_str = "ablation" if ablate_z else "full"
                 label_name = (f"{param_str_label}|w:{window_size}|st:{step_size}"
-                              f"|e:{enable_edges}|2nd:{enable_second_degree}"
-                              f"|nf:{node_feature_mode}|az:{az_str}")
+                              f"|e:{enable_edges}|2nd:{enable_second_degree}|nf:{node_feature_mode}|az:{az_str}")
 
                 results_by_w_s[key]['forecasts'][label_name]    = forecast
                 results_by_w_s[key]['train_losses'][label_name] = train_losses
@@ -772,6 +774,7 @@ def main():
                             "product_id", "store_id", "seed", "metric",
                             "window_size", "step_size", "threshold", "percentile",
                             "enable_edges", "enable_second_degree", "ablate_z",
+                            "node_feature_mode",
                             "rmse", "mae", "bias", "r2_score", "pocid",
                         ])
                     writer.writerow([
@@ -780,6 +783,7 @@ def main():
                         current_threshold if current_threshold is not None else "",
                         current_percentile if current_percentile is not None else "",
                         enable_edges, enable_second_degree, ablate_z,
+                        node_feature_mode,
                         rmse, mae, bias, score, pocid,
                     ])
 

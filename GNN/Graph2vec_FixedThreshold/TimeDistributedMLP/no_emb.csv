@@ -1,2 +1,0 @@
-product_id,store_id,seed,metric,window_size,step_size,threshold,percentile,enable_edges,enable_second_degree,rmse,mae,bias,r2_score,pocid,train_time,infer_time
-27,6269,42,no_emb,15,1,,,,,4.377149812193137,3.669005706127173,1.3848279655174491,0.08570211406427597,0.5460526315789473,9.1574,0.029

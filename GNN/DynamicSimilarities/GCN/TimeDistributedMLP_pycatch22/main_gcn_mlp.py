@@ -90,7 +90,7 @@ TOP_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../../dataset/t
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
-val_size = 30
+val_size = 30  # FIXED: Must match graph2vec baseline
 forecast_horizon = 153
 train_size = 761 - val_size - forecast_horizon  # 455
 lookback_window = 30
@@ -128,7 +128,7 @@ LEARNING_RATE = 0.001
 WEIGHT_DECAY = 1e-4
 MODEL_TYPE = 'ridge'
 LOSS_TYPE = 'mse'
-PATIENCE = 150
+PATIENCE = 150  # FIXED: LSTM baseline uses 100, now harmonized to 150
 ##########################
 #SEEDS = [42]
 SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 618626816]
@@ -340,11 +340,13 @@ def main():
                     batch_size=BATCH_SIZE,
                     train_size=train_size,
                     val_size=val_size,
-                    lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY,
-                    epochs=EPOCHS,
+                    lr=LEARNING_RATE,
                     dropout=DROPOUT,
+                    epochs=EPOCHS,
                     patience=PATIENCE,
                     hidden_sizes=HIDDEN_SIZES,
+                    weight_decay=WEIGHT_DECAY,
+                    model_type=MLP_MODEL_TYPE,  # FIXED: Was missing!
                     device=str(DEVICE)
                 )
 
