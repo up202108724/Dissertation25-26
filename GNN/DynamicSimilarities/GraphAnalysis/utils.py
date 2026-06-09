@@ -11,7 +11,7 @@ import torch
 from tslearn.metrics import dtw
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)                                          # local modules (inference, train, ...)
-sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/ (plots, utils)
+sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '..')))  # DynamicSimilarities/ (plots, utils)
 
 from plots import plot_networkx_plotly
 def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
