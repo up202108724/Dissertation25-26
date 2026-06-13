@@ -14,13 +14,13 @@ from plots import plot_results
 from utils import generate_exogenous_features
 from lstm import LSTM
 from dataset import TimeSeriesDataset
-from LSTM.lstm_train import train_model, train_model_best_train_loss, train_model_combined, train_model_expanding_window, train_model_sliding_window
+from lstm_train import train_model, train_model_combined, train_model_expanding_window, train_model_sliding_window
 #from train import train_model_selected_epochs
 from LSTM.lstm_inference import recursive_inference
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-script_dir = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # ── Constants (same defaults as LSTM_GCN/main.py) ──────────────────────────
 DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre_classified.feather'))
 TOP_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/top_12500.feather'))
@@ -28,10 +28,18 @@ DATE_COL = 'date'
 TARGET_COL = 'value'
 
 
-val_size = 31
+val_size = 61
 forecast_horizon = 153
 train_size = 761 - val_size - forecast_horizon
 lookback_window = 30
+
+# Walk-forward CV folds for expanding/sliding window strategies.
+# Pool = train+val = 761 - forecast_horizon = 608 days.
+# initial_train_size = 365 -> first fold sees a full seasonal year.
+# val_step_size = 81 -> the 243 remaining days tile into 3 equal folds whose
+# last validation block ends exactly at the test boundary (no recent data wasted).
+cv_initial_train_size = 365
+cv_val_step_size = 81
 
 BATCH_SIZE = 32
 
@@ -56,10 +64,10 @@ dropout = 0.0
 EPOCHS = 1000
 LEARNING_RATE = 0.001
 #seeds = [57]
-SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 618626816]  # Add more seeds as needed
+seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
  
 loss_type = 'MSELoss'
-
+target_products = None # Set to None to load from TOP_DATA_PATH, or specify a list of item_ids to test, e.g., [26008, 907969, 907967, 213626]
 # -----------------------------------------------------------------------------
 # Main Loop
 # -----------------------------------------------------------------------------
@@ -76,8 +84,17 @@ def main():
     df = df.sort_values([DATE_COL, "item_id", "store_id"]).reset_index(drop=True)
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     
-    target_products = df
-    products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
+    if target_products is None:
+        print(f"Loading top products from {TOP_DATA_PATH}...")
+        top_df = pd.read_feather(TOP_DATA_PATH)
+        target_products = (
+            top_df[["item_id", "store_id"]]
+            .drop_duplicates()
+            .sort_values(["item_id", "store_id"])
+            .apply(lambda r: (int(r["item_id"]), int(r["store_id"])), axis=1)
+            .tolist()
+        )
+    products = df[df[['item_id', 'store_id']].apply(tuple, axis=1).isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
     #strategies= ['selected_epochs']
     strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
     results = []
@@ -89,7 +106,7 @@ def main():
     criterion = nn.MSELoss()
     criterion2 = nn.MSELoss()
 
-    for seed in SEEDS:
+    for seed in seeds:
         for item_id, store_id in products:
             df_product = df[(df['item_id'] == item_id) & (df['store_id'] == store_id)].copy()
             df_product[DATE_COL] = pd.to_datetime(df_product[DATE_COL])
@@ -189,20 +206,20 @@ def main():
 
                 elif strategy == 'expanding_window':
                     model, t_losses, v_losses, best_epoch, train_time = train_model_expanding_window(
-                        seed=seed, epochs=EPOCHS, model=model, 
-                        full_train_scaled=combined_train_val, exog_scaled=combined_exog, 
-                        seq_length=lookback_window, initial_train_size=train_size, 
-                        val_step_size=30, batch_size=batch_size, 
+                        seed=seed, epochs=EPOCHS, model=model,
+                        full_train_scaled=combined_train_val, exog_scaled=combined_exog,
+                        seq_length=lookback_window, initial_train_size=cv_initial_train_size,
+                        val_step_size=cv_val_step_size, batch_size=batch_size,
                         criterion=criterion, criterion2=criterion2, 
                         optimizer=optimizer, device=device, final_model_path=model_path, 
                         dataset_class=TimeSeriesDataset, scheduler=scheduler, patience=150
                     )
                 elif strategy == 'sliding_window':
                     model, t_losses, v_losses, best_epoch, train_time = train_model_sliding_window(
-                        seed=seed, epochs=EPOCHS, model=model, 
-                        full_train_scaled=combined_train_val, exog_scaled=combined_exog, 
-                        seq_length=lookback_window, initial_train_size=train_size, 
-                        val_step_size=30, batch_size=batch_size, 
+                        seed=seed, epochs=EPOCHS, model=model,
+                        full_train_scaled=combined_train_val, exog_scaled=combined_exog,
+                        seq_length=lookback_window, initial_train_size=cv_initial_train_size,
+                        val_step_size=cv_val_step_size, batch_size=batch_size,
                         criterion=criterion, criterion2=criterion2, 
                         optimizer=optimizer, device=device, final_model_path=model_path, 
                         dataset_class=TimeSeriesDataset, scheduler=scheduler, patience=150
@@ -218,7 +235,7 @@ def main():
                 # Inference
                 forecast, infer_time = recursive_inference(
                     model, test_start_idx, lookback_window, val_scaled, exog_val_scaled, exog_test_scaled, exog_test,
-                    scaler, exog_scaler, df_product, device, EXOG_COLS, forecast_horizon, seed, strategy, item_id, store_id, loss_type, script_dir
+                    scaler, exog_scaler, df_product, device, EXOG_COLS, forecast_horizon, seed, strategy, item_id, store_id, loss_type, SCRIPT_DIR
                 )
                 
                 # Metrics
@@ -255,7 +272,7 @@ def main():
                 })
 
             # --- Plot Forecast Comparisons ---
-            plot_dir = os.path.join(script_dir, f'grid_search_plots/seed_{seed}/{loss_type}')
+            plot_dir = os.path.join(SCRIPT_DIR, f'grid_search_plots/seed_{seed}/{loss_type}')
             os.makedirs(plot_dir, exist_ok=True)
             
             #strategies_str = "_".join(strategies)
