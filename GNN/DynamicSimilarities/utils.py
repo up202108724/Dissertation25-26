@@ -19,12 +19,55 @@ DISTANCE_METRICS = {
 SIMILARITY_METRICS = {'pearson', 'spearman', 'kendall'}
 CAUSAL_METRICS = {'granger'}
 
+# Read catch22/24 feature names directly from pycatch22 so they always match
+# the installed library version.  A short dummy series is enough to get names.
+try:
+    import pycatch22 as _pycatch22
+    _catch24_names: list = list(_pycatch22.catch22_all(list(range(50)), catch24=True)["names"])
+    _catch22_names: list = _catch24_names[:22]
+except Exception:
+    _catch22_names = [f'catch22_{i}' for i in range(22)]
+    _catch24_names = _catch22_names + ['DN_Mean', 'DN_Spread_Std']
+
+# Mirrors _MODE_FEATURE_LISTS in node_feature_builders — keep in sync.
+_MODE_FEATURE_KEYS = {
+    'raw':                ['raw'],
+    'stats':              ['mean', 'std', 'min', 'max', 'first', 'last', 'slope', 'sum'],
+    'catch22':            ['catch22'],
+    'catch24':            ['catch24'],
+    'catch24_minmax':     ['catch24', 'min', 'max'],
+    'catch24_minmaxlast': ['catch24', 'min', 'max', 'last'],
+}
+
+
+def _node_feature_col_names(mode: str, n_feats: int) -> list:
+    """Expand a node-feature mode string into ordered column names.
+
+    Falls back to generic feat_i names for unknown modes or width mismatches.
+    """
+    keys = _MODE_FEATURE_KEYS.get(mode)
+    if keys is None:
+        return [f'feat_{i}' for i in range(n_feats)]
+    cols = []
+    for k in keys:
+        if k == 'catch22':
+            cols += _catch22_names
+        elif k == 'catch24':
+            cols += _catch24_names
+        elif k == 'raw':
+            n_other = sum(1 for kk in keys if kk != 'raw')
+            cols += [f'raw_{j}' for j in range(n_feats - n_other)]
+        else:
+            cols.append(k)
+    return cols if len(cols) == n_feats else [f'feat_{i}' for i in range(n_feats)]
+
+
 def _save_node_features_csv(
     pyg_windows, product_id, store_id, metric, threshold, window_size, mode, script_dir
 ):
     """
     Dump node features from every PyG window graph to a CSV.
-    Each row: window_idx, node_idx, feat_0, feat_1, ..., feat_N
+    Each row: window_idx, node_idx, <named feature columns>
     """
     out_dir = os.path.join(script_dir, "node_features")
     os.makedirs(out_dir, exist_ok=True)
@@ -36,7 +79,7 @@ def _save_node_features_csv(
     with open(out_path, "w", newline="") as f:
         writer = csv.writer(f)
         n_feats = pyg_windows[0].x.shape[1] if len(pyg_windows) > 0 else 0
-        feat_cols = [f"feat_{i}" for i in range(n_feats)]
+        feat_cols = _node_feature_col_names(mode, n_feats)
         writer.writerow(["window_idx", "node_idx"] + feat_cols)
         for w_idx, graph in enumerate(pyg_windows):
             x = graph.x.numpy() if hasattr(graph.x, "numpy") else graph.x
