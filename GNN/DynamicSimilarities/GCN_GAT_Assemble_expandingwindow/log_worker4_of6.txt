@@ -13675,3 +13675,1289 @@ Training new per-step GCN+LSTM model...
 Epoch 10/1000 | Train: 0.012355 | Val: 0.010048 | ||z||=3.946 Var(z)=0.0878 | |grad_gcn|=6.24e-02 |grad_mlp|=0.00e+00 ratio=6.24e+10
 Epoch 20/1000 | Train: 0.008772 | Val: 0.000030 | ||z||=3.884 Var(z)=0.0704 | |grad_gcn|=1.99e-02 |grad_mlp|=0.00e+00 ratio=1.99e+10
 Epoch 30/1000 | Train: 0.008370 | Val: 0.002575 | ||z||=3.860 Var(z)=0.0745 | |grad_gcn|=3.73e-02 |grad_mlp|=0.00e+00 ratio=3.73e+10
+Epoch 40/1000 | Train: 0.008737 | Val: 0.003785 | ||z||=3.819 Var(z)=0.0696 | |grad_gcn|=4.19e-02 |grad_mlp|=0.00e+00 ratio=4.19e+10
+Epoch 50/1000 | Train: 0.006532 | Val: 0.006772 | ||z||=3.771 Var(z)=0.0741 | |grad_gcn|=3.53e-02 |grad_mlp|=0.00e+00 ratio=3.53e+10
+Epoch 60/1000 | Train: 0.005252 | Val: 0.004685 | ||z||=3.747 Var(z)=0.0800 | |grad_gcn|=3.41e-02 |grad_mlp|=0.00e+00 ratio=3.41e+10
+Epoch 70/1000 | Train: 0.004923 | Val: 0.004612 | ||z||=3.724 Var(z)=0.0848 | |grad_gcn|=3.99e-02 |grad_mlp|=0.00e+00 ratio=3.99e+10
+Epoch 80/1000 | Train: 0.003738 | Val: 0.003234 | ||z||=3.718 Var(z)=0.0885 | |grad_gcn|=2.81e-02 |grad_mlp|=0.00e+00 ratio=2.81e+10
+Epoch 90/1000 | Train: 0.003489 | Val: 0.004620 | ||z||=3.717 Var(z)=0.0922 | |grad_gcn|=3.29e-02 |grad_mlp|=0.00e+00 ratio=3.29e+10
+Epoch 100/1000 | Train: 0.003222 | Val: 0.002983 | ||z||=3.716 Var(z)=0.0930 | |grad_gcn|=3.32e-02 |grad_mlp|=0.00e+00 ratio=3.32e+10
+Epoch 110/1000 | Train: 0.002894 | Val: 0.003777 | ||z||=3.716 Var(z)=0.0952 | |grad_gcn|=2.61e-02 |grad_mlp|=0.00e+00 ratio=2.61e+10
+Epoch 120/1000 | Train: 0.002761 | Val: 0.003905 | ||z||=3.716 Var(z)=0.0964 | |grad_gcn|=2.81e-02 |grad_mlp|=0.00e+00 ratio=2.81e+10
+Epoch 130/1000 | Train: 0.002647 | Val: 0.004103 | ||z||=3.716 Var(z)=0.0979 | |grad_gcn|=2.78e-02 |grad_mlp|=0.00e+00 ratio=2.78e+10
+Early stopping at epoch 137 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 49.03176020111066
+
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp1000.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012636 | Val: 0.000535 | ||z||=4.044 Var(z)=0.1081 | |grad_gcn|=4.93e-02 |grad_lstm|=6.91e-02 ratio=7.13e-01
+Epoch 20/1000 | Train: 0.010990 | Val: 0.000352 | ||z||=4.025 Var(z)=0.1581 | |grad_gcn|=6.40e-02 |grad_lstm|=5.58e-02 ratio=1.15e+00
+Epoch 30/1000 | Train: 0.009761 | Val: 0.000002 | ||z||=4.000 Var(z)=0.2060 | |grad_gcn|=6.52e-02 |grad_lstm|=5.12e-02 ratio=1.28e+00
+Epoch 40/1000 | Train: 0.007893 | Val: 0.000379 | ||z||=3.984 Var(z)=0.2706 | |grad_gcn|=6.30e-02 |grad_lstm|=3.84e-02 ratio=1.64e+00
+Epoch 50/1000 | Train: 0.006341 | Val: 0.000416 | ||z||=3.991 Var(z)=0.3371 | |grad_gcn|=6.82e-02 |grad_lstm|=3.67e-02 ratio=1.86e+00
+Epoch 60/1000 | Train: 0.005270 | Val: 0.000268 | ||z||=3.992 Var(z)=0.3377 | |grad_gcn|=5.19e-02 |grad_lstm|=2.89e-02 ratio=1.79e+00
+Epoch 70/1000 | Train: 0.005890 | Val: 0.000208 | ||z||=4.004 Var(z)=0.3878 | |grad_gcn|=7.25e-02 |grad_lstm|=4.76e-02 ratio=1.52e+00
+Epoch 80/1000 | Train: 0.003813 | Val: 0.000289 | ||z||=3.986 Var(z)=0.3635 | |grad_gcn|=4.27e-02 |grad_lstm|=2.08e-02 ratio=2.05e+00
+Epoch 90/1000 | Train: 0.003193 | Val: 0.000398 | ||z||=3.997 Var(z)=0.3933 | |grad_gcn|=3.87e-02 |grad_lstm|=1.81e-02 ratio=2.13e+00
+Epoch 100/1000 | Train: 0.002765 | Val: 0.000128 | ||z||=4.009 Var(z)=0.4070 | |grad_gcn|=4.13e-02 |grad_lstm|=1.81e-02 ratio=2.29e+00
+Epoch 110/1000 | Train: 0.002325 | Val: 0.000012 | ||z||=4.020 Var(z)=0.4168 | |grad_gcn|=3.20e-02 |grad_lstm|=1.59e-02 ratio=2.01e+00
+Epoch 120/1000 | Train: 0.002126 | Val: 0.000086 | ||z||=4.027 Var(z)=0.4263 | |grad_gcn|=3.30e-02 |grad_lstm|=1.68e-02 ratio=1.97e+00
+Epoch 130/1000 | Train: 0.001922 | Val: 0.000282 | ||z||=4.033 Var(z)=0.4360 | |grad_gcn|=3.66e-02 |grad_lstm|=1.56e-02 ratio=2.35e+00
+Early stopping at epoch 138 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 50.45055058694462
+
+
+============================================================
+Running Experiment: variant=gat_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp1000.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011298 | Val: 0.000910 | ||z||=4.001 Var(z)=0.0584 | |grad_gcn|=3.61e-02 |grad_mlp|=0.00e+00 ratio=3.61e+10
+Epoch 20/1000 | Train: 0.008978 | Val: 0.000942 | ||z||=3.977 Var(z)=0.0786 | |grad_gcn|=3.33e-02 |grad_mlp|=0.00e+00 ratio=3.33e+10
+Epoch 30/1000 | Train: 0.007475 | Val: 0.000090 | ||z||=3.948 Var(z)=0.0786 | |grad_gcn|=3.39e-02 |grad_mlp|=0.00e+00 ratio=3.39e+10
+Epoch 40/1000 | Train: 0.006066 | Val: 0.000527 | ||z||=3.926 Var(z)=0.0970 | |grad_gcn|=4.86e-02 |grad_mlp|=0.00e+00 ratio=4.86e+10
+Epoch 50/1000 | Train: 0.005189 | Val: 0.005469 | ||z||=3.899 Var(z)=0.1086 | |grad_gcn|=5.50e-02 |grad_mlp|=0.00e+00 ratio=5.50e+10
+Epoch 60/1000 | Train: 0.003698 | Val: 0.000139 | ||z||=3.896 Var(z)=0.1351 | |grad_gcn|=4.45e-02 |grad_mlp|=0.00e+00 ratio=4.45e+10
+Epoch 70/1000 | Train: 0.003351 | Val: 0.000316 | ||z||=3.894 Var(z)=0.1618 | |grad_gcn|=5.69e-02 |grad_mlp|=0.00e+00 ratio=5.69e+10
+Epoch 80/1000 | Train: 0.003195 | Val: 0.004296 | ||z||=3.891 Var(z)=0.1839 | |grad_gcn|=7.76e-02 |grad_mlp|=0.00e+00 ratio=7.76e+10
+Epoch 90/1000 | Train: 0.002035 | Val: 0.004166 | ||z||=3.885 Var(z)=0.1938 | |grad_gcn|=3.60e-02 |grad_mlp|=0.00e+00 ratio=3.60e+10
+Epoch 100/1000 | Train: 0.001753 | Val: 0.004605 | ||z||=3.887 Var(z)=0.2113 | |grad_gcn|=3.93e-02 |grad_mlp|=0.00e+00 ratio=3.93e+10
+Epoch 110/1000 | Train: 0.001514 | Val: 0.005395 | ||z||=3.890 Var(z)=0.2252 | |grad_gcn|=3.87e-02 |grad_mlp|=0.00e+00 ratio=3.87e+10
+Epoch 120/1000 | Train: 0.001403 | Val: 0.005042 | ||z||=3.893 Var(z)=0.2332 | |grad_gcn|=6.00e-02 |grad_mlp|=0.00e+00 ratio=6.00e+10
+Epoch 130/1000 | Train: 0.001161 | Val: 0.005525 | ||z||=3.894 Var(z)=0.2466 | |grad_gcn|=3.20e-02 |grad_mlp|=0.00e+00 ratio=3.20e+10
+Epoch 140/1000 | Train: 0.001060 | Val: 0.005594 | ||z||=3.895 Var(z)=0.2538 | |grad_gcn|=3.26e-02 |grad_mlp|=0.00e+00 ratio=3.26e+10
+Epoch 150/1000 | Train: 0.000962 | Val: 0.005711 | ||z||=3.897 Var(z)=0.2626 | |grad_gcn|=3.31e-02 |grad_mlp|=0.00e+00 ratio=3.31e+10
+Early stopping at epoch 151 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 43.15806644589237
+
+Saving merged overlay plot to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\grid_search_plots\seed_1000\product_907969_store_6269\similarity\window_30\step_1\item_907969\6adf97f8\exp_1000\item_907969_spearman_all_configs_merged.html
+
+[TIMING] Product 907969 | store 6269 | exp 1000: 3412.8 s (56.88 min)
+[PROGRESS] Worker 4/6: 72/100 done | 28 remaining | elapsed 912.9 min | avg 12.68 min/unit | ETA 355.0 min (5.92 h)
+
+================================================================================
+PROCESSING PRODUCT 907969 FOR STORE 6269  [Seed 26008]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Epoch 10/1000 | Train Loss: 0.012417 | Val Loss: 0.000224
+Epoch 20/1000 | Train Loss: 0.011091 | Val Loss: 0.000008
+Epoch 30/1000 | Train Loss: 0.009835 | Val Loss: 0.000044
+Epoch 40/1000 | Train Loss: 0.009105 | Val Loss: 0.000516
+Epoch 50/1000 | Train Loss: 0.008355 | Val Loss: 0.000767
+Epoch 60/1000 | Train Loss: 0.007855 | Val Loss: 0.000469
+Epoch 70/1000 | Train Loss: 0.007682 | Val Loss: 0.000429
+Epoch 80/1000 | Train Loss: 0.007544 | Val Loss: 0.000401
+Epoch 90/1000 | Train Loss: 0.007307 | Val Loss: 0.000236
+Epoch 100/1000 | Train Loss: 0.007241 | Val Loss: 0.000239
+Epoch 110/1000 | Train Loss: 0.007171 | Val Loss: 0.000238
+Early stopping at epoch 117 due to no improvement in validation loss for 100 epochs.
+LSTM Baseline RMSE: 54.9668
+
+============================================================
+Running MLP Baseline...
+============================================================
+Train/Val Split Indices:
+  Train End: -184
+  Val Range:     -184 to -153
+  Test Range:    -153 to End
+  Val Targets:   31 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1, 1)
+Epoch 1: Train Loss = 0.068684, Val Loss = 0.015331 (New Best)
+Epoch 2: Train Loss = 0.016442, Val Loss = 0.005855 (New Best)
+Epoch 3: Train Loss = 0.011752, Val Loss = 0.005162 (New Best)
+Epoch 5: Train Loss = 0.010115, Val Loss = 0.004944 (New Best)
+Epoch 11: Train Loss = 0.008785, Val Loss = 0.004907 (New Best)
+Early stopping at epoch 111 (no val improvement for 100 epochs; best epoch=11).
+Best Val MSE: 0.004907 (Epoch 11)
+MLP Baseline RMSE: 48.9939
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp26008.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011820 | Val: 0.000251 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.35e-02 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.010816 | Val: 0.000467 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.52e-02 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.008893 | Val: 0.001839 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.62e-02 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.009204 | Val: 0.000722 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=8.98e-02 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.008136 | Val: 0.000590 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.55e-02 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.008327 | Val: 0.000045 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=8.50e-02 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.008871 | Val: 0.000182 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=9.03e-02 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.007483 | Val: 0.000930 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.03e-02 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.007516 | Val: 0.000613 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.91e-02 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.007435 | Val: 0.000562 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.73e-02 ratio=0.00e+00
+Early stopping at epoch 107 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 55.783284150973266
+
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp26008.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011602 | Val: 0.002624 | ||z||=4.044 Var(z)=0.0732 | |grad_gcn|=6.85e-02 |grad_lstm|=7.18e-02 ratio=9.54e-01
+Epoch 20/1000 | Train: 0.010009 | Val: 0.001708 | ||z||=4.006 Var(z)=0.0805 | |grad_gcn|=5.68e-02 |grad_lstm|=5.49e-02 ratio=1.03e+00
+Epoch 30/1000 | Train: 0.009596 | Val: 0.001312 | ||z||=3.967 Var(z)=0.0811 | |grad_gcn|=5.82e-02 |grad_lstm|=6.62e-02 ratio=8.79e-01
+Epoch 40/1000 | Train: 0.009019 | Val: 0.000463 | ||z||=3.926 Var(z)=0.0855 | |grad_gcn|=5.80e-02 |grad_lstm|=6.42e-02 ratio=9.04e-01
+Epoch 50/1000 | Train: 0.008305 | Val: 0.000529 | ||z||=3.890 Var(z)=0.0954 | |grad_gcn|=5.98e-02 |grad_lstm|=6.07e-02 ratio=9.84e-01
+Epoch 60/1000 | Train: 0.007670 | Val: 0.000688 | ||z||=3.863 Var(z)=0.1095 | |grad_gcn|=7.45e-02 |grad_lstm|=6.44e-02 ratio=1.16e+00
+Epoch 70/1000 | Train: 0.006339 | Val: 0.000002 | ||z||=3.862 Var(z)=0.1360 | |grad_gcn|=5.87e-02 |grad_lstm|=4.08e-02 ratio=1.44e+00
+Epoch 80/1000 | Train: 0.005763 | Val: 0.000055 | ||z||=3.875 Var(z)=0.1695 | |grad_gcn|=7.27e-02 |grad_lstm|=4.59e-02 ratio=1.58e+00
+Epoch 90/1000 | Train: 0.005272 | Val: 0.000025 | ||z||=3.887 Var(z)=0.1989 | |grad_gcn|=7.68e-02 |grad_lstm|=4.39e-02 ratio=1.75e+00
+Epoch 100/1000 | Train: 0.004839 | Val: 0.000183 | ||z||=3.907 Var(z)=0.2473 | |grad_gcn|=1.07e-01 |grad_lstm|=5.11e-02 ratio=2.10e+00
+Epoch 110/1000 | Train: 0.004236 | Val: 0.000679 | ||z||=3.910 Var(z)=0.2587 | |grad_gcn|=7.31e-02 |grad_lstm|=3.41e-02 ratio=2.15e+00
+Epoch 120/1000 | Train: 0.003992 | Val: 0.000895 | ||z||=3.918 Var(z)=0.2782 | |grad_gcn|=8.09e-02 |grad_lstm|=3.42e-02 ratio=2.36e+00
+Epoch 130/1000 | Train: 0.003783 | Val: 0.001147 | ||z||=3.925 Var(z)=0.2933 | |grad_gcn|=8.68e-02 |grad_lstm|=3.47e-02 ratio=2.50e+00
+Epoch 140/1000 | Train: 0.003563 | Val: 0.001943 | ||z||=3.934 Var(z)=0.3074 | |grad_gcn|=9.57e-02 |grad_lstm|=3.61e-02 ratio=2.65e+00
+Epoch 150/1000 | Train: 0.003434 | Val: 0.002154 | ||z||=3.939 Var(z)=0.3153 | |grad_gcn|=9.44e-02 |grad_lstm|=3.42e-02 ratio=2.76e+00
+Epoch 160/1000 | Train: 0.003330 | Val: 0.002388 | ||z||=3.945 Var(z)=0.3230 | |grad_gcn|=9.69e-02 |grad_lstm|=3.43e-02 ratio=2.82e+00
+Epoch 170/1000 | Train: 0.003225 | Val: 0.002654 | ||z||=3.950 Var(z)=0.3309 | |grad_gcn|=9.95e-02 |grad_lstm|=3.44e-02 ratio=2.89e+00
+Early stopping at epoch 171 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 43.79018371325817
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp26008.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009102 | Val: 0.000184 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.007190 | Val: 0.001508 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.006306 | Val: 0.000356 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.006159 | Val: 0.002329 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.006318 | Val: 0.003106 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.003973 | Val: 0.000682 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.005065 | Val: 0.000150 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.003596 | Val: 0.000616 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.003670 | Val: 0.000154 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.002560 | Val: 0.000971 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.002327 | Val: 0.000480 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 120/1000 | Train: 0.002229 | Val: 0.000414 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 130/1000 | Train: 0.002089 | Val: 0.000186 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 140/1000 | Train: 0.001915 | Val: 0.000225 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 150/1000 | Train: 0.001854 | Val: 0.000280 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 160/1000 | Train: 0.001798 | Val: 0.000287 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Early stopping at epoch 164 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 39.28856393872405
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp26008.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.010086 | Val: 0.001507 | ||z||=3.968 Var(z)=0.0350 | |grad_gcn|=3.35e-02 |grad_mlp|=0.00e+00 ratio=3.35e+10
+Epoch 20/1000 | Train: 0.009757 | Val: 0.003000 | ||z||=3.923 Var(z)=0.0364 | |grad_gcn|=3.13e-02 |grad_mlp|=0.00e+00 ratio=3.13e+10
+Epoch 30/1000 | Train: 0.007609 | Val: 0.000685 | ||z||=3.896 Var(z)=0.0417 | |grad_gcn|=2.74e-02 |grad_mlp|=0.00e+00 ratio=2.74e+10
+Epoch 40/1000 | Train: 0.008074 | Val: 0.008851 | ||z||=3.872 Var(z)=0.0499 | |grad_gcn|=4.48e-02 |grad_mlp|=0.00e+00 ratio=4.48e+10
+Epoch 50/1000 | Train: 0.007272 | Val: 0.005484 | ||z||=3.819 Var(z)=0.0413 | |grad_gcn|=3.49e-02 |grad_mlp|=0.00e+00 ratio=3.49e+10
+Epoch 60/1000 | Train: 0.005709 | Val: 0.001845 | ||z||=3.775 Var(z)=0.0430 | |grad_gcn|=3.30e-02 |grad_mlp|=0.00e+00 ratio=3.30e+10
+Epoch 70/1000 | Train: 0.004800 | Val: 0.000003 | ||z||=3.750 Var(z)=0.0438 | |grad_gcn|=3.33e-02 |grad_mlp|=0.00e+00 ratio=3.33e+10
+Epoch 80/1000 | Train: 0.005500 | Val: 0.003225 | ||z||=3.716 Var(z)=0.0413 | |grad_gcn|=5.51e-02 |grad_mlp|=0.00e+00 ratio=5.51e+10
+Epoch 90/1000 | Train: 0.003499 | Val: 0.000589 | ||z||=3.704 Var(z)=0.0436 | |grad_gcn|=2.60e-02 |grad_mlp|=0.00e+00 ratio=2.60e+10
+Epoch 100/1000 | Train: 0.003177 | Val: 0.000832 | ||z||=3.701 Var(z)=0.0456 | |grad_gcn|=2.90e-02 |grad_mlp|=0.00e+00 ratio=2.90e+10
+Epoch 110/1000 | Train: 0.002927 | Val: 0.001590 | ||z||=3.699 Var(z)=0.0480 | |grad_gcn|=3.43e-02 |grad_mlp|=0.00e+00 ratio=3.43e+10
+Epoch 120/1000 | Train: 0.002599 | Val: 0.001604 | ||z||=3.697 Var(z)=0.0486 | |grad_gcn|=2.97e-02 |grad_mlp|=0.00e+00 ratio=2.97e+10
+Epoch 130/1000 | Train: 0.002467 | Val: 0.001953 | ||z||=3.696 Var(z)=0.0500 | |grad_gcn|=3.42e-02 |grad_mlp|=0.00e+00 ratio=3.42e+10
+Epoch 140/1000 | Train: 0.002346 | Val: 0.002178 | ||z||=3.696 Var(z)=0.0512 | |grad_gcn|=3.59e-02 |grad_mlp|=0.00e+00 ratio=3.59e+10
+Early stopping at epoch 149 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 52.57598271470805
+
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp26008.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.010954 | Val: 0.003074 | ||z||=4.030 Var(z)=0.0833 | |grad_gcn|=8.04e-02 |grad_lstm|=6.80e-02 ratio=1.18e+00
+Epoch 20/1000 | Train: 0.008880 | Val: 0.000043 | ||z||=4.019 Var(z)=0.0855 | |grad_gcn|=5.62e-02 |grad_lstm|=5.32e-02 ratio=1.06e+00
+Epoch 30/1000 | Train: 0.007953 | Val: 0.000081 | ||z||=3.993 Var(z)=0.0915 | |grad_gcn|=4.64e-02 |grad_lstm|=4.41e-02 ratio=1.05e+00
+Epoch 40/1000 | Train: 0.008568 | Val: 0.000327 | ||z||=3.973 Var(z)=0.0917 | |grad_gcn|=6.59e-02 |grad_lstm|=5.78e-02 ratio=1.14e+00
+Epoch 50/1000 | Train: 0.006279 | Val: 0.000045 | ||z||=3.977 Var(z)=0.1307 | |grad_gcn|=5.13e-02 |grad_lstm|=3.74e-02 ratio=1.37e+00
+Epoch 60/1000 | Train: 0.006312 | Val: 0.000021 | ||z||=3.925 Var(z)=0.1267 | |grad_gcn|=5.71e-02 |grad_lstm|=4.59e-02 ratio=1.24e+00
+Epoch 70/1000 | Train: 0.005437 | Val: 0.000388 | ||z||=3.909 Var(z)=0.1527 | |grad_gcn|=4.85e-02 |grad_lstm|=3.55e-02 ratio=1.37e+00
+Epoch 80/1000 | Train: 0.005070 | Val: 0.001668 | ||z||=3.876 Var(z)=0.1644 | |grad_gcn|=4.50e-02 |grad_lstm|=3.36e-02 ratio=1.34e+00
+Epoch 90/1000 | Train: 0.004012 | Val: 0.000021 | ||z||=3.886 Var(z)=0.2160 | |grad_gcn|=4.52e-02 |grad_lstm|=2.70e-02 ratio=1.68e+00
+Epoch 100/1000 | Train: 0.003563 | Val: 0.000008 | ||z||=3.889 Var(z)=0.2398 | |grad_gcn|=4.80e-02 |grad_lstm|=2.73e-02 ratio=1.76e+00
+Epoch 110/1000 | Train: 0.003104 | Val: 0.000105 | ||z||=3.896 Var(z)=0.2566 | |grad_gcn|=4.66e-02 |grad_lstm|=2.53e-02 ratio=1.85e+00
+Epoch 120/1000 | Train: 0.002745 | Val: 0.000164 | ||z||=3.904 Var(z)=0.2641 | |grad_gcn|=4.61e-02 |grad_lstm|=2.47e-02 ratio=1.87e+00
+Epoch 130/1000 | Train: 0.002610 | Val: 0.000076 | ||z||=3.908 Var(z)=0.2694 | |grad_gcn|=5.07e-02 |grad_lstm|=2.58e-02 ratio=1.97e+00
+Epoch 140/1000 | Train: 0.002574 | Val: 0.000129 | ||z||=3.912 Var(z)=0.2805 | |grad_gcn|=6.63e-02 |grad_lstm|=3.29e-02 ratio=2.02e+00
+Early stopping at epoch 147 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 48.27385916267932
+
+
+============================================================
+Running Experiment: variant=gat_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp26008.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011651 | Val: 0.000011 | ||z||=3.963 Var(z)=0.0665 | |grad_gcn|=3.32e-02 |grad_mlp|=0.00e+00 ratio=3.32e+10
+Epoch 20/1000 | Train: 0.008756 | Val: 0.003096 | ||z||=3.933 Var(z)=0.0614 | |grad_gcn|=3.29e-02 |grad_mlp|=0.00e+00 ratio=3.29e+10
+Epoch 30/1000 | Train: 0.008056 | Val: 0.001134 | ||z||=3.909 Var(z)=0.0766 | |grad_gcn|=5.10e-02 |grad_mlp|=0.00e+00 ratio=5.10e+10
+Epoch 40/1000 | Train: 0.005485 | Val: 0.000639 | ||z||=3.893 Var(z)=0.0921 | |grad_gcn|=4.30e-02 |grad_mlp|=0.00e+00 ratio=4.30e+10
+Epoch 50/1000 | Train: 0.005519 | Val: 0.001349 | ||z||=3.874 Var(z)=0.0988 | |grad_gcn|=6.11e-02 |grad_mlp|=0.00e+00 ratio=6.11e+10
+Epoch 60/1000 | Train: 0.003962 | Val: 0.001056 | ||z||=3.847 Var(z)=0.1066 | |grad_gcn|=3.69e-02 |grad_mlp|=0.00e+00 ratio=3.69e+10
+Epoch 70/1000 | Train: 0.003635 | Val: 0.004685 | ||z||=3.836 Var(z)=0.1047 | |grad_gcn|=4.32e-02 |grad_mlp|=0.00e+00 ratio=4.32e+10
+Epoch 80/1000 | Train: 0.003134 | Val: 0.002121 | ||z||=3.828 Var(z)=0.1126 | |grad_gcn|=3.81e-02 |grad_mlp|=0.00e+00 ratio=3.81e+10
+Epoch 90/1000 | Train: 0.002822 | Val: 0.005743 | ||z||=3.824 Var(z)=0.1131 | |grad_gcn|=4.38e-02 |grad_mlp|=0.00e+00 ratio=4.38e+10
+Epoch 100/1000 | Train: 0.001976 | Val: 0.006889 | ||z||=3.820 Var(z)=0.1224 | |grad_gcn|=2.28e-02 |grad_mlp|=0.00e+00 ratio=2.28e+10
+Epoch 110/1000 | Train: 0.001763 | Val: 0.007462 | ||z||=3.821 Var(z)=0.1284 | |grad_gcn|=2.35e-02 |grad_mlp|=0.00e+00 ratio=2.35e+10
+Epoch 120/1000 | Train: 0.001569 | Val: 0.008093 | ||z||=3.822 Var(z)=0.1342 | |grad_gcn|=2.33e-02 |grad_mlp|=0.00e+00 ratio=2.33e+10
+Early stopping at epoch 127 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 43.52661673928891
+
+Saving merged overlay plot to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\grid_search_plots\seed_26008\product_907969_store_6269\similarity\window_30\step_1\item_907969\6adf97f8\exp_26008\item_907969_spearman_all_configs_merged.html
+
+[TIMING] Product 907969 | store 6269 | exp 26008: 3323.6 s (55.39 min)
+[PROGRESS] Worker 4/6: 73/100 done | 27 remaining | elapsed 968.3 min | avg 13.26 min/unit | ETA 358.1 min (5.97 h)
+
+================================================================================
+PROCESSING PRODUCT 907969 FOR STORE 6269  [Seed 555555]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Epoch 10/1000 | Train Loss: 0.012415 | Val Loss: 0.000017
+Epoch 20/1000 | Train Loss: 0.010712 | Val Loss: 0.000283
+Epoch 30/1000 | Train Loss: 0.009557 | Val Loss: 0.005738
+Epoch 40/1000 | Train Loss: 0.009377 | Val Loss: 0.000184
+Epoch 50/1000 | Train Loss: 0.008313 | Val Loss: 0.004272
+Epoch 60/1000 | Train Loss: 0.008911 | Val Loss: 0.007849
+Epoch 70/1000 | Train Loss: 0.008121 | Val Loss: 0.002134
+Epoch 80/1000 | Train Loss: 0.007648 | Val Loss: 0.003823
+Epoch 90/1000 | Train Loss: 0.007505 | Val Loss: 0.003829
+Epoch 100/1000 | Train Loss: 0.007395 | Val Loss: 0.003694
+Epoch 110/1000 | Train Loss: 0.007295 | Val Loss: 0.003453
+Early stopping at epoch 111 due to no improvement in validation loss for 100 epochs.
+LSTM Baseline RMSE: 55.3126
+
+============================================================
+Running MLP Baseline...
+============================================================
+Train/Val Split Indices:
+  Train End: -184
+  Val Range:     -184 to -153
+  Test Range:    -153 to End
+  Val Targets:   31 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1, 1)
+Epoch 1: Train Loss = 0.048278, Val Loss = 0.008240 (New Best)
+Epoch 2: Train Loss = 0.013917, Val Loss = 0.004937 (New Best)
+Epoch 5: Train Loss = 0.009856, Val Loss = 0.004763 (New Best)
+Early stopping at epoch 105 (no val improvement for 100 epochs; best epoch=5).
+Best Val MSE: 0.004763 (Epoch 5)
+MLP Baseline RMSE: 51.7266
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp555555.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011667 | Val: 0.000026 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.58e-02 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.009499 | Val: 0.000132 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.77e-02 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.008914 | Val: 0.003816 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.86e-02 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.008557 | Val: 0.004178 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.43e-02 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.007856 | Val: 0.003589 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.47e-02 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.007457 | Val: 0.000254 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.33e-02 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.008447 | Val: 0.005176 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=9.66e-02 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.007192 | Val: 0.001085 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=3.74e-02 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.007068 | Val: 0.001239 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=3.53e-02 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.006982 | Val: 0.001159 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=3.51e-02 ratio=0.00e+00
+Early stopping at epoch 109 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 55.19851554136999
+
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp555555.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012152 | Val: 0.000610 | ||z||=3.972 Var(z)=0.0601 | |grad_gcn|=3.98e-02 |grad_lstm|=6.68e-02 ratio=5.96e-01
+Epoch 20/1000 | Train: 0.010777 | Val: 0.001183 | ||z||=3.971 Var(z)=0.0717 | |grad_gcn|=6.84e-02 |grad_lstm|=6.87e-02 ratio=9.97e-01
+Epoch 30/1000 | Train: 0.010163 | Val: 0.002103 | ||z||=3.954 Var(z)=0.0797 | |grad_gcn|=7.39e-02 |grad_lstm|=6.40e-02 ratio=1.16e+00
+Epoch 40/1000 | Train: 0.009128 | Val: 0.000943 | ||z||=3.937 Var(z)=0.0810 | |grad_gcn|=6.04e-02 |grad_lstm|=5.00e-02 ratio=1.21e+00
+Epoch 50/1000 | Train: 0.008694 | Val: 0.001882 | ||z||=3.933 Var(z)=0.0860 | |grad_gcn|=7.70e-02 |grad_lstm|=5.98e-02 ratio=1.29e+00
+Epoch 60/1000 | Train: 0.008336 | Val: 0.004728 | ||z||=3.928 Var(z)=0.0904 | |grad_gcn|=8.84e-02 |grad_lstm|=7.26e-02 ratio=1.22e+00
+Epoch 70/1000 | Train: 0.008020 | Val: 0.000601 | ||z||=3.921 Var(z)=0.0881 | |grad_gcn|=7.27e-02 |grad_lstm|=7.04e-02 ratio=1.03e+00
+Epoch 80/1000 | Train: 0.007370 | Val: 0.000872 | ||z||=3.920 Var(z)=0.0913 | |grad_gcn|=5.11e-02 |grad_lstm|=4.94e-02 ratio=1.03e+00
+Epoch 90/1000 | Train: 0.007154 | Val: 0.000750 | ||z||=3.922 Var(z)=0.0925 | |grad_gcn|=5.33e-02 |grad_lstm|=5.10e-02 ratio=1.05e+00
+Epoch 100/1000 | Train: 0.006952 | Val: 0.000630 | ||z||=3.926 Var(z)=0.0939 | |grad_gcn|=5.53e-02 |grad_lstm|=5.32e-02 ratio=1.04e+00
+Early stopping at epoch 102 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 60.987691852178415
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp555555.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009142 | Val: 0.000781 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.007206 | Val: 0.000046 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.005852 | Val: 0.000208 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.005936 | Val: 0.000541 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.005119 | Val: 0.000018 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.004450 | Val: 0.000148 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.003804 | Val: 0.000169 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.003757 | Val: 0.000131 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.002975 | Val: 0.000144 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.004010 | Val: 0.000066 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.002728 | Val: 0.000000 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 120/1000 | Train: 0.002490 | Val: 0.000070 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 130/1000 | Train: 0.002042 | Val: 0.000031 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 140/1000 | Train: 0.001902 | Val: 0.000049 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 150/1000 | Train: 0.001799 | Val: 0.000012 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 160/1000 | Train: 0.001654 | Val: 0.000040 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 170/1000 | Train: 0.001611 | Val: 0.000066 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 180/1000 | Train: 0.001571 | Val: 0.000076 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Early stopping at epoch 187 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 44.27016497542252
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp555555.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.010750 | Val: 0.000127 | ||z||=3.975 Var(z)=0.0503 | |grad_gcn|=3.63e-02 |grad_mlp|=0.00e+00 ratio=3.63e+10
+Epoch 20/1000 | Train: 0.009720 | Val: 0.001545 | ||z||=3.948 Var(z)=0.0522 | |grad_gcn|=4.84e-02 |grad_mlp|=0.00e+00 ratio=4.84e+10
+Epoch 30/1000 | Train: 0.008765 | Val: 0.000610 | ||z||=3.888 Var(z)=0.0522 | |grad_gcn|=3.34e-02 |grad_mlp|=0.00e+00 ratio=3.34e+10
+Epoch 40/1000 | Train: 0.007773 | Val: 0.005018 | ||z||=3.847 Var(z)=0.0552 | |grad_gcn|=4.43e-02 |grad_mlp|=0.00e+00 ratio=4.43e+10
+Epoch 50/1000 | Train: 0.006415 | Val: 0.002525 | ||z||=3.804 Var(z)=0.0584 | |grad_gcn|=4.82e-02 |grad_mlp|=0.00e+00 ratio=4.82e+10
+Epoch 60/1000 | Train: 0.005179 | Val: 0.000644 | ||z||=3.785 Var(z)=0.0709 | |grad_gcn|=3.60e-02 |grad_mlp|=0.00e+00 ratio=3.60e+10
+Epoch 70/1000 | Train: 0.005573 | Val: 0.007319 | ||z||=3.740 Var(z)=0.0664 | |grad_gcn|=4.29e-02 |grad_mlp|=0.00e+00 ratio=4.29e+10
+Epoch 80/1000 | Train: 0.004030 | Val: 0.003354 | ||z||=3.707 Var(z)=0.0695 | |grad_gcn|=2.71e-02 |grad_mlp|=0.00e+00 ratio=2.71e+10
+Epoch 90/1000 | Train: 0.003646 | Val: 0.003944 | ||z||=3.709 Var(z)=0.0734 | |grad_gcn|=2.72e-02 |grad_mlp|=0.00e+00 ratio=2.72e+10
+Epoch 100/1000 | Train: 0.003475 | Val: 0.004834 | ||z||=3.707 Var(z)=0.0761 | |grad_gcn|=3.29e-02 |grad_mlp|=0.00e+00 ratio=3.29e+10
+Epoch 110/1000 | Train: 0.003555 | Val: 0.003596 | ||z||=3.701 Var(z)=0.0808 | |grad_gcn|=3.71e-02 |grad_mlp|=0.00e+00 ratio=3.71e+10
+Epoch 120/1000 | Train: 0.002935 | Val: 0.003843 | ||z||=3.701 Var(z)=0.0813 | |grad_gcn|=2.76e-02 |grad_mlp|=0.00e+00 ratio=2.76e+10
+Epoch 130/1000 | Train: 0.002801 | Val: 0.003878 | ||z||=3.702 Var(z)=0.0832 | |grad_gcn|=2.81e-02 |grad_mlp|=0.00e+00 ratio=2.81e+10
+Epoch 140/1000 | Train: 0.002673 | Val: 0.003766 | ||z||=3.702 Var(z)=0.0851 | |grad_gcn|=2.84e-02 |grad_mlp|=0.00e+00 ratio=2.84e+10
+Early stopping at epoch 141 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 48.481006816956885
+
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp555555.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.010873 | Val: 0.009754 | ||z||=4.000 Var(z)=0.0792 | |grad_gcn|=9.73e-02 |grad_lstm|=7.06e-02 ratio=1.38e+00
+Epoch 20/1000 | Train: 0.009448 | Val: 0.011122 | ||z||=3.980 Var(z)=0.1358 | |grad_gcn|=1.03e-01 |grad_lstm|=5.56e-02 ratio=1.86e+00
+Epoch 30/1000 | Train: 0.009727 | Val: 0.001756 | ||z||=3.969 Var(z)=0.1798 | |grad_gcn|=2.73e-01 |grad_lstm|=5.30e-02 ratio=5.16e+00
+Epoch 40/1000 | Train: 0.007415 | Val: 0.002594 | ||z||=3.950 Var(z)=0.2201 | |grad_gcn|=7.85e-02 |grad_lstm|=4.47e-02 ratio=1.76e+00
+Epoch 50/1000 | Train: 0.006544 | Val: 0.000527 | ||z||=3.951 Var(z)=0.2654 | |grad_gcn|=7.96e-02 |grad_lstm|=4.35e-02 ratio=1.83e+00
+Epoch 60/1000 | Train: 0.006570 | Val: 0.000004 | ||z||=3.937 Var(z)=0.3236 | |grad_gcn|=9.53e-02 |grad_lstm|=5.36e-02 ratio=1.78e+00
+Epoch 70/1000 | Train: 0.004954 | Val: 0.000253 | ||z||=3.933 Var(z)=0.3143 | |grad_gcn|=8.89e-02 |grad_lstm|=3.59e-02 ratio=2.47e+00
+Epoch 80/1000 | Train: 0.003599 | Val: 0.000912 | ||z||=3.939 Var(z)=0.3509 | |grad_gcn|=5.58e-02 |grad_lstm|=2.27e-02 ratio=2.46e+00
+Epoch 90/1000 | Train: 0.003016 | Val: 0.002944 | ||z||=3.949 Var(z)=0.3952 | |grad_gcn|=6.10e-02 |grad_lstm|=2.42e-02 ratio=2.53e+00
+Epoch 100/1000 | Train: 0.003153 | Val: 0.006966 | ||z||=3.954 Var(z)=0.3923 | |grad_gcn|=9.10e-02 |grad_lstm|=4.14e-02 ratio=2.20e+00
+Epoch 110/1000 | Train: 0.002746 | Val: 0.006373 | ||z||=3.952 Var(z)=0.4049 | |grad_gcn|=7.95e-02 |grad_lstm|=3.29e-02 ratio=2.41e+00
+Epoch 120/1000 | Train: 0.002041 | Val: 0.014122 | ||z||=3.957 Var(z)=0.4359 | |grad_gcn|=4.07e-02 |grad_lstm|=1.55e-02 ratio=2.62e+00
+Epoch 130/1000 | Train: 0.001862 | Val: 0.017669 | ||z||=3.963 Var(z)=0.4486 | |grad_gcn|=4.17e-02 |grad_lstm|=1.55e-02 ratio=2.69e+00
+Epoch 140/1000 | Train: 0.001747 | Val: 0.018791 | ||z||=3.969 Var(z)=0.4630 | |grad_gcn|=5.14e-02 |grad_lstm|=1.69e-02 ratio=3.04e+00
+Early stopping at epoch 143 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 53.50795257294444
+
+
+============================================================
+Running Experiment: variant=gat_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp555555.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.010967 | Val: 0.000416 | ||z||=3.998 Var(z)=0.0514 | |grad_gcn|=2.05e-02 |grad_mlp|=0.00e+00 ratio=2.05e+10
+Epoch 20/1000 | Train: 0.008920 | Val: 0.000239 | ||z||=3.976 Var(z)=0.0562 | |grad_gcn|=3.01e-02 |grad_mlp|=0.00e+00 ratio=3.01e+10
+Epoch 30/1000 | Train: 0.007649 | Val: 0.000826 | ||z||=3.958 Var(z)=0.0761 | |grad_gcn|=3.56e-02 |grad_mlp|=0.00e+00 ratio=3.56e+10
+Epoch 40/1000 | Train: 0.006458 | Val: 0.000120 | ||z||=3.926 Var(z)=0.1010 | |grad_gcn|=4.10e-02 |grad_mlp|=0.00e+00 ratio=4.10e+10
+Epoch 50/1000 | Train: 0.005480 | Val: 0.000121 | ||z||=3.906 Var(z)=0.1269 | |grad_gcn|=5.01e-02 |grad_mlp|=0.00e+00 ratio=5.01e+10
+Epoch 60/1000 | Train: 0.004128 | Val: 0.001006 | ||z||=3.872 Var(z)=0.1180 | |grad_gcn|=3.21e-02 |grad_mlp|=0.00e+00 ratio=3.21e+10
+Epoch 70/1000 | Train: 0.003787 | Val: 0.000397 | ||z||=3.843 Var(z)=0.1148 | |grad_gcn|=3.04e-02 |grad_mlp|=0.00e+00 ratio=3.04e+10
+Epoch 80/1000 | Train: 0.002203 | Val: 0.001243 | ||z||=3.839 Var(z)=0.1511 | |grad_gcn|=2.59e-02 |grad_mlp|=0.00e+00 ratio=2.59e+10
+Epoch 90/1000 | Train: 0.003128 | Val: 0.000691 | ||z||=3.833 Var(z)=0.1615 | |grad_gcn|=5.10e-02 |grad_mlp|=0.00e+00 ratio=5.10e+10
+Epoch 100/1000 | Train: 0.002365 | Val: 0.000399 | ||z||=3.816 Var(z)=0.1664 | |grad_gcn|=3.80e-02 |grad_mlp|=0.00e+00 ratio=3.80e+10
+Epoch 110/1000 | Train: 0.001328 | Val: 0.000181 | ||z||=3.811 Var(z)=0.1762 | |grad_gcn|=1.78e-02 |grad_mlp|=0.00e+00 ratio=1.78e+10
+Epoch 120/1000 | Train: 0.001154 | Val: 0.000116 | ||z||=3.811 Var(z)=0.1818 | |grad_gcn|=1.76e-02 |grad_mlp|=0.00e+00 ratio=1.76e+10
+Epoch 130/1000 | Train: 0.001007 | Val: 0.000067 | ||z||=3.811 Var(z)=0.1881 | |grad_gcn|=1.63e-02 |grad_mlp|=0.00e+00 ratio=1.63e+10
+Early stopping at epoch 135 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 50.626759376332316
+
+Saving merged overlay plot to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\grid_search_plots\seed_555555\product_907969_store_6269\similarity\window_30\step_1\item_907969\6adf97f8\exp_555555\item_907969_spearman_all_configs_merged.html
+
+[TIMING] Product 907969 | store 6269 | exp 555555: 3044.9 s (50.75 min)
+[PROGRESS] Worker 4/6: 74/100 done | 26 remaining | elapsed 1019.1 min | avg 13.77 min/unit | ETA 358.1 min (5.97 h)
+
+================================================================================
+PROCESSING PRODUCT 907969 FOR STORE 6269  [Seed 213626]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Epoch 10/1000 | Train Loss: 0.012414 | Val Loss: 0.000000
+Epoch 20/1000 | Train Loss: 0.010373 | Val Loss: 0.000424
+Epoch 30/1000 | Train Loss: 0.008600 | Val Loss: 0.001543
+Epoch 40/1000 | Train Loss: 0.008314 | Val Loss: 0.003866
+Epoch 50/1000 | Train Loss: 0.007584 | Val Loss: 0.000872
+Epoch 60/1000 | Train Loss: 0.007256 | Val Loss: 0.001141
+Epoch 70/1000 | Train Loss: 0.007091 | Val Loss: 0.001562
+Epoch 80/1000 | Train Loss: 0.007003 | Val Loss: 0.002038
+Epoch 90/1000 | Train Loss: 0.006776 | Val Loss: 0.000834
+Epoch 100/1000 | Train Loss: 0.006673 | Val Loss: 0.000727
+Early stopping at epoch 110 due to no improvement in validation loss for 100 epochs.
+LSTM Baseline RMSE: 55.0493
+
+============================================================
+Running MLP Baseline...
+============================================================
+Train/Val Split Indices:
+  Train End: -184
+  Val Range:     -184 to -153
+  Test Range:    -153 to End
+  Val Targets:   31 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1, 1)
+Epoch 1: Train Loss = 0.051140, Val Loss = 0.011120 (New Best)
+Epoch 2: Train Loss = 0.014513, Val Loss = 0.008242 (New Best)
+Epoch 3: Train Loss = 0.012006, Val Loss = 0.004953 (New Best)
+Epoch 4: Train Loss = 0.010289, Val Loss = 0.004850 (New Best)
+Epoch 10: Train Loss = 0.008689, Val Loss = 0.004796 (New Best)
+Early stopping at epoch 110 (no val improvement for 100 epochs; best epoch=10).
+Best Val MSE: 0.004796 (Epoch 10)
+MLP Baseline RMSE: 49.1874
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp213626.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012891 | Val: 0.000010 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.58e-02 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.011391 | Val: 0.000284 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.20e-02 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.009927 | Val: 0.000588 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.53e-02 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.009052 | Val: 0.000772 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.56e-02 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.008233 | Val: 0.000860 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=3.96e-02 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.007965 | Val: 0.000850 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.47e-02 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.007707 | Val: 0.000739 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.20e-02 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.007280 | Val: 0.000382 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.64e-02 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.007092 | Val: 0.000178 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.65e-02 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.006961 | Val: 0.000092 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.92e-02 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.006841 | Val: 0.000059 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.14e-02 ratio=0.00e+00
+Early stopping at epoch 111 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 55.61440043300486
+
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp213626.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011273 | Val: 0.000274 | ||z||=3.980 Var(z)=0.0617 | |grad_gcn|=6.35e-02 |grad_lstm|=8.40e-02 ratio=7.55e-01
+Epoch 20/1000 | Train: 0.010059 | Val: 0.000871 | ||z||=3.960 Var(z)=0.0644 | |grad_gcn|=7.25e-02 |grad_lstm|=7.71e-02 ratio=9.40e-01
+Epoch 30/1000 | Train: 0.009735 | Val: 0.001484 | ||z||=3.927 Var(z)=0.0656 | |grad_gcn|=6.54e-02 |grad_lstm|=9.95e-02 ratio=6.57e-01
+Epoch 40/1000 | Train: 0.008272 | Val: 0.000245 | ||z||=3.885 Var(z)=0.0532 | |grad_gcn|=3.90e-02 |grad_lstm|=6.55e-02 ratio=5.95e-01
+Epoch 50/1000 | Train: 0.007761 | Val: 0.000014 | ||z||=3.879 Var(z)=0.0503 | |grad_gcn|=4.65e-02 |grad_lstm|=7.58e-02 ratio=6.14e-01
+Epoch 60/1000 | Train: 0.007267 | Val: 0.000004 | ||z||=3.873 Var(z)=0.0581 | |grad_gcn|=5.81e-02 |grad_lstm|=8.32e-02 ratio=6.99e-01
+Epoch 70/1000 | Train: 0.007033 | Val: 0.000028 | ||z||=3.864 Var(z)=0.0682 | |grad_gcn|=7.08e-02 |grad_lstm|=9.92e-02 ratio=7.13e-01
+Epoch 80/1000 | Train: 0.006384 | Val: 0.000082 | ||z||=3.861 Var(z)=0.0733 | |grad_gcn|=8.34e-02 |grad_lstm|=9.31e-02 ratio=8.97e-01
+Epoch 90/1000 | Train: 0.006618 | Val: 0.000668 | ||z||=3.849 Var(z)=0.0774 | |grad_gcn|=6.53e-02 |grad_lstm|=8.54e-02 ratio=7.64e-01
+Epoch 100/1000 | Train: 0.005764 | Val: 0.000178 | ||z||=3.835 Var(z)=0.0789 | |grad_gcn|=4.88e-02 |grad_lstm|=6.67e-02 ratio=7.32e-01
+Epoch 110/1000 | Train: 0.005877 | Val: 0.001222 | ||z||=3.830 Var(z)=0.0846 | |grad_gcn|=9.23e-02 |grad_lstm|=1.04e-01 ratio=8.84e-01
+Epoch 120/1000 | Train: 0.004973 | Val: 0.000497 | ||z||=3.816 Var(z)=0.0863 | |grad_gcn|=5.25e-02 |grad_lstm|=5.91e-02 ratio=8.88e-01
+Epoch 130/1000 | Train: 0.004672 | Val: 0.000781 | ||z||=3.819 Var(z)=0.0918 | |grad_gcn|=7.02e-02 |grad_lstm|=6.79e-02 ratio=1.03e+00
+Epoch 140/1000 | Train: 0.004318 | Val: 0.000072 | ||z||=3.811 Var(z)=0.0943 | |grad_gcn|=4.69e-02 |grad_lstm|=4.69e-02 ratio=1.00e+00
+Epoch 150/1000 | Train: 0.004076 | Val: 0.000511 | ||z||=3.817 Var(z)=0.0980 | |grad_gcn|=5.03e-02 |grad_lstm|=4.61e-02 ratio=1.09e+00
+Epoch 160/1000 | Train: 0.003883 | Val: 0.000554 | ||z||=3.820 Var(z)=0.1009 | |grad_gcn|=5.07e-02 |grad_lstm|=4.51e-02 ratio=1.12e+00
+Epoch 170/1000 | Train: 0.003688 | Val: 0.000326 | ||z||=3.823 Var(z)=0.1033 | |grad_gcn|=4.65e-02 |grad_lstm|=4.03e-02 ratio=1.15e+00
+Epoch 180/1000 | Train: 0.003679 | Val: 0.000017 | ||z||=3.824 Var(z)=0.1047 | |grad_gcn|=7.01e-02 |grad_lstm|=5.70e-02 ratio=1.23e+00
+Epoch 190/1000 | Train: 0.003981 | Val: 0.000402 | ||z||=3.821 Var(z)=0.1057 | |grad_gcn|=1.08e-01 |grad_lstm|=9.27e-02 ratio=1.17e+00
+Early stopping at epoch 199 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 43.15200192091076
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp213626.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009737 | Val: 0.001457 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.007853 | Val: 0.000385 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.006854 | Val: 0.000937 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.006291 | Val: 0.000595 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.005908 | Val: 0.000854 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.005834 | Val: 0.000309 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.004949 | Val: 0.000449 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.004162 | Val: 0.000043 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.003852 | Val: 0.000229 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.003608 | Val: 0.000042 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.003414 | Val: 0.000060 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 120/1000 | Train: 0.003297 | Val: 0.000000 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 130/1000 | Train: 0.003371 | Val: 0.000082 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 140/1000 | Train: 0.003155 | Val: 0.000092 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 150/1000 | Train: 0.003106 | Val: 0.000011 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 160/1000 | Train: 0.002617 | Val: 0.000171 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 170/1000 | Train: 0.002563 | Val: 0.000075 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 180/1000 | Train: 0.002473 | Val: 0.000113 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 190/1000 | Train: 0.002368 | Val: 0.000067 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 200/1000 | Train: 0.002334 | Val: 0.000028 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 210/1000 | Train: 0.002304 | Val: 0.000062 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Early stopping at epoch 220 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 36.39968084104597
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp213626.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011644 | Val: 0.005102 | ||z||=3.919 Var(z)=0.0579 | |grad_gcn|=4.46e-02 |grad_mlp|=0.00e+00 ratio=4.46e+10
+Epoch 20/1000 | Train: 0.009103 | Val: 0.000251 | ||z||=3.886 Var(z)=0.0496 | |grad_gcn|=1.78e-02 |grad_mlp|=0.00e+00 ratio=1.78e+10
+Epoch 30/1000 | Train: 0.008150 | Val: 0.000078 | ||z||=3.857 Var(z)=0.0548 | |grad_gcn|=3.18e-02 |grad_mlp|=0.00e+00 ratio=3.18e+10
+Epoch 40/1000 | Train: 0.007246 | Val: 0.000134 | ||z||=3.812 Var(z)=0.0573 | |grad_gcn|=4.28e-02 |grad_mlp|=0.00e+00 ratio=4.28e+10
+Epoch 50/1000 | Train: 0.006554 | Val: 0.001411 | ||z||=3.758 Var(z)=0.0541 | |grad_gcn|=4.54e-02 |grad_mlp|=0.00e+00 ratio=4.54e+10
+Epoch 60/1000 | Train: 0.004875 | Val: 0.000945 | ||z||=3.721 Var(z)=0.0577 | |grad_gcn|=3.48e-02 |grad_mlp|=0.00e+00 ratio=3.48e+10
+Epoch 70/1000 | Train: 0.004014 | Val: 0.001377 | ||z||=3.717 Var(z)=0.0617 | |grad_gcn|=3.07e-02 |grad_mlp|=0.00e+00 ratio=3.07e+10
+Epoch 80/1000 | Train: 0.004123 | Val: 0.000966 | ||z||=3.708 Var(z)=0.0646 | |grad_gcn|=4.03e-02 |grad_mlp|=0.00e+00 ratio=4.03e+10
+Epoch 90/1000 | Train: 0.004464 | Val: 0.006663 | ||z||=3.684 Var(z)=0.0616 | |grad_gcn|=5.68e-02 |grad_mlp|=0.00e+00 ratio=5.68e+10
+Epoch 100/1000 | Train: 0.003164 | Val: 0.004130 | ||z||=3.675 Var(z)=0.0655 | |grad_gcn|=2.95e-02 |grad_mlp|=0.00e+00 ratio=2.95e+10
+Epoch 110/1000 | Train: 0.002967 | Val: 0.004969 | ||z||=3.675 Var(z)=0.0673 | |grad_gcn|=3.14e-02 |grad_mlp|=0.00e+00 ratio=3.14e+10
+Epoch 120/1000 | Train: 0.002796 | Val: 0.005518 | ||z||=3.676 Var(z)=0.0692 | |grad_gcn|=3.35e-02 |grad_mlp|=0.00e+00 ratio=3.35e+10
+Early stopping at epoch 126 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 51.05482777568477
+
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp213626.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011414 | Val: 0.004377 | ||z||=4.023 Var(z)=0.0630 | |grad_gcn|=7.57e-02 |grad_lstm|=8.39e-02 ratio=9.02e-01
+Epoch 20/1000 | Train: 0.009799 | Val: 0.004910 | ||z||=3.993 Var(z)=0.0998 | |grad_gcn|=5.58e-02 |grad_lstm|=6.19e-02 ratio=9.01e-01
+Epoch 30/1000 | Train: 0.008984 | Val: 0.008299 | ||z||=3.947 Var(z)=0.1219 | |grad_gcn|=5.09e-02 |grad_lstm|=6.93e-02 ratio=7.34e-01
+Epoch 40/1000 | Train: 0.006706 | Val: 0.003092 | ||z||=3.926 Var(z)=0.1717 | |grad_gcn|=4.53e-02 |grad_lstm|=4.35e-02 ratio=1.04e+00
+Epoch 50/1000 | Train: 0.005319 | Val: 0.005494 | ||z||=3.953 Var(z)=0.2435 | |grad_gcn|=5.44e-02 |grad_lstm|=3.79e-02 ratio=1.44e+00
+Epoch 60/1000 | Train: 0.005054 | Val: 0.003573 | ||z||=3.948 Var(z)=0.2390 | |grad_gcn|=6.20e-02 |grad_lstm|=3.96e-02 ratio=1.57e+00
+Epoch 70/1000 | Train: 0.007806 | Val: 0.000060 | ||z||=3.955 Var(z)=0.2385 | |grad_gcn|=1.35e-01 |grad_lstm|=1.19e-01 ratio=1.14e+00
+Epoch 80/1000 | Train: 0.004119 | Val: 0.000348 | ||z||=3.958 Var(z)=0.2806 | |grad_gcn|=6.63e-02 |grad_lstm|=4.63e-02 ratio=1.43e+00
+Epoch 90/1000 | Train: 0.003532 | Val: 0.007987 | ||z||=3.966 Var(z)=0.3071 | |grad_gcn|=5.60e-02 |grad_lstm|=3.90e-02 ratio=1.43e+00
+Epoch 100/1000 | Train: 0.003505 | Val: 0.006377 | ||z||=3.954 Var(z)=0.3123 | |grad_gcn|=6.31e-02 |grad_lstm|=4.42e-02 ratio=1.43e+00
+Epoch 110/1000 | Train: 0.003008 | Val: 0.004849 | ||z||=3.968 Var(z)=0.3548 | |grad_gcn|=6.37e-02 |grad_lstm|=4.02e-02 ratio=1.59e+00
+Epoch 120/1000 | Train: 0.003448 | Val: 0.004572 | ||z||=3.975 Var(z)=0.3546 | |grad_gcn|=8.59e-02 |grad_lstm|=6.98e-02 ratio=1.23e+00
+Epoch 130/1000 | Train: 0.002374 | Val: 0.001871 | ||z||=3.966 Var(z)=0.3779 | |grad_gcn|=3.44e-02 |grad_lstm|=2.57e-02 ratio=1.34e+00
+Epoch 140/1000 | Train: 0.002061 | Val: 0.001111 | ||z||=3.980 Var(z)=0.4022 | |grad_gcn|=2.44e-02 |grad_lstm|=1.59e-02 ratio=1.54e+00
+Epoch 150/1000 | Train: 0.001885 | Val: 0.000471 | ||z||=3.991 Var(z)=0.4225 | |grad_gcn|=2.50e-02 |grad_lstm|=1.55e-02 ratio=1.62e+00
+Epoch 160/1000 | Train: 0.001715 | Val: 0.000122 | ||z||=4.001 Var(z)=0.4415 | |grad_gcn|=2.59e-02 |grad_lstm|=1.53e-02 ratio=1.69e+00
+Epoch 170/1000 | Train: 0.001617 | Val: 0.000029 | ||z||=4.007 Var(z)=0.4515 | |grad_gcn|=2.59e-02 |grad_lstm|=1.49e-02 ratio=1.74e+00
+Epoch 180/1000 | Train: 0.001534 | Val: 0.000000 | ||z||=4.012 Var(z)=0.4612 | |grad_gcn|=2.66e-02 |grad_lstm|=1.50e-02 ratio=1.77e+00
+Epoch 190/1000 | Train: 0.001451 | Val: 0.000027 | ||z||=4.017 Var(z)=0.4711 | |grad_gcn|=2.73e-02 |grad_lstm|=1.51e-02 ratio=1.81e+00
+Epoch 200/1000 | Train: 0.001368 | Val: 0.000118 | ||z||=4.022 Var(z)=0.4812 | |grad_gcn|=2.77e-02 |grad_lstm|=1.50e-02 ratio=1.84e+00
+Epoch 210/1000 | Train: 0.001282 | Val: 0.000282 | ||z||=4.027 Var(z)=0.4916 | |grad_gcn|=2.77e-02 |grad_lstm|=1.48e-02 ratio=1.87e+00
+Epoch 220/1000 | Train: 0.001210 | Val: 0.000409 | ||z||=4.031 Var(z)=0.4994 | |grad_gcn|=2.69e-02 |grad_lstm|=1.42e-02 ratio=1.90e+00
+Epoch 230/1000 | Train: 0.001167 | Val: 0.000539 | ||z||=4.033 Var(z)=0.5053 | |grad_gcn|=2.72e-02 |grad_lstm|=1.42e-02 ratio=1.92e+00
+Epoch 240/1000 | Train: 0.001124 | Val: 0.000705 | ||z||=4.036 Var(z)=0.5113 | |grad_gcn|=2.72e-02 |grad_lstm|=1.40e-02 ratio=1.94e+00
+Epoch 250/1000 | Train: 0.001079 | Val: 0.000888 | ||z||=4.039 Var(z)=0.5168 | |grad_gcn|=2.65e-02 |grad_lstm|=1.37e-02 ratio=1.94e+00
+Epoch 260/1000 | Train: 0.001057 | Val: 0.000998 | ||z||=4.041 Var(z)=0.5198 | |grad_gcn|=2.65e-02 |grad_lstm|=1.36e-02 ratio=1.96e+00
+Epoch 270/1000 | Train: 0.001034 | Val: 0.001129 | ||z||=4.042 Var(z)=0.5230 | |grad_gcn|=2.65e-02 |grad_lstm|=1.35e-02 ratio=1.97e+00
+Early stopping at epoch 280 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 52.391884589353275
+
+
+============================================================
+Running Experiment: variant=gat_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp213626.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.013617 | Val: 0.007206 | ||z||=3.969 Var(z)=0.1073 | |grad_gcn|=5.40e-02 |grad_mlp|=0.00e+00 ratio=5.40e+10
+Epoch 20/1000 | Train: 0.008512 | Val: 0.004378 | ||z||=3.946 Var(z)=0.0855 | |grad_gcn|=3.04e-02 |grad_mlp|=0.00e+00 ratio=3.04e+10
+Epoch 30/1000 | Train: 0.007016 | Val: 0.003955 | ||z||=3.925 Var(z)=0.0944 | |grad_gcn|=3.59e-02 |grad_mlp|=0.00e+00 ratio=3.59e+10
+Epoch 40/1000 | Train: 0.006197 | Val: 0.001304 | ||z||=3.905 Var(z)=0.1149 | |grad_gcn|=4.51e-02 |grad_mlp|=0.00e+00 ratio=4.51e+10
+Epoch 50/1000 | Train: 0.006768 | Val: 0.007088 | ||z||=3.893 Var(z)=0.1386 | |grad_gcn|=7.63e-02 |grad_mlp|=0.00e+00 ratio=7.63e+10
+Epoch 60/1000 | Train: 0.004021 | Val: 0.006521 | ||z||=3.874 Var(z)=0.1315 | |grad_gcn|=4.08e-02 |grad_mlp|=0.00e+00 ratio=4.08e+10
+Epoch 70/1000 | Train: 0.003910 | Val: 0.008590 | ||z||=3.877 Var(z)=0.1520 | |grad_gcn|=6.25e-02 |grad_mlp|=0.00e+00 ratio=6.25e+10
+Epoch 80/1000 | Train: 0.005606 | Val: 0.011273 | ||z||=3.857 Var(z)=0.1312 | |grad_gcn|=8.41e-02 |grad_mlp|=0.00e+00 ratio=8.41e+10
+Epoch 90/1000 | Train: 0.003337 | Val: 0.005604 | ||z||=3.850 Var(z)=0.1651 | |grad_gcn|=7.14e-02 |grad_mlp|=0.00e+00 ratio=7.14e+10
+Epoch 100/1000 | Train: 0.002097 | Val: 0.008796 | ||z||=3.848 Var(z)=0.1708 | |grad_gcn|=3.67e-02 |grad_mlp|=0.00e+00 ratio=3.67e+10
+Epoch 110/1000 | Train: 0.001831 | Val: 0.009436 | ||z||=3.849 Var(z)=0.1794 | |grad_gcn|=4.05e-02 |grad_mlp|=0.00e+00 ratio=4.05e+10
+Epoch 120/1000 | Train: 0.001654 | Val: 0.010425 | ||z||=3.850 Var(z)=0.1908 | |grad_gcn|=4.41e-02 |grad_mlp|=0.00e+00 ratio=4.41e+10
+Early stopping at epoch 123 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 48.54117886968791
+
+Saving merged overlay plot to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\grid_search_plots\seed_213626\product_907969_store_6269\similarity\window_30\step_1\item_907969\6adf97f8\exp_213626\item_907969_spearman_all_configs_merged.html
+
+[TIMING] Product 907969 | store 6269 | exp 213626: 4181.1 s (69.69 min)
+[PROGRESS] Worker 4/6: 75/100 done | 25 remaining | elapsed 1088.8 min | avg 14.52 min/unit | ETA 362.9 min (6.05 h)
+
+================================================================================
+PROCESSING PRODUCT 907969 FOR STORE 6269  [Seed 907969]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Epoch 10/1000 | Train Loss: 0.012256 | Val Loss: 0.000052
+Epoch 20/1000 | Train Loss: 0.010421 | Val Loss: 0.000407
+Epoch 30/1000 | Train Loss: 0.009247 | Val Loss: 0.001369
+Epoch 40/1000 | Train Loss: 0.008674 | Val Loss: 0.001697
+Epoch 50/1000 | Train Loss: 0.008289 | Val Loss: 0.000031
+Epoch 60/1000 | Train Loss: 0.007920 | Val Loss: 0.000027
+Epoch 70/1000 | Train Loss: 0.007833 | Val Loss: 0.000122
+Epoch 80/1000 | Train Loss: 0.007757 | Val Loss: 0.000189
+Epoch 90/1000 | Train Loss: 0.007053 | Val Loss: 0.001190
+Epoch 100/1000 | Train Loss: 0.007042 | Val Loss: 0.000786
+Epoch 110/1000 | Train Loss: 0.006861 | Val Loss: 0.000822
+Epoch 120/1000 | Train Loss: 0.006625 | Val Loss: 0.000898
+Epoch 130/1000 | Train Loss: 0.006547 | Val Loss: 0.000988
+Epoch 140/1000 | Train Loss: 0.006480 | Val Loss: 0.000998
+Early stopping at epoch 148 due to no improvement in validation loss for 100 epochs.
+LSTM Baseline RMSE: 47.0663
+
+============================================================
+Running MLP Baseline...
+============================================================
+Train/Val Split Indices:
+  Train End: -184
+  Val Range:     -184 to -153
+  Test Range:    -153 to End
+  Val Targets:   31 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1, 1)
+Epoch 1: Train Loss = 0.049534, Val Loss = 0.012658 (New Best)
+Epoch 2: Train Loss = 0.014306, Val Loss = 0.005192 (New Best)
+Epoch 3: Train Loss = 0.011445, Val Loss = 0.004634 (New Best)
+Early stopping at epoch 103 (no val improvement for 100 epochs; best epoch=3).
+Best Val MSE: 0.004634 (Epoch 3)
+MLP Baseline RMSE: 52.7724
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp907969.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012071 | Val: 0.000030 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.70e-02 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.010634 | Val: 0.000134 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.35e-02 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.008785 | Val: 0.000894 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.82e-02 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.008366 | Val: 0.002035 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.99e-02 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.008008 | Val: 0.000238 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.65e-02 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.007966 | Val: 0.004485 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.45e-02 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.007404 | Val: 0.000111 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.83e-02 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.008054 | Val: 0.004513 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=8.75e-02 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.007147 | Val: 0.000311 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.36e-02 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.007258 | Val: 0.000854 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.51e-02 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.007265 | Val: 0.000955 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.14e-02 ratio=0.00e+00
+Epoch 120/1000 | Train: 0.006824 | Val: 0.000805 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=3.98e-02 ratio=0.00e+00
+Epoch 130/1000 | Train: 0.006750 | Val: 0.001024 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.10e-02 ratio=0.00e+00
+Epoch 140/1000 | Train: 0.006681 | Val: 0.001180 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.29e-02 ratio=0.00e+00
+Epoch 150/1000 | Train: 0.006599 | Val: 0.001194 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.33e-02 ratio=0.00e+00
+Epoch 160/1000 | Train: 0.006560 | Val: 0.001198 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.38e-02 ratio=0.00e+00
+Epoch 170/1000 | Train: 0.006524 | Val: 0.001221 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.46e-02 ratio=0.00e+00
+Early stopping at epoch 178 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 42.48748214505759
+
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp907969.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011774 | Val: 0.001769 | ||z||=3.950 Var(z)=0.0529 | |grad_gcn|=8.16e-02 |grad_lstm|=9.98e-02 ratio=8.18e-01
+Epoch 20/1000 | Train: 0.010362 | Val: 0.002655 | ||z||=3.912 Var(z)=0.0720 | |grad_gcn|=8.66e-02 |grad_lstm|=8.38e-02 ratio=1.03e+00
+Epoch 30/1000 | Train: 0.009976 | Val: 0.006621 | ||z||=3.858 Var(z)=0.0806 | |grad_gcn|=9.43e-02 |grad_lstm|=1.16e-01 ratio=8.11e-01
+Epoch 40/1000 | Train: 0.008397 | Val: 0.000049 | ||z||=3.783 Var(z)=0.0703 | |grad_gcn|=4.09e-02 |grad_lstm|=5.75e-02 ratio=7.12e-01
+Epoch 50/1000 | Train: 0.007762 | Val: 0.002648 | ||z||=3.745 Var(z)=0.0679 | |grad_gcn|=5.11e-02 |grad_lstm|=6.50e-02 ratio=7.87e-01
+Epoch 60/1000 | Train: 0.007101 | Val: 0.000009 | ||z||=3.701 Var(z)=0.0746 | |grad_gcn|=5.59e-02 |grad_lstm|=6.76e-02 ratio=8.27e-01
+Epoch 70/1000 | Train: 0.006474 | Val: 0.000659 | ||z||=3.648 Var(z)=0.0829 | |grad_gcn|=5.89e-02 |grad_lstm|=6.06e-02 ratio=9.71e-01
+Epoch 80/1000 | Train: 0.005618 | Val: 0.000113 | ||z||=3.661 Var(z)=0.1041 | |grad_gcn|=6.90e-02 |grad_lstm|=6.16e-02 ratio=1.12e+00
+Epoch 90/1000 | Train: 0.004859 | Val: 0.002120 | ||z||=3.645 Var(z)=0.1144 | |grad_gcn|=5.66e-02 |grad_lstm|=4.88e-02 ratio=1.16e+00
+Epoch 100/1000 | Train: 0.005364 | Val: 0.003013 | ||z||=3.601 Var(z)=0.1072 | |grad_gcn|=7.88e-02 |grad_lstm|=8.18e-02 ratio=9.63e-01
+Epoch 110/1000 | Train: 0.003560 | Val: 0.008019 | ||z||=3.604 Var(z)=0.1327 | |grad_gcn|=3.85e-02 |grad_lstm|=3.88e-02 ratio=9.92e-01
+Epoch 120/1000 | Train: 0.003687 | Val: 0.004024 | ||z||=3.550 Var(z)=0.1224 | |grad_gcn|=5.12e-02 |grad_lstm|=4.24e-02 ratio=1.21e+00
+Epoch 130/1000 | Train: 0.004195 | Val: 0.000249 | ||z||=3.548 Var(z)=0.1262 | |grad_gcn|=7.37e-02 |grad_lstm|=6.06e-02 ratio=1.22e+00
+Epoch 140/1000 | Train: 0.002633 | Val: 0.005414 | ||z||=3.552 Var(z)=0.1420 | |grad_gcn|=3.11e-02 |grad_lstm|=2.45e-02 ratio=1.27e+00
+Epoch 150/1000 | Train: 0.002789 | Val: 0.010205 | ||z||=3.560 Var(z)=0.1486 | |grad_gcn|=5.63e-02 |grad_lstm|=3.67e-02 ratio=1.54e+00
+Epoch 160/1000 | Train: 0.002482 | Val: 0.006556 | ||z||=3.568 Var(z)=0.1560 | |grad_gcn|=4.30e-02 |grad_lstm|=3.12e-02 ratio=1.38e+00
+Epoch 170/1000 | Train: 0.002177 | Val: 0.003631 | ||z||=3.575 Var(z)=0.1668 | |grad_gcn|=2.54e-02 |grad_lstm|=1.94e-02 ratio=1.31e+00
+Epoch 180/1000 | Train: 0.002097 | Val: 0.003932 | ||z||=3.586 Var(z)=0.1735 | |grad_gcn|=2.44e-02 |grad_lstm|=1.91e-02 ratio=1.28e+00
+Epoch 190/1000 | Train: 0.002018 | Val: 0.004386 | ||z||=3.596 Var(z)=0.1793 | |grad_gcn|=2.43e-02 |grad_lstm|=1.86e-02 ratio=1.31e+00
+Early stopping at epoch 197 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 50.79869950470047
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp907969.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009322 | Val: 0.000592 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.008164 | Val: 0.000929 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.007622 | Val: 0.000060 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.005832 | Val: 0.000010 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.005321 | Val: 0.001192 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.005308 | Val: 0.000080 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.004216 | Val: 0.000945 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.003876 | Val: 0.000495 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.003635 | Val: 0.000362 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.003371 | Val: 0.000373 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.003268 | Val: 0.000316 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 120/1000 | Train: 0.003168 | Val: 0.000233 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Early stopping at epoch 127 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 54.60097999237502
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp907969.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009970 | Val: 0.001022 | ||z||=3.965 Var(z)=0.0697 | |grad_gcn|=2.47e-02 |grad_mlp|=0.00e+00 ratio=2.47e+10
+Epoch 20/1000 | Train: 0.009710 | Val: 0.001635 | ||z||=3.934 Var(z)=0.0711 | |grad_gcn|=2.74e-02 |grad_mlp|=0.00e+00 ratio=2.74e+10
+Epoch 30/1000 | Train: 0.007440 | Val: 0.000196 | ||z||=3.909 Var(z)=0.0763 | |grad_gcn|=2.20e-02 |grad_mlp|=0.00e+00 ratio=2.20e+10
+Epoch 40/1000 | Train: 0.005924 | Val: 0.000303 | ||z||=3.876 Var(z)=0.0702 | |grad_gcn|=3.01e-02 |grad_mlp|=0.00e+00 ratio=3.01e+10
+Epoch 50/1000 | Train: 0.007381 | Val: 0.000012 | ||z||=3.834 Var(z)=0.0804 | |grad_gcn|=4.33e-02 |grad_mlp|=0.00e+00 ratio=4.33e+10
+Epoch 60/1000 | Train: 0.005259 | Val: 0.000570 | ||z||=3.807 Var(z)=0.0799 | |grad_gcn|=4.43e-02 |grad_mlp|=0.00e+00 ratio=4.43e+10
+Epoch 70/1000 | Train: 0.005322 | Val: 0.001813 | ||z||=3.768 Var(z)=0.0789 | |grad_gcn|=4.20e-02 |grad_mlp|=0.00e+00 ratio=4.20e+10
+Epoch 80/1000 | Train: 0.003789 | Val: 0.002189 | ||z||=3.745 Var(z)=0.0820 | |grad_gcn|=2.99e-02 |grad_mlp|=0.00e+00 ratio=2.99e+10
+Epoch 90/1000 | Train: 0.003336 | Val: 0.003219 | ||z||=3.717 Var(z)=0.0830 | |grad_gcn|=3.50e-02 |grad_mlp|=0.00e+00 ratio=3.50e+10
+Epoch 100/1000 | Train: 0.002905 | Val: 0.003023 | ||z||=3.715 Var(z)=0.0859 | |grad_gcn|=2.90e-02 |grad_mlp|=0.00e+00 ratio=2.90e+10
+Epoch 110/1000 | Train: 0.002747 | Val: 0.002076 | ||z||=3.714 Var(z)=0.0894 | |grad_gcn|=3.33e-02 |grad_mlp|=0.00e+00 ratio=3.33e+10
+Epoch 120/1000 | Train: 0.002779 | Val: 0.003977 | ||z||=3.707 Var(z)=0.0934 | |grad_gcn|=3.52e-02 |grad_mlp|=0.00e+00 ratio=3.52e+10
+Epoch 130/1000 | Train: 0.002238 | Val: 0.003000 | ||z||=3.706 Var(z)=0.0953 | |grad_gcn|=2.50e-02 |grad_mlp|=0.00e+00 ratio=2.50e+10
+Epoch 140/1000 | Train: 0.002109 | Val: 0.002743 | ||z||=3.706 Var(z)=0.0975 | |grad_gcn|=2.33e-02 |grad_mlp|=0.00e+00 ratio=2.33e+10
+Epoch 150/1000 | Train: 0.002038 | Val: 0.002563 | ||z||=3.706 Var(z)=0.1004 | |grad_gcn|=2.52e-02 |grad_mlp|=0.00e+00 ratio=2.52e+10
+Early stopping at epoch 155 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 39.53162928557596
+
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp907969.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011159 | Val: 0.004210 | ||z||=4.030 Var(z)=0.1130 | |grad_gcn|=8.20e-02 |grad_lstm|=6.07e-02 ratio=1.35e+00
+Epoch 20/1000 | Train: 0.009529 | Val: 0.002434 | ||z||=4.023 Var(z)=0.2397 | |grad_gcn|=8.01e-02 |grad_lstm|=4.84e-02 ratio=1.66e+00
+Epoch 30/1000 | Train: 0.008997 | Val: 0.000079 | ||z||=4.012 Var(z)=0.3018 | |grad_gcn|=9.61e-02 |grad_lstm|=5.25e-02 ratio=1.83e+00
+Epoch 40/1000 | Train: 0.007175 | Val: 0.000633 | ||z||=4.012 Var(z)=0.3428 | |grad_gcn|=7.99e-02 |grad_lstm|=4.04e-02 ratio=1.98e+00
+Epoch 50/1000 | Train: 0.006824 | Val: 0.000705 | ||z||=3.984 Var(z)=0.2914 | |grad_gcn|=7.39e-02 |grad_lstm|=3.85e-02 ratio=1.92e+00
+Epoch 60/1000 | Train: 0.005495 | Val: 0.000186 | ||z||=4.012 Var(z)=0.4172 | |grad_gcn|=8.58e-02 |grad_lstm|=3.89e-02 ratio=2.21e+00
+Epoch 70/1000 | Train: 0.005462 | Val: 0.000434 | ||z||=4.016 Var(z)=0.3950 | |grad_gcn|=9.06e-02 |grad_lstm|=4.57e-02 ratio=1.98e+00
+Epoch 80/1000 | Train: 0.004133 | Val: 0.000475 | ||z||=4.042 Var(z)=0.4823 | |grad_gcn|=6.82e-02 |grad_lstm|=2.84e-02 ratio=2.40e+00
+Epoch 90/1000 | Train: 0.004094 | Val: 0.004179 | ||z||=4.062 Var(z)=0.5069 | |grad_gcn|=9.37e-02 |grad_lstm|=3.76e-02 ratio=2.49e+00
+Epoch 100/1000 | Train: 0.003827 | Val: 0.004214 | ||z||=4.079 Var(z)=0.5162 | |grad_gcn|=9.36e-02 |grad_lstm|=3.72e-02 ratio=2.51e+00
+Epoch 110/1000 | Train: 0.002936 | Val: 0.001191 | ||z||=4.089 Var(z)=0.5615 | |grad_gcn|=4.69e-02 |grad_lstm|=1.89e-02 ratio=2.49e+00
+Epoch 120/1000 | Train: 0.002742 | Val: 0.001621 | ||z||=4.100 Var(z)=0.5769 | |grad_gcn|=4.47e-02 |grad_lstm|=1.81e-02 ratio=2.48e+00
+Epoch 130/1000 | Train: 0.002578 | Val: 0.002250 | ||z||=4.110 Var(z)=0.5866 | |grad_gcn|=4.55e-02 |grad_lstm|=1.78e-02 ratio=2.55e+00
+Early stopping at epoch 134 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 52.79829104330189
+
+
+============================================================
+Running Experiment: variant=gat_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp907969.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009844 | Val: 0.001414 | ||z||=3.990 Var(z)=0.0476 | |grad_gcn|=3.02e-02 |grad_mlp|=0.00e+00 ratio=3.02e+10
+Epoch 20/1000 | Train: 0.009816 | Val: 0.006062 | ||z||=3.948 Var(z)=0.0559 | |grad_gcn|=3.48e-02 |grad_mlp|=0.00e+00 ratio=3.48e+10
+Epoch 30/1000 | Train: 0.007961 | Val: 0.002190 | ||z||=3.912 Var(z)=0.0420 | |grad_gcn|=2.73e-02 |grad_mlp|=0.00e+00 ratio=2.73e+10
+Epoch 40/1000 | Train: 0.008139 | Val: 0.004873 | ||z||=3.870 Var(z)=0.0577 | |grad_gcn|=5.04e-02 |grad_mlp|=0.00e+00 ratio=5.04e+10
+Epoch 50/1000 | Train: 0.005963 | Val: 0.002016 | ||z||=3.844 Var(z)=0.0623 | |grad_gcn|=4.01e-02 |grad_mlp|=0.00e+00 ratio=4.01e+10
+Epoch 60/1000 | Train: 0.004903 | Val: 0.001490 | ||z||=3.825 Var(z)=0.0793 | |grad_gcn|=4.30e-02 |grad_mlp|=0.00e+00 ratio=4.30e+10
+Epoch 70/1000 | Train: 0.004256 | Val: 0.001955 | ||z||=3.803 Var(z)=0.0789 | |grad_gcn|=3.35e-02 |grad_mlp|=0.00e+00 ratio=3.35e+10
+Epoch 80/1000 | Train: 0.003556 | Val: 0.005521 | ||z||=3.802 Var(z)=0.0934 | |grad_gcn|=3.24e-02 |grad_mlp|=0.00e+00 ratio=3.24e+10
+Epoch 90/1000 | Train: 0.003804 | Val: 0.006129 | ||z||=3.800 Var(z)=0.1008 | |grad_gcn|=4.95e-02 |grad_mlp|=0.00e+00 ratio=4.95e+10
+Epoch 100/1000 | Train: 0.003109 | Val: 0.004565 | ||z||=3.799 Var(z)=0.1134 | |grad_gcn|=4.03e-02 |grad_mlp|=0.00e+00 ratio=4.03e+10
+Epoch 110/1000 | Train: 0.002353 | Val: 0.006955 | ||z||=3.798 Var(z)=0.1190 | |grad_gcn|=2.68e-02 |grad_mlp|=0.00e+00 ratio=2.68e+10
+Epoch 120/1000 | Train: 0.002135 | Val: 0.007388 | ||z||=3.801 Var(z)=0.1266 | |grad_gcn|=2.87e-02 |grad_mlp|=0.00e+00 ratio=2.87e+10
+Epoch 130/1000 | Train: 0.001936 | Val: 0.007023 | ||z||=3.803 Var(z)=0.1344 | |grad_gcn|=2.80e-02 |grad_mlp|=0.00e+00 ratio=2.80e+10
+Early stopping at epoch 133 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 47.110521377004225
+
+Saving merged overlay plot to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\grid_search_plots\seed_907969\product_907969_store_6269\similarity\window_30\step_1\item_907969\6adf97f8\exp_907969\item_907969_spearman_all_configs_merged.html
+
+[TIMING] Product 907969 | store 6269 | exp 907969: 2951.7 s (49.20 min)
+[PROGRESS] Worker 4/6: 76/100 done | 24 remaining | elapsed 1138.0 min | avg 14.97 min/unit | ETA 359.4 min (5.99 h)
+
+================================================================================
+PROCESSING PRODUCT 907969 FOR STORE 6269  [Seed 5219788]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Epoch 10/1000 | Train Loss: 0.011935 | Val Loss: 0.000056
+Epoch 20/1000 | Train Loss: 0.010647 | Val Loss: 0.000024
+Epoch 30/1000 | Train Loss: 0.009092 | Val Loss: 0.000063
+Epoch 40/1000 | Train Loss: 0.008472 | Val Loss: 0.000182
+Epoch 50/1000 | Train Loss: 0.009070 | Val Loss: 0.001745
+Epoch 60/1000 | Train Loss: 0.008383 | Val Loss: 0.002776
+Epoch 70/1000 | Train Loss: 0.007403 | Val Loss: 0.000220
+Epoch 80/1000 | Train Loss: 0.008049 | Val Loss: 0.003414
+Epoch 90/1000 | Train Loss: 0.007775 | Val Loss: 0.000047
+Epoch 100/1000 | Train Loss: 0.007033 | Val Loss: 0.000406
+Epoch 110/1000 | Train Loss: 0.006923 | Val Loss: 0.000441
+Epoch 120/1000 | Train Loss: 0.006826 | Val Loss: 0.000486
+Early stopping at epoch 128 due to no improvement in validation loss for 100 epochs.
+LSTM Baseline RMSE: 49.3634
+
+============================================================
+Running MLP Baseline...
+============================================================
+Train/Val Split Indices:
+  Train End: -184
+  Val Range:     -184 to -153
+  Test Range:    -153 to End
+  Val Targets:   31 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1, 1)
+Epoch 1: Train Loss = 0.071429, Val Loss = 0.031465 (New Best)
+Epoch 2: Train Loss = 0.014754, Val Loss = 0.005359 (New Best)
+Epoch 7: Train Loss = 0.009361, Val Loss = 0.005169 (New Best)
+Epoch 8: Train Loss = 0.008979, Val Loss = 0.004978 (New Best)
+Epoch 12: Train Loss = 0.008282, Val Loss = 0.004888 (New Best)
+Early stopping at epoch 112 (no val improvement for 100 epochs; best epoch=12).
+Best Val MSE: 0.004888 (Epoch 12)
+MLP Baseline RMSE: 48.3289
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp5219788.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012554 | Val: 0.000043 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.93e-02 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.011122 | Val: 0.000155 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.53e-02 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.009708 | Val: 0.000182 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.33e-02 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.008960 | Val: 0.001149 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.60e-02 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.008293 | Val: 0.001298 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.71e-02 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.007952 | Val: 0.001031 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.29e-02 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.007756 | Val: 0.000954 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.38e-02 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.007785 | Val: 0.000728 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.42e-02 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.007436 | Val: 0.000759 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.67e-02 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.007357 | Val: 0.000808 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.76e-02 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.007280 | Val: 0.000837 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=4.80e-02 ratio=0.00e+00
+Early stopping at epoch 112 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 55.01678797734242
+
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp5219788.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012726 | Val: 0.000768 | ||z||=3.923 Var(z)=0.0480 | |grad_gcn|=4.59e-02 |grad_lstm|=9.49e-02 ratio=4.84e-01
+Epoch 20/1000 | Train: 0.011187 | Val: 0.001221 | ||z||=3.881 Var(z)=0.0575 | |grad_gcn|=6.84e-02 |grad_lstm|=1.00e-01 ratio=6.81e-01
+Epoch 30/1000 | Train: 0.010148 | Val: 0.003586 | ||z||=3.835 Var(z)=0.0685 | |grad_gcn|=8.09e-02 |grad_lstm|=9.22e-02 ratio=8.78e-01
+Epoch 40/1000 | Train: 0.008884 | Val: 0.002332 | ||z||=3.797 Var(z)=0.0732 | |grad_gcn|=6.32e-02 |grad_lstm|=6.72e-02 ratio=9.39e-01
+Epoch 50/1000 | Train: 0.008441 | Val: 0.005013 | ||z||=3.790 Var(z)=0.0757 | |grad_gcn|=8.55e-02 |grad_lstm|=8.76e-02 ratio=9.76e-01
+Epoch 60/1000 | Train: 0.008271 | Val: 0.006065 | ||z||=3.776 Var(z)=0.0778 | |grad_gcn|=9.67e-02 |grad_lstm|=1.03e-01 ratio=9.41e-01
+Epoch 70/1000 | Train: 0.007572 | Val: 0.002604 | ||z||=3.762 Var(z)=0.0732 | |grad_gcn|=7.77e-02 |grad_lstm|=8.71e-02 ratio=8.92e-01
+Epoch 80/1000 | Train: 0.006952 | Val: 0.001816 | ||z||=3.761 Var(z)=0.0702 | |grad_gcn|=4.51e-02 |grad_lstm|=5.36e-02 ratio=8.41e-01
+Epoch 90/1000 | Train: 0.006740 | Val: 0.001360 | ||z||=3.762 Var(z)=0.0668 | |grad_gcn|=4.64e-02 |grad_lstm|=5.45e-02 ratio=8.52e-01
+Epoch 100/1000 | Train: 0.006526 | Val: 0.000906 | ||z||=3.764 Var(z)=0.0635 | |grad_gcn|=4.70e-02 |grad_lstm|=5.46e-02 ratio=8.61e-01
+Early stopping at epoch 102 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 62.1006497239138
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp5219788.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009967 | Val: 0.000725 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.007886 | Val: 0.000018 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.006898 | Val: 0.000051 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.005554 | Val: 0.001120 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.005543 | Val: 0.000070 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.004682 | Val: 0.000765 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.004356 | Val: 0.000106 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.004622 | Val: 0.005420 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.003372 | Val: 0.000371 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.003712 | Val: 0.000254 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.005066 | Val: 0.000184 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 120/1000 | Train: 0.002960 | Val: 0.000170 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 130/1000 | Train: 0.002828 | Val: 0.000095 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 140/1000 | Train: 0.002736 | Val: 0.000058 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Early stopping at epoch 148 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 43.76687231777948
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp5219788.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.010535 | Val: 0.000139 | ||z||=3.991 Var(z)=0.0383 | |grad_gcn|=2.60e-02 |grad_mlp|=0.00e+00 ratio=2.60e+10
+Epoch 20/1000 | Train: 0.009215 | Val: 0.001263 | ||z||=3.968 Var(z)=0.0392 | |grad_gcn|=3.38e-02 |grad_mlp|=0.00e+00 ratio=3.38e+10
+Epoch 30/1000 | Train: 0.007793 | Val: 0.000165 | ||z||=3.931 Var(z)=0.0522 | |grad_gcn|=3.31e-02 |grad_mlp|=0.00e+00 ratio=3.31e+10
+Epoch 40/1000 | Train: 0.006725 | Val: 0.000907 | ||z||=3.908 Var(z)=0.0674 | |grad_gcn|=4.97e-02 |grad_mlp|=0.00e+00 ratio=4.97e+10
+Epoch 50/1000 | Train: 0.005791 | Val: 0.003011 | ||z||=3.885 Var(z)=0.0772 | |grad_gcn|=5.15e-02 |grad_mlp|=0.00e+00 ratio=5.15e+10
+Epoch 60/1000 | Train: 0.004515 | Val: 0.003101 | ||z||=3.866 Var(z)=0.0841 | |grad_gcn|=3.82e-02 |grad_mlp|=0.00e+00 ratio=3.82e+10
+Epoch 70/1000 | Train: 0.004100 | Val: 0.001562 | ||z||=3.864 Var(z)=0.0965 | |grad_gcn|=3.96e-02 |grad_mlp|=0.00e+00 ratio=3.96e+10
+Epoch 80/1000 | Train: 0.004068 | Val: 0.001100 | ||z||=3.857 Var(z)=0.1011 | |grad_gcn|=4.72e-02 |grad_mlp|=0.00e+00 ratio=4.72e+10
+Epoch 90/1000 | Train: 0.003447 | Val: 0.002603 | ||z||=3.849 Var(z)=0.1070 | |grad_gcn|=4.93e-02 |grad_mlp|=0.00e+00 ratio=4.93e+10
+Epoch 100/1000 | Train: 0.003043 | Val: 0.002499 | ||z||=3.849 Var(z)=0.1107 | |grad_gcn|=3.79e-02 |grad_mlp|=0.00e+00 ratio=3.79e+10
+Epoch 110/1000 | Train: 0.002921 | Val: 0.003264 | ||z||=3.850 Var(z)=0.1137 | |grad_gcn|=4.24e-02 |grad_mlp|=0.00e+00 ratio=4.24e+10
+Epoch 120/1000 | Train: 0.002809 | Val: 0.002166 | ||z||=3.851 Var(z)=0.1169 | |grad_gcn|=4.49e-02 |grad_mlp|=0.00e+00 ratio=4.49e+10
+Early stopping at epoch 122 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 45.63976242025439
+
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp5219788.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012327 | Val: 0.015311 | ||z||=4.014 Var(z)=0.0968 | |grad_gcn|=7.62e-02 |grad_lstm|=7.42e-02 ratio=1.03e+00
+Epoch 20/1000 | Train: 0.010058 | Val: 0.011321 | ||z||=3.991 Var(z)=0.1490 | |grad_gcn|=5.97e-02 |grad_lstm|=5.49e-02 ratio=1.09e+00
+Epoch 30/1000 | Train: 0.009185 | Val: 0.025425 | ||z||=3.974 Var(z)=0.2006 | |grad_gcn|=8.36e-02 |grad_lstm|=6.73e-02 ratio=1.24e+00
+Epoch 40/1000 | Train: 0.007537 | Val: 0.020027 | ||z||=3.956 Var(z)=0.2695 | |grad_gcn|=8.47e-02 |grad_lstm|=4.87e-02 ratio=1.74e+00
+Epoch 50/1000 | Train: 0.006385 | Val: 0.006586 | ||z||=3.941 Var(z)=0.2856 | |grad_gcn|=4.89e-02 |grad_lstm|=3.96e-02 ratio=1.23e+00
+Epoch 60/1000 | Train: 0.006027 | Val: 0.004838 | ||z||=3.963 Var(z)=0.3483 | |grad_gcn|=7.77e-02 |grad_lstm|=5.08e-02 ratio=1.53e+00
+Epoch 70/1000 | Train: 0.005707 | Val: 0.013008 | ||z||=3.971 Var(z)=0.3462 | |grad_gcn|=8.37e-02 |grad_lstm|=5.02e-02 ratio=1.67e+00
+Epoch 80/1000 | Train: 0.003962 | Val: 0.014785 | ||z||=3.988 Var(z)=0.3865 | |grad_gcn|=5.32e-02 |grad_lstm|=2.99e-02 ratio=1.78e+00
+Epoch 90/1000 | Train: 0.003866 | Val: 0.004276 | ||z||=4.005 Var(z)=0.3888 | |grad_gcn|=7.69e-02 |grad_lstm|=4.35e-02 ratio=1.77e+00
+Epoch 100/1000 | Train: 0.004739 | Val: 0.021432 | ||z||=3.991 Var(z)=0.4303 | |grad_gcn|=7.58e-02 |grad_lstm|=5.68e-02 ratio=1.33e+00
+Epoch 110/1000 | Train: 0.002829 | Val: 0.005722 | ||z||=4.020 Var(z)=0.4629 | |grad_gcn|=5.04e-02 |grad_lstm|=3.07e-02 ratio=1.64e+00
+Epoch 120/1000 | Train: 0.001987 | Val: 0.012560 | ||z||=4.040 Var(z)=0.5198 | |grad_gcn|=2.91e-02 |grad_lstm|=1.64e-02 ratio=1.77e+00
+Epoch 130/1000 | Train: 0.001749 | Val: 0.010938 | ||z||=4.055 Var(z)=0.5371 | |grad_gcn|=2.41e-02 |grad_lstm|=1.33e-02 ratio=1.82e+00
+Epoch 140/1000 | Train: 0.001629 | Val: 0.006994 | ||z||=4.070 Var(z)=0.5506 | |grad_gcn|=3.71e-02 |grad_lstm|=1.60e-02 ratio=2.32e+00
+Epoch 150/1000 | Train: 0.001458 | Val: 0.010269 | ||z||=4.080 Var(z)=0.5696 | |grad_gcn|=2.43e-02 |grad_lstm|=1.23e-02 ratio=1.98e+00
+Epoch 160/1000 | Train: 0.001337 | Val: 0.009493 | ||z||=4.089 Var(z)=0.5810 | |grad_gcn|=2.00e-02 |grad_lstm|=1.02e-02 ratio=1.97e+00
+Epoch 170/1000 | Train: 0.001244 | Val: 0.008469 | ||z||=4.098 Var(z)=0.5922 | |grad_gcn|=2.02e-02 |grad_lstm|=9.79e-03 ratio=2.06e+00
+Early stopping at epoch 177 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 54.701293955439404
+
+
+============================================================
+Running Experiment: variant=gat_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp5219788.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011216 | Val: 0.002043 | ||z||=3.985 Var(z)=0.0403 | |grad_gcn|=3.15e-02 |grad_mlp|=0.00e+00 ratio=3.15e+10
+Epoch 20/1000 | Train: 0.009491 | Val: 0.000347 | ||z||=3.962 Var(z)=0.0443 | |grad_gcn|=2.14e-02 |grad_mlp|=0.00e+00 ratio=2.14e+10
+Epoch 30/1000 | Train: 0.008885 | Val: 0.002389 | ||z||=3.931 Var(z)=0.0591 | |grad_gcn|=3.27e-02 |grad_mlp|=0.00e+00 ratio=3.27e+10
+Epoch 40/1000 | Train: 0.007136 | Val: 0.000272 | ||z||=3.915 Var(z)=0.0741 | |grad_gcn|=3.41e-02 |grad_mlp|=0.00e+00 ratio=3.41e+10
+Epoch 50/1000 | Train: 0.005852 | Val: 0.000237 | ||z||=3.890 Var(z)=0.0795 | |grad_gcn|=3.48e-02 |grad_mlp|=0.00e+00 ratio=3.48e+10
+Epoch 60/1000 | Train: 0.005232 | Val: 0.002023 | ||z||=3.870 Var(z)=0.0815 | |grad_gcn|=2.89e-02 |grad_mlp|=0.00e+00 ratio=2.89e+10
+Epoch 70/1000 | Train: 0.005093 | Val: 0.004613 | ||z||=3.857 Var(z)=0.0905 | |grad_gcn|=4.59e-02 |grad_mlp|=0.00e+00 ratio=4.59e+10
+Epoch 80/1000 | Train: 0.004006 | Val: 0.003277 | ||z||=3.839 Var(z)=0.0844 | |grad_gcn|=2.68e-02 |grad_mlp|=0.00e+00 ratio=2.68e+10
+Epoch 90/1000 | Train: 0.003876 | Val: 0.007571 | ||z||=3.833 Var(z)=0.0919 | |grad_gcn|=3.63e-02 |grad_mlp|=0.00e+00 ratio=3.63e+10
+Epoch 100/1000 | Train: 0.004265 | Val: 0.009473 | ||z||=3.823 Var(z)=0.0935 | |grad_gcn|=4.92e-02 |grad_mlp|=0.00e+00 ratio=4.92e+10
+Epoch 110/1000 | Train: 0.003277 | Val: 0.010759 | ||z||=3.819 Var(z)=0.1012 | |grad_gcn|=3.65e-02 |grad_mlp|=0.00e+00 ratio=3.65e+10
+Epoch 120/1000 | Train: 0.002640 | Val: 0.010906 | ||z||=3.815 Var(z)=0.1035 | |grad_gcn|=2.11e-02 |grad_mlp|=0.00e+00 ratio=2.11e+10
+Epoch 130/1000 | Train: 0.002494 | Val: 0.011071 | ||z||=3.814 Var(z)=0.1061 | |grad_gcn|=2.08e-02 |grad_mlp|=0.00e+00 ratio=2.08e+10
+Epoch 140/1000 | Train: 0.002358 | Val: 0.011303 | ||z||=3.814 Var(z)=0.1095 | |grad_gcn|=2.30e-02 |grad_mlp|=0.00e+00 ratio=2.30e+10
+Early stopping at epoch 141 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 45.90018331281008
+
+Saving merged overlay plot to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\grid_search_plots\seed_5219788\product_907969_store_6269\similarity\window_30\step_1\item_907969\6adf97f8\exp_5219788\item_907969_spearman_all_configs_merged.html
+
+[TIMING] Product 907969 | store 6269 | exp 5219788: 3409.8 s (56.83 min)
+[PROGRESS] Worker 4/6: 77/100 done | 23 remaining | elapsed 1194.8 min | avg 15.52 min/unit | ETA 356.9 min (5.95 h)
+
+================================================================================
+PROCESSING PRODUCT 907969 FOR STORE 6269  [Seed 13451285]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Epoch 10/1000 | Train Loss: 0.011930 | Val Loss: 0.000246
+Epoch 20/1000 | Train Loss: 0.010334 | Val Loss: 0.000091
+Epoch 30/1000 | Train Loss: 0.008938 | Val Loss: 0.001990
+Epoch 40/1000 | Train Loss: 0.008890 | Val Loss: 0.001357
+Epoch 50/1000 | Train Loss: 0.007769 | Val Loss: 0.000593
+Epoch 60/1000 | Train Loss: 0.007768 | Val Loss: 0.002088
+Epoch 70/1000 | Train Loss: 0.007544 | Val Loss: 0.001634
+Epoch 80/1000 | Train Loss: 0.007414 | Val Loss: 0.001926
+Epoch 90/1000 | Train Loss: 0.007230 | Val Loss: 0.002064
+Epoch 100/1000 | Train Loss: 0.007155 | Val Loss: 0.002083
+Epoch 110/1000 | Train Loss: 0.007191 | Val Loss: 0.002395
+Early stopping at epoch 114 due to no improvement in validation loss for 100 epochs.
+LSTM Baseline RMSE: 53.3603
+
+============================================================
+Running MLP Baseline...
+============================================================
+Train/Val Split Indices:
+  Train End: -184
+  Val Range:     -184 to -153
+  Test Range:    -153 to End
+  Val Targets:   31 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1, 1)
+Epoch 1: Train Loss = 0.071641, Val Loss = 0.012181 (New Best)
+Epoch 2: Train Loss = 0.015665, Val Loss = 0.006763 (New Best)
+Epoch 3: Train Loss = 0.012373, Val Loss = 0.005748 (New Best)
+Epoch 5: Train Loss = 0.011289, Val Loss = 0.005074 (New Best)
+Epoch 6: Train Loss = 0.009929, Val Loss = 0.004676 (New Best)
+Epoch 10: Train Loss = 0.008496, Val Loss = 0.004593 (New Best)
+Early stopping at epoch 110 (no val improvement for 100 epochs; best epoch=10).
+Best Val MSE: 0.004593 (Epoch 10)
+MLP Baseline RMSE: 50.2249
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012079 | Val: 0.000000 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.11e-02 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.010901 | Val: 0.000118 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.45e-02 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.009192 | Val: 0.002082 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.20e-02 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.008734 | Val: 0.003068 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.79e-02 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.007880 | Val: 0.001845 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.61e-02 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.007681 | Val: 0.001980 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.29e-02 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.007408 | Val: 0.001464 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.88e-02 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.007132 | Val: 0.001192 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.04e-02 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.007055 | Val: 0.001387 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=5.39e-02 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.007006 | Val: 0.001824 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=6.02e-02 ratio=0.00e+00
+Early stopping at epoch 110 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 55.09784137020034
+
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012433 | Val: 0.000706 | ||z||=3.972 Var(z)=0.0453 | |grad_gcn|=4.58e-02 |grad_lstm|=9.32e-02 ratio=4.91e-01
+Epoch 20/1000 | Train: 0.010823 | Val: 0.000949 | ||z||=3.949 Var(z)=0.0553 | |grad_gcn|=7.16e-02 |grad_lstm|=8.40e-02 ratio=8.52e-01
+Epoch 30/1000 | Train: 0.010153 | Val: 0.002062 | ||z||=3.922 Var(z)=0.0615 | |grad_gcn|=7.93e-02 |grad_lstm|=7.74e-02 ratio=1.02e+00
+Epoch 40/1000 | Train: 0.009064 | Val: 0.000536 | ||z||=3.899 Var(z)=0.0614 | |grad_gcn|=5.86e-02 |grad_lstm|=6.06e-02 ratio=9.67e-01
+Epoch 50/1000 | Train: 0.008708 | Val: 0.000701 | ||z||=3.889 Var(z)=0.0611 | |grad_gcn|=6.35e-02 |grad_lstm|=7.24e-02 ratio=8.76e-01
+Epoch 60/1000 | Train: 0.008318 | Val: 0.001784 | ||z||=3.877 Var(z)=0.0623 | |grad_gcn|=7.34e-02 |grad_lstm|=9.10e-02 ratio=8.07e-01
+Epoch 70/1000 | Train: 0.008019 | Val: 0.001975 | ||z||=3.863 Var(z)=0.0650 | |grad_gcn|=7.41e-02 |grad_lstm|=8.97e-02 ratio=8.26e-01
+Epoch 80/1000 | Train: 0.007445 | Val: 0.000471 | ||z||=3.859 Var(z)=0.0618 | |grad_gcn|=4.30e-02 |grad_lstm|=5.85e-02 ratio=7.35e-01
+Epoch 90/1000 | Train: 0.007269 | Val: 0.000473 | ||z||=3.857 Var(z)=0.0604 | |grad_gcn|=4.20e-02 |grad_lstm|=5.77e-02 ratio=7.29e-01
+Epoch 100/1000 | Train: 0.007106 | Val: 0.000484 | ||z||=3.854 Var(z)=0.0592 | |grad_gcn|=4.20e-02 |grad_lstm|=5.74e-02 ratio=7.32e-01
+Early stopping at epoch 102 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 65.4263648237853
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009240 | Val: 0.001193 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.007387 | Val: 0.000329 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.006820 | Val: 0.001577 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 40/1000 | Train: 0.006452 | Val: 0.000499 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 50/1000 | Train: 0.005123 | Val: 0.000001 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 60/1000 | Train: 0.004494 | Val: 0.000059 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 70/1000 | Train: 0.004793 | Val: 0.000505 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 80/1000 | Train: 0.004164 | Val: 0.000799 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 90/1000 | Train: 0.003212 | Val: 0.001591 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 100/1000 | Train: 0.003090 | Val: 0.001282 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 110/1000 | Train: 0.003010 | Val: 0.001363 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 120/1000 | Train: 0.002870 | Val: 0.000821 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 130/1000 | Train: 0.002292 | Val: 0.000293 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 140/1000 | Train: 0.002214 | Val: 0.000386 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Epoch 150/1000 | Train: 0.002134 | Val: 0.000391 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_mlp|=0.00e+00 ratio=0.00e+00
+Early stopping at epoch 154 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 45.19027546869237
+
+
+============================================================
+Running Experiment: variant=gcn_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.009833 | Val: 0.000125 | ||z||=3.966 Var(z)=0.0520 | |grad_gcn|=1.86e-02 |grad_mlp|=0.00e+00 ratio=1.86e+10
+Epoch 20/1000 | Train: 0.008946 | Val: 0.002382 | ||z||=3.939 Var(z)=0.0467 | |grad_gcn|=2.17e-02 |grad_mlp|=0.00e+00 ratio=2.17e+10
+Epoch 30/1000 | Train: 0.009315 | Val: 0.002602 | ||z||=3.904 Var(z)=0.0464 | |grad_gcn|=3.52e-02 |grad_mlp|=0.00e+00 ratio=3.52e+10
+Epoch 40/1000 | Train: 0.006709 | Val: 0.001166 | ||z||=3.883 Var(z)=0.0520 | |grad_gcn|=3.05e-02 |grad_mlp|=0.00e+00 ratio=3.05e+10
+Epoch 50/1000 | Train: 0.005763 | Val: 0.001617 | ||z||=3.880 Var(z)=0.0594 | |grad_gcn|=3.87e-02 |grad_mlp|=0.00e+00 ratio=3.87e+10
+Epoch 60/1000 | Train: 0.005080 | Val: 0.000983 | ||z||=3.878 Var(z)=0.0652 | |grad_gcn|=3.78e-02 |grad_mlp|=0.00e+00 ratio=3.78e+10
+Epoch 70/1000 | Train: 0.004770 | Val: 0.002050 | ||z||=3.873 Var(z)=0.0690 | |grad_gcn|=4.61e-02 |grad_mlp|=0.00e+00 ratio=4.61e+10
+Epoch 80/1000 | Train: 0.004227 | Val: 0.000330 | ||z||=3.868 Var(z)=0.0698 | |grad_gcn|=4.13e-02 |grad_mlp|=0.00e+00 ratio=4.13e+10
+Epoch 90/1000 | Train: 0.004054 | Val: 0.000362 | ||z||=3.867 Var(z)=0.0715 | |grad_gcn|=4.07e-02 |grad_mlp|=0.00e+00 ratio=4.07e+10
+Epoch 100/1000 | Train: 0.003971 | Val: 0.000126 | ||z||=3.865 Var(z)=0.0728 | |grad_gcn|=4.53e-02 |grad_mlp|=0.00e+00 ratio=4.53e+10
+Epoch 110/1000 | Train: 0.003946 | Val: 0.000522 | ||z||=3.861 Var(z)=0.0734 | |grad_gcn|=4.14e-02 |grad_mlp|=0.00e+00 ratio=4.14e+10
+Epoch 120/1000 | Train: 0.003533 | Val: 0.001758 | ||z||=3.860 Var(z)=0.0742 | |grad_gcn|=2.76e-02 |grad_mlp|=0.00e+00 ratio=2.76e+10
+Epoch 130/1000 | Train: 0.003449 | Val: 0.001832 | ||z||=3.860 Var(z)=0.0751 | |grad_gcn|=2.86e-02 |grad_mlp|=0.00e+00 ratio=2.86e+10
+Epoch 140/1000 | Train: 0.003370 | Val: 0.001776 | ||z||=3.860 Var(z)=0.0760 | |grad_gcn|=2.82e-02 |grad_mlp|=0.00e+00 ratio=2.82e+10
+Early stopping at epoch 142 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 43.21668949331604
+
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011984 | Val: 0.001056 | ||z||=3.992 Var(z)=0.0883 | |grad_gcn|=6.57e-02 |grad_lstm|=7.60e-02 ratio=8.65e-01
+Epoch 20/1000 | Train: 0.010098 | Val: 0.002683 | ||z||=3.968 Var(z)=0.1265 | |grad_gcn|=7.28e-02 |grad_lstm|=6.45e-02 ratio=1.13e+00
+Epoch 30/1000 | Train: 0.008956 | Val: 0.001282 | ||z||=3.952 Var(z)=0.1463 | |grad_gcn|=7.05e-02 |grad_lstm|=6.29e-02 ratio=1.12e+00
+Epoch 40/1000 | Train: 0.007837 | Val: 0.000917 | ||z||=3.925 Var(z)=0.1589 | |grad_gcn|=5.56e-02 |grad_lstm|=4.40e-02 ratio=1.26e+00
+Epoch 50/1000 | Train: 0.007222 | Val: 0.000052 | ||z||=3.926 Var(z)=0.1906 | |grad_gcn|=7.07e-02 |grad_lstm|=5.04e-02 ratio=1.40e+00
+Epoch 60/1000 | Train: 0.007177 | Val: 0.000051 | ||z||=3.925 Var(z)=0.1934 | |grad_gcn|=1.08e-01 |grad_lstm|=6.69e-02 ratio=1.62e+00
+Epoch 70/1000 | Train: 0.006475 | Val: 0.002155 | ||z||=3.914 Var(z)=0.2069 | |grad_gcn|=9.00e-02 |grad_lstm|=5.18e-02 ratio=1.74e+00
+Epoch 80/1000 | Train: 0.005953 | Val: 0.000070 | ||z||=3.882 Var(z)=0.2064 | |grad_gcn|=4.90e-02 |grad_lstm|=3.11e-02 ratio=1.57e+00
+Epoch 90/1000 | Train: 0.005380 | Val: 0.000537 | ||z||=3.888 Var(z)=0.2172 | |grad_gcn|=5.25e-02 |grad_lstm|=2.87e-02 ratio=1.83e+00
+Epoch 100/1000 | Train: 0.005084 | Val: 0.000734 | ||z||=3.896 Var(z)=0.2347 | |grad_gcn|=5.67e-02 |grad_lstm|=3.06e-02 ratio=1.85e+00
+Epoch 110/1000 | Train: 0.004774 | Val: 0.001130 | ||z||=3.903 Var(z)=0.2491 | |grad_gcn|=7.04e-02 |grad_lstm|=3.11e-02 ratio=2.26e+00
+Epoch 120/1000 | Train: 0.004491 | Val: 0.000773 | ||z||=3.909 Var(z)=0.2599 | |grad_gcn|=6.10e-02 |grad_lstm|=2.80e-02 ratio=2.18e+00
+Epoch 130/1000 | Train: 0.004323 | Val: 0.000539 | ||z||=3.916 Var(z)=0.2709 | |grad_gcn|=5.75e-02 |grad_lstm|=2.74e-02 ratio=2.10e+00
+Epoch 140/1000 | Train: 0.004420 | Val: 0.001054 | ||z||=3.921 Var(z)=0.2774 | |grad_gcn|=1.42e-01 |grad_lstm|=5.08e-02 ratio=2.79e+00
+Early stopping at epoch 143 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 54.97019546487662
+
+
+============================================================
+Running Experiment: variant=gat_mlp, ablate_z=False, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graphs for ('spearman', 0.634, 30, 1, True, False, 'catch24_minmaxlast')
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gat_mlp_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.011448 | Val: 0.000998 | ||z||=3.980 Var(z)=0.0785 | |grad_gcn|=3.56e-02 |grad_mlp|=0.00e+00 ratio=3.56e+10
+Epoch 20/1000 | Train: 0.008900 | Val: 0.000291 | ||z||=3.945 Var(z)=0.0833 | |grad_gcn|=2.10e-02 |grad_mlp|=0.00e+00 ratio=2.10e+10
+Epoch 30/1000 | Train: 0.007466 | Val: 0.000953 | ||z||=3.932 Var(z)=0.1124 | |grad_gcn|=4.03e-02 |grad_mlp|=0.00e+00 ratio=4.03e+10
+Epoch 40/1000 | Train: 0.005140 | Val: 0.000164 | ||z||=3.910 Var(z)=0.1191 | |grad_gcn|=3.48e-02 |grad_mlp|=0.00e+00 ratio=3.48e+10
+Epoch 50/1000 | Train: 0.004184 | Val: 0.000001 | ||z||=3.913 Var(z)=0.1359 | |grad_gcn|=3.31e-02 |grad_mlp|=0.00e+00 ratio=3.31e+10
+Epoch 60/1000 | Train: 0.003825 | Val: 0.001377 | ||z||=3.917 Var(z)=0.1524 | |grad_gcn|=4.79e-02 |grad_mlp|=0.00e+00 ratio=4.79e+10
+Epoch 70/1000 | Train: 0.003644 | Val: 0.000938 | ||z||=3.909 Var(z)=0.1728 | |grad_gcn|=4.95e-02 |grad_mlp|=0.00e+00 ratio=4.95e+10
+Epoch 80/1000 | Train: 0.002505 | Val: 0.000081 | ||z||=3.912 Var(z)=0.1812 | |grad_gcn|=3.20e-02 |grad_mlp|=0.00e+00 ratio=3.20e+10
+Epoch 90/1000 | Train: 0.002150 | Val: 0.000553 | ||z||=3.918 Var(z)=0.1942 | |grad_gcn|=3.14e-02 |grad_mlp|=0.00e+00 ratio=3.14e+10
+Epoch 100/1000 | Train: 0.001914 | Val: 0.000252 | ||z||=3.922 Var(z)=0.2065 | |grad_gcn|=3.92e-02 |grad_mlp|=0.00e+00 ratio=3.92e+10
+Epoch 110/1000 | Train: 0.001794 | Val: 0.000000 | ||z||=3.926 Var(z)=0.2193 | |grad_gcn|=5.01e-02 |grad_mlp|=0.00e+00 ratio=5.01e+10
+Epoch 120/1000 | Train: 0.001475 | Val: 0.000524 | ||z||=3.928 Var(z)=0.2271 | |grad_gcn|=3.79e-02 |grad_mlp|=0.00e+00 ratio=3.79e+10
+Epoch 130/1000 | Train: 0.002412 | Val: 0.009992 | ||z||=3.921 Var(z)=0.2290 | |grad_gcn|=7.88e-02 |grad_mlp|=0.00e+00 ratio=7.88e+10
+Epoch 140/1000 | Train: 0.001557 | Val: 0.001272 | ||z||=3.916 Var(z)=0.2297 | |grad_gcn|=5.27e-02 |grad_mlp|=0.00e+00 ratio=5.27e+10
+Epoch 150/1000 | Train: 0.001076 | Val: 0.001014 | ||z||=3.918 Var(z)=0.2395 | |grad_gcn|=2.38e-02 |grad_mlp|=0.00e+00 ratio=2.38e+10
+Epoch 160/1000 | Train: 0.001002 | Val: 0.001032 | ||z||=3.920 Var(z)=0.2435 | |grad_gcn|=2.47e-02 |grad_mlp|=0.00e+00 ratio=2.47e+10
+Epoch 170/1000 | Train: 0.000934 | Val: 0.001083 | ||z||=3.922 Var(z)=0.2469 | |grad_gcn|=2.42e-02 |grad_mlp|=0.00e+00 ratio=2.42e+10
+Epoch 180/1000 | Train: 0.000871 | Val: 0.001002 | ||z||=3.923 Var(z)=0.2512 | |grad_gcn|=2.26e-02 |grad_mlp|=0.00e+00 ratio=2.26e+10
+Epoch 190/1000 | Train: 0.000843 | Val: 0.001147 | ||z||=3.924 Var(z)=0.2519 | |grad_gcn|=2.34e-02 |grad_mlp|=0.00e+00 ratio=2.34e+10
+Epoch 200/1000 | Train: 0.000815 | Val: 0.001174 | ||z||=3.925 Var(z)=0.2535 | |grad_gcn|=2.28e-02 |grad_mlp|=0.00e+00 ratio=2.28e+10
+Early stopping at epoch 210 (no improvement for 100 epochs).
+Running Inference...
+Finished spearman @ 0.634 -> RMSE: 43.59900780954947
+
+Saving merged overlay plot to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\grid_search_plots\seed_13451285\product_907969_store_6269\similarity\window_30\step_1\item_907969\6adf97f8\exp_13451285\item_907969_spearman_all_configs_merged.html
+
+[TIMING] Product 907969 | store 6269 | exp 13451285: 3805.1 s (63.42 min)
+[PROGRESS] Worker 4/6: 78/100 done | 22 remaining | elapsed 1258.2 min | avg 16.13 min/unit | ETA 354.9 min (5.91 h)
+
+================================================================================
+PROCESSING PRODUCT 907969 FOR STORE 6269  [Seed 23616558]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Epoch 10/1000 | Train Loss: 0.012189 | Val Loss: 0.000072
+Epoch 20/1000 | Train Loss: 0.010531 | Val Loss: 0.000011
+Epoch 30/1000 | Train Loss: 0.009251 | Val Loss: 0.000263
+Epoch 40/1000 | Train Loss: 0.008498 | Val Loss: 0.001245
+Epoch 50/1000 | Train Loss: 0.008093 | Val Loss: 0.001142
+Epoch 60/1000 | Train Loss: 0.007780 | Val Loss: 0.002393
+Epoch 70/1000 | Train Loss: 0.008183 | Val Loss: 0.005681
+Epoch 80/1000 | Train Loss: 0.007959 | Val Loss: 0.000018
+Epoch 90/1000 | Train Loss: 0.007497 | Val Loss: 0.000513
+Epoch 100/1000 | Train Loss: 0.007256 | Val Loss: 0.001886
+Epoch 110/1000 | Train Loss: 0.007338 | Val Loss: 0.002387
+Epoch 120/1000 | Train Loss: 0.007214 | Val Loss: 0.002145
+Early stopping at epoch 122 due to no improvement in validation loss for 100 epochs.
+LSTM Baseline RMSE: 49.5093
+
+============================================================
+Running MLP Baseline...
+============================================================
+Train/Val Split Indices:
+  Train End: -184
+  Val Range:     -184 to -153
+  Test Range:    -153 to End
+  Val Targets:   31 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1, 1)
+Epoch 1: Train Loss = 0.065131, Val Loss = 0.015765 (New Best)
+Epoch 2: Train Loss = 0.016180, Val Loss = 0.007162 (New Best)
+Epoch 3: Train Loss = 0.011408, Val Loss = 0.005144 (New Best)
+Epoch 22: Train Loss = 0.006927, Val Loss = 0.004956 (New Best)
+Early stopping at epoch 122 (no val improvement for 100 epochs; best epoch=22).
+Best Val MSE: 0.004956 (Epoch 22)
+MLP Baseline RMSE: 47.0141
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=True, metric=spearman, threshold=0.634, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Assemble_expandingwindow\best_models\30\1\spearman\th0.634\best_gcn_lstm_perstep_907969_spearman_w30_s1_th_0.634_nfcatch24_minmaxlast_exp23616558.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012404 | Val: 0.000026 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.58e-02 ratio=0.00e+00
+Epoch 20/1000 | Train: 0.011474 | Val: 0.000035 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.34e-02 ratio=0.00e+00
+Epoch 30/1000 | Train: 0.010364 | Val: 0.000000 | ||z||=nan Var(z)=nan | |grad_gcn|=0.00e+00 |grad_lstm|=7.21e-02 ratio=0.00e+00

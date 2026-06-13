@@ -23,3 +23,4 @@ influence_plots/
 gcn_mlp_results.csv
 spearman_w*.csv
 node_features/
+DynamicGraphPlots/

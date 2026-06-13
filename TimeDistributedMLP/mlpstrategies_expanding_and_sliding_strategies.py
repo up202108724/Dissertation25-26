@@ -15,7 +15,7 @@ sys.path.append(os.path.join(script_dir, '..', 'LSTM'))
 
 from plots import plot_results
 from utils import generate_exogenous_features
-from train_strategies import TrainConfig, train_mlp_forecaster, train_model_best_train_loss, train_model_combined, train_model_expanding_window, train_model_sliding_window
+from train_strategies import TrainConfig, train_mlp_forecaster, train_model_combined, train_model_expanding_window, train_model_sliding_window
 from inference import recursive_inference
 # -----------------------------------------------------------------------------
 # Configuration
