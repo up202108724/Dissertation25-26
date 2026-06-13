@@ -17,6 +17,7 @@ DISTANCE_METRICS = {
     'manhattan', 'twed', 'erp', 'stid',
 }
 SIMILARITY_METRICS = {'pearson', 'spearman', 'kendall'}
+CAUSAL_METRICS = {'granger'}
 
 def _save_node_features_csv(
     pyg_windows, product_id, store_id, metric, threshold, window_size, mode, script_dir
@@ -46,17 +47,20 @@ def _save_node_features_csv(
 
 def infer_metric_type(metric, metric_type=None):
     if metric_type is not None:
-        if metric_type not in {'distance', 'similarity'}:
-            raise ValueError("metric_type must be either 'distance' or 'similarity'")
+        if metric_type not in {'distance', 'similarity', 'causal'}:
+            raise ValueError("metric_type must be 'distance', 'similarity', or 'causal'")
         return metric_type
     if metric in DISTANCE_METRICS:
         return 'distance'
     if metric in SIMILARITY_METRICS:
         return 'similarity'
+    if metric in CAUSAL_METRICS:
+        return 'causal'
     raise ValueError(
         f"Metric {metric} not supported. "
         f"Distance metrics: {sorted(DISTANCE_METRICS)}; "
-        f"similarity metrics: {sorted(SIMILARITY_METRICS)}"
+        f"similarity metrics: {sorted(SIMILARITY_METRICS)}; "
+        f"causal metrics: {sorted(CAUSAL_METRICS)}"
     )
 
 
@@ -264,64 +268,46 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
         return sim.cpu().numpy()
         
     elif metric == 'spearman':
-        def get_fractional_ranks(tensor):
-            # 1. Sort the tensor
-            # 2. Find where the values change to identify groups of ties
-            # 3. Compute the average rank for each group
-            shape = tensor.shape
-            # Flatten to 2D if necessary, but assuming (N, L)
-            n, l = shape
-            
-            # Sort and get inverse indices
-            sorted_tensor, indices = torch.sort(tensor, dim=1)
-            
-            # Create a sequence of ranks [1, 2, 3, ..., L]
-            rhs = torch.arange(1, l + 1, device=device, dtype=torch.float32).expand(n, l)
-            
-            # Find ties: True if current value is same as next value
-            # We use a small trick: find the start and end of each tie group
-            # For discrete data, simple equality works:
-            is_tie = torch.cat([
-                torch.tensor([[True]], device=device).expand(n, 1),
-                sorted_tensor[:, 1:] != sorted_tensor[:, :-1]
-            ], dim=1)
-            
-            # Group sum of ranks divided by group count
-            group_id = torch.cumsum(is_tie.long(), dim=1)
-            
-            # Compute average ranks for ties
-            # We use scatter_add to sum ranks of same values, then divide by counts
-            sum_ranks = torch.zeros(n, l + 1, device=device)
-            counts = torch.zeros(n, l + 1, device=device)
-            
-            sum_ranks.scatter_add_(1, group_id, rhs)
-            counts.scatter_add_(1, group_id, torch.ones_like(rhs))
-            
-            avg_ranks = sum_ranks / counts
-            # Map back to original positions
-            sorted_fractional_ranks = torch.gather(avg_ranks, 1, group_id)
-            
-            # Use the original indices to put ranks in correct order
-            inv_indices = torch.argsort(indices, dim=1)
-            return torch.gather(sorted_fractional_ranks, 1, inv_indices)
+        # Average-rank (fractional) ranking with proper tie handling, fully vectorised.
+        # Ordinal ranking (argsort + scatter) is WRONG when the window contains ties:
+        # tied values get sequential ranks in original-index order, which is identical
+        # across every series, manufacturing spurious ~1.0 correlations. This is acute in
+        # sparse early windows (many co-located zeros from .fillna(0)).
+        def _avg_ranks(M):
+            R, n = M.shape
+            sorted_vals, order = torch.sort(M, dim=1)
+            positions = torch.arange(n, device=device).unsqueeze(0).expand(R, n)
+            # Mark group starts/ends among tied (equal) sorted values
+            is_new = torch.ones(R, n, dtype=torch.bool, device=device)
+            is_new[:, 1:] = sorted_vals[:, 1:] != sorted_vals[:, :-1]
+            is_end = torch.ones(R, n, dtype=torch.bool, device=device)
+            is_end[:, :-1] = sorted_vals[:, :-1] != sorted_vals[:, 1:]
+            # First/last sorted position of each tie group, propagated to every member
+            start_idx = torch.cummax(torch.where(is_new, positions, torch.zeros_like(positions)), dim=1)[0]
+            end_pos = torch.where(is_end, positions, torch.full_like(positions, n))
+            end_idx = torch.flip(torch.cummin(torch.flip(end_pos, [1]), dim=1)[0], [1])
+            # Average ordinal rank over the group: ((start+1) + (end+1)) / 2
+            avg_ord = (start_idx + end_idx).to(M.dtype) / 2.0 + 1.0
+            ranks = torch.empty_like(M)
+            ranks.scatter_(1, order, avg_ord)
+            return ranks
 
-        target_ranks = get_fractional_ranks(target)
-        X_ranks = get_fractional_ranks(X)
+        target_ranks = _avg_ranks(target)
+        X_ranks = _avg_ranks(X)
 
-        # Re-use the Pearson logic on these fractional ranks
         target_mean = torch.mean(target_ranks, dim=1, keepdim=True)
         X_mean = torch.mean(X_ranks, dim=1, keepdim=True)
-
+        
         target_centered = target_ranks - target_mean
         X_centered = X_ranks - X_mean
-
+        
         cov = torch.sum(target_centered * X_centered, dim=1)
         target_var = torch.sqrt(torch.sum(target_centered**2, dim=1))
         X_var = torch.sqrt(torch.sum(X_centered**2, dim=1))
-
+        
         sim = cov / (target_var * X_var + eps)
         return sim.cpu().numpy()
-
+        
     elif metric == 'kendall':
         seq_len = target.shape[1]
         if seq_len < 2:
@@ -349,7 +335,28 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
         raise ValueError(f"Metric {metric} not supported")
 
 
-def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func, 
+
+def edge_weight_from_metric(val, metric_type):
+    """Map a raw metric value to a consistent edge weight where LARGER == MORE
+    similar (a stronger edge), regardless of the metric's native direction.
+
+    This is the single source of truth for edge weighting so every edge site
+    (central star, within-star, second-degree) agrees, and so the downstream
+    GCN (``edge_weight``) and GAT (``edge_attr`` prior) both interpret the
+    weight the same way.
+
+    similarity : ``max(0, val)``        — already "bigger = more similar".
+    distance   : ``1 / (1 + val)``      — monotone-decreasing in distance,
+                                          maps [0, ∞) → (0, 1] so a closer
+                                          (smaller-distance) neighbour gets a
+                                          larger weight, matching similarities.
+    """
+    if metric_type == 'distance':
+        return 1.0 / (1.0 + float(val))
+    return max(0.0, float(val))
+
+
+def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func,
                         threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
                         enable_edges_within_star=True, enable_second_degree=False, num_plots=None, train_end_idx=None):
     """
@@ -474,7 +481,11 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
         for orig_idx, val, other_id in zip(selected_orig_idxs, selected_vals, selected_ids):
             cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
             G.add_node(other_id, cat_label=cat_other)
-            G.add_edge(product_id, other_id, weight=float(val))
+            # Consistent weighting: bigger == more similar for every metric.
+            # For similarity this is unchanged (selected vals are >= threshold > 0);
+            # for distance this now matches the within-star / 2nd-degree edges.
+            G.add_edge(product_id, other_id,
+                       weight=edge_weight_from_metric(val, metric_type))
             neighbor_indices.append(orig_idx)
             
         if enable_edges_within_star and len(neighbor_indices) > 1:
@@ -485,15 +496,11 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
                 
                 for j, (idx2, val_sub) in enumerate(zip(neighbor_indices, vals_sub)):
                     if i < j:
-                        if metric_type == 'distance':
-                            if val_sub <= current_threshold:
-                                edge_weight = 1.0 / (1.0 + float(val_sub)) 
-                                #edge_weight = val_sub
-                                G.add_edge(item_ids[idx1], item_ids[idx2], weight=edge_weight)
-                        else:
-                            if val_sub >= current_threshold:
-                                edge_weight = max(0.0, float(val_sub))
-                                G.add_edge(item_ids[idx1], item_ids[idx2], weight=edge_weight)
+                        passes = (val_sub <= current_threshold if metric_type == 'distance'
+                                  else val_sub >= current_threshold)
+                        if passes:
+                            edge_weight = edge_weight_from_metric(val_sub, metric_type)
+                            G.add_edge(item_ids[idx1], item_ids[idx2], weight=edge_weight)
 
         if enable_second_degree and len(neighbor_indices) > 0:
             for idx1 in neighbor_indices:
@@ -505,16 +512,11 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
                         val_sub = vals_sub[valid_idx]
                         other_id = item_ids[valid_idx]
                         
-                        add_edge = False
-                        if metric_type == 'distance':
-                            if val_sub <= current_threshold:
-                                add_edge = True
-                                edge_weight = 1.0 / (1.0 + float(val_sub)) 
-                        else:
-                            if val_sub >= current_threshold:
-                                add_edge = True
-                                edge_weight = max(0.0, float(val_sub))
-                                
+                        add_edge = (val_sub <= current_threshold if metric_type == 'distance'
+                                    else val_sub >= current_threshold)
+                        if add_edge:
+                            edge_weight = edge_weight_from_metric(val_sub, metric_type)
+
                         if add_edge:
                             if not G.has_node(other_id):
                                 cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
@@ -846,6 +848,83 @@ def transform_exog_row(row_df, categorical_cols=None, continuous_cols=None, bina
     return out
 
 
+
+
+def compute_granger_graph(
+    product_id,
+    df_wide_train,
+    max_lag=7,
+    p_threshold=0.05,
+    cat_labels=None,
+):
+    """
+    Build a static undirected graph whose edges encode Granger-causal relationships.
+
+    Run on the TRAINING period only — zero look-ahead leakage. First-differences
+    each series before testing to satisfy the stationarity requirement. An edge
+    between product_id and other_id is created if the F-test p-value is below
+    p_threshold in either causal direction; edge weight = 1 - min_p (causality
+    confidence in [0, 1]).
+
+    The returned graph has fixed topology. Pass it replicated N times to
+    build_pyg_graphs_from_nx_windows so the GCN sees the same causal structure
+    at every window while node features refresh with each sliding window.
+    """
+    from statsmodels.tsa.stattools import grangercausalitytests
+    import warnings
+
+    G = nx.Graph()
+    cat = cat_labels.get(product_id, "Unknown Category") if cat_labels else "Unknown Category"
+    G.add_node(product_id, cat_label=cat)
+
+    if product_id not in df_wide_train.index:
+        return G
+
+    target_diff = np.diff(df_wide_train.loc[product_id].values.astype(float))
+    if np.std(target_diff) < 1e-8:
+        print(f"[Granger] product={product_id}: target is flat — no edges added")
+        return G
+
+    n_added = 0
+    for other_id in df_wide_train.index:
+        if other_id == product_id:
+            continue
+
+        other_diff = np.diff(df_wide_train.loc[other_id].values.astype(float))
+        if np.std(other_diff) < 1e-8:
+            continue
+
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+
+                # Does other_id Granger-cause product_id?
+                r1 = grangercausalitytests(
+                    np.column_stack([target_diff, other_diff]),
+                    maxlag=max_lag, verbose=False,
+                )
+                p1 = min(r1[lag][0]['ssr_ftest'][1] for lag in r1)
+
+                # Does product_id Granger-cause other_id?
+                r2 = grangercausalitytests(
+                    np.column_stack([other_diff, target_diff]),
+                    maxlag=max_lag, verbose=False,
+                )
+                p2 = min(r2[lag][0]['ssr_ftest'][1] for lag in r2)
+
+                min_p = min(p1, p2)
+                if min_p < p_threshold:
+                    cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels else "Unknown Category"
+                    G.add_node(other_id, cat_label=cat_other)
+                    G.add_edge(product_id, other_id, weight=float(1.0 - min_p))
+                    n_added += 1
+
+        except Exception:
+            continue
+
+    print(f"[Granger] product={product_id}: {n_added} causal neighbours "
+          f"(p<{p_threshold}, max_lag={max_lag})")
+    return G
 
 
 from sklearn.metrics import mean_squared_error, mean_absolute_error

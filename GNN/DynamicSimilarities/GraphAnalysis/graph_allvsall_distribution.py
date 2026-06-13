@@ -279,6 +279,90 @@ def plot_distribution(all_values, metric, metric_type, window_size,
 
 
 # =============================================================================
+# Node-count analysis by season
+# =============================================================================
+def _holiday_tag(date):
+    """Return 'thanksgiving', 'christmas', 'new_year_eve', or None."""
+    m, d = date.month, date.day
+    if (m == 11 and d >= 20) or (m == 12 and d <= 1):
+        return 'thanksgiving'
+    if m == 12 and 18 <= d <= 27:
+        return 'christmas'
+    if (m == 12 and d >= 28) or (m == 1 and d <= 2):
+        return 'new_year_eve'
+    return None
+
+
+def compute_node_stats(df_wide, window_size, step_size=1,
+                       train_end_idx=None, out_dir=None):
+    """
+    For each sliding window count the number of active nodes (products with
+    at least one non-zero value in the window).  Tag windows whose *end date*
+    falls inside Thanksgiving (Nov 20 – Dec 1), Christmas (Dec 18–27), or
+    New Year Eve (Dec 28 – Jan 2) seasons.
+
+    Writes two CSVs when ``out_dir`` is supplied:
+      node_stats_per_window.csv  – one row per window
+      node_stats_summary.csv     – overall and per-season averages
+    """
+    cols = pd.to_datetime(df_wide.columns)
+    time_steps = df_wide.shape[1]
+    scan_end = time_steps if train_end_idx is None else min(time_steps, train_end_idx)
+    windows = list(range(0, scan_end - window_size + 1, step_size))
+
+    values_mat = df_wide.values  # (N_items, T)
+
+    rows = []
+    for start_idx in windows:
+        end_idx    = start_idx + window_size - 1
+        window_mat = values_mat[:, start_idx : start_idx + window_size]
+        n_active   = int((np.abs(window_mat).sum(axis=1) > 0).sum())
+
+        start_date = cols[start_idx]
+        end_date   = cols[end_idx]
+
+        # Tag by end date; fall back to start date for windows straddling a boundary
+        tag = _holiday_tag(end_date) or _holiday_tag(start_date)
+
+        rows.append({
+            'window_start':   start_date.date(),
+            'window_end':     end_date.date(),
+            'n_active_nodes': n_active,
+            'holiday_tag':    tag or '',
+        })
+
+    df_win  = pd.DataFrame(rows)
+    is_hol  = df_win['holiday_tag'] != ''
+    non_hol = df_win.loc[~is_hol, 'n_active_nodes']
+
+    summary = {
+        'avg_nodes_total':           round(float(df_win['n_active_nodes'].mean()), 4),
+        'avg_nodes_outside_holiday': round(float(non_hol.mean()), 4) if len(non_hol) else float('nan'),
+        'n_windows_total':           len(df_win),
+        'n_windows_holiday':         int(is_hol.sum()),
+        'n_windows_non_holiday':     int((~is_hol).sum()),
+    }
+    for season in ('thanksgiving', 'christmas', 'new_year_eve'):
+        mask = df_win['holiday_tag'] == season
+        vals = df_win.loc[mask, 'n_active_nodes']
+        summary[f'avg_nodes_{season}'] = round(float(vals.mean()), 4) if mask.any() else float('nan')
+        summary[f'n_windows_{season}'] = int(mask.sum())
+
+    print("\n====== Node Count Summary by Season ======")
+    for k, v in summary.items():
+        print(f"  {k:<40}: {v}")
+
+    if out_dir is not None:
+        os.makedirs(out_dir, exist_ok=True)
+        df_win.to_csv(os.path.join(out_dir, 'node_stats_per_window.csv'), index=False)
+        pd.DataFrame([summary]).to_csv(
+            os.path.join(out_dir, 'node_stats_summary.csv'), index=False)
+        print(f"Saved node_stats_per_window.csv + node_stats_summary.csv -> {out_dir}")
+
+    return summary, df_win
+
+
+# =============================================================================
 # Main
 # =============================================================================
 if __name__ == "__main__":
@@ -287,8 +371,8 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))
 
     # ---- Configuration ----------------------------------------
-    METRIC          = "cid"   # 'spearman' | 'kendall' | 'cid'
-    METRIC_TYPE     = "distance" # 'similarity' | 'distance'  (cid → 'distance')
+    METRIC          = "kendall"   # 'spearman' | 'kendall' | 'cid'
+    METRIC_TYPE     = "similarity" # 'similarity' | 'distance'  (cid → 'distance')
     WINDOW_SIZE     = 30
     STEP_SIZE       = 1
     TOP_PERCENTILE  = 1            # plot a second chart zoomed into the top N% strongest pairs
@@ -355,6 +439,15 @@ if __name__ == "__main__":
     out_dir = os.path.join(
         OUT_BASE,
         f"{METRIC}_{METRIC_TYPE}_W{WINDOW_SIZE}_S{STEP_SIZE}_focal_vs_full",
+    )
+
+    # ---- Node-count stats by season --------------------------
+    compute_node_stats(
+        df_wide       = df_wide,
+        window_size   = WINDOW_SIZE,
+        step_size     = STEP_SIZE,
+        train_end_idx = train_end_idx,
+        out_dir       = out_dir,
     )
 
     # --- Full distribution ---

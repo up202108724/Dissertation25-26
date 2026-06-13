@@ -21,3 +21,5 @@ graph_infered_plots/
 diagnostics/
 influence_plots/
 gcn_mlp_results.csv
+spearman_w*.csv
+node_features/

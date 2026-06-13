@@ -1,0 +1,44 @@
+Traceback (most recent call last):
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN\LSTM_GCN_1_graph_per_step\main_gcn_lstm_with_seeds_parallelized.py", line 29, in <module>
+    from torch_geometric.data import Data
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch_geometric\__init__.py", line 14, in <module>
+    from .isinstance import is_torch_instance
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch_geometric\isinstance.py", line 8, in <module>
+    import torch._dynamo
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\_dynamo\__init__.py", line 13, in <module>
+    from . import (
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\_dynamo\aot_compile.py", line 14, in <module>
+    from torch._dynamo.convert_frame import GraphRuntimeEnv
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\_dynamo\convert_frame.py", line 60, in <module>
+    from torch._dynamo.symbolic_convert import TensorifyState
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\_dynamo\symbolic_convert.py", line 53, in <module>
+    from torch._dynamo.exc import ObservedException, TensorifyScalarRestartAnalysis
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\_dynamo\exc.py", line 44, in <module>
+    from .utils import counters
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\_dynamo\utils.py", line 69, in <module>
+    import torch.fx.experimental.symbolic_shapes
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\fx\experimental\symbolic_shapes.py", line 3, in <module>
+    import sympy
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\sympy\__init__.py", line 77, in <module>
+    from .polys import (Poly, PurePoly, poly_from_expr, parallel_poly_from_expr,
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\sympy\polys\__init__.py", line 79, in <module>
+    from .polyfuncs import (symmetrize, horner, interpolate,
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\sympy\polys\polyfuncs.py", line 10, in <module>
+    from sympy.polys.specialpolys import (
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\sympy\polys\specialpolys.py", line 298, in <module>
+    from sympy.polys.rings import ring
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\sympy\polys\rings.py", line 31, in <module>
+    from sympy.printing.defaults import DefaultPrinting
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\sympy\printing\__init__.py", line 3, in <module>
+    from .pretty import pager_print, pretty, pretty_print, pprint, pprint_use_unicode, pprint_try_use_unicode
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\sympy\printing\pretty\__init__.py", line 3, in <module>
+    from .pretty import (pretty, pretty_print, pprint, pprint_use_unicode,
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\sympy\printing\pretty\pretty.py", line 13, in <module>
+    from sympy.printing.conventions import requires_partial
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 991, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1087, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1186, in get_data
+KeyboardInterrupt

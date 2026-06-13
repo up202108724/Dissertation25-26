@@ -1,16 +1,24 @@
 """
 Draws the Graph2Vec + LSTM architecture diagram used in the dissertation.
 
-Two parallel pipelines feed a feature-concatenation block consumed by an LSTM:
-    1) Offline Graph2Vec pipeline (all-items -> sliding windows -> similarity
-       graphs -> Graph2Vec -> per-window graph embeddings).
-    2) Online temporal pipeline (target series + exogenous calendar features).
+Two pipelines feed a per-step feature-concatenation block consumed by an LSTM:
+    1) OFFLINE Graph2Vec pipeline (all-items -> sliding windows -> similarity
+       graphs -> Graph2Vec [WL kernel + Doc2Vec] -> per-window graph
+       embeddings).  This stage is trained UNSUPERVISED and FROZEN: no gradient
+       from the forecasting loss ever reaches it.
+    2) ONLINE temporal pipeline (target series + exogenous calendar features),
+       fused per step with the (frozen) embeddings and trained jointly with the
+       LSTM head under the forecasting loss.
+
+The offline/online separation is the key conceptual contrast with the
+end-to-end GCN+LSTM model, and the diagram makes it explicit (solid arrows =
+forward/trainable path, dashed grey arrow = frozen embedding injected as a
+fixed input).
 
 Run:
     python draw_architecture.py
 Produces:
-    graph2vec_lstm_architecture.png
-    graph2vec_lstm_architecture.pdf
+    graph2vec_lstm_architecture.png  (+ .pdf)
 """
 
 import os
@@ -27,127 +35,154 @@ COLORS = {
     "concat":  "#E0CFEE",   # light purple - feature fusion
     "lstm":    "#C8A2DA",   # purple       - LSTM block
     "output":  "#B6D7A8",   # green        - forecast
+    "loss":    "#F1948A",   # salmon       - loss
 }
-EDGE = "#444444"
+EDGE   = "#444444"
+FROZEN = "#8a8a8a"
 
 
-def box(ax, xy, w, h, text, color, fontsize=10, bold=False):
+def box(ax, xy, w, h, text, color, fontsize=10, bold=False, ec=EDGE, ls="-"):
     x, y = xy
     patch = FancyBboxPatch(
         (x, y), w, h,
         boxstyle="round,pad=0.02,rounding_size=0.12",
-        linewidth=1.2, edgecolor=EDGE, facecolor=color,
+        linewidth=1.3, edgecolor=ec, facecolor=color, linestyle=ls,
     )
     ax.add_patch(patch)
     ax.text(
         x + w / 2, y + h / 2, text,
-        ha="center", va="center",
-        fontsize=fontsize,
-        fontweight="bold" if bold else "normal",
-        wrap=True,
+        ha="center", va="center", fontsize=fontsize,
+        fontweight="bold" if bold else "normal", wrap=True,
     )
-    return (x + w / 2, y, x + w / 2, y + h)  # cx, ybottom, cx, ytop
+    return {
+        "cx": x + w / 2, "cy": y + h / 2,
+        "top": (x + w / 2, y + h), "bot": (x + w / 2, y),
+        "left": (x, y + h / 2), "right": (x + w, y + h / 2),
+    }
 
 
-def arrow(ax, p1, p2, style="-", curve=0.0):
-    ax.add_patch(
-        FancyArrowPatch(
-            p1, p2,
-            arrowstyle="-|>", mutation_scale=14,
-            linewidth=1.2, color=EDGE,
-            connectionstyle=f"arc3,rad={curve}",
-            linestyle=style,
-        )
-    )
+def arrow(ax, p1, p2, style="-", curve=0.0, color=EDGE, lw=1.3, label=None,
+          label_dxy=(0.0, 0.12), scale=14):
+    ax.add_patch(FancyArrowPatch(
+        p1, p2, arrowstyle="-|>", mutation_scale=scale, linewidth=lw,
+        color=color, connectionstyle=f"arc3,rad={curve}", linestyle=style,
+    ))
+    if label:
+        mx, my = (p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2
+        ax.text(mx + label_dxy[0], my + label_dxy[1], label, ha="center",
+                va="center", fontsize=7.5, color=color, style="italic")
 
 
-def main():
-    fig, ax = plt.subplots(figsize=(13, 10))
+def main(
+    window_size: int = 30,
+    seq_len: int = 30,
+    n_exog: int = 31,
+    emb_dim: int = 20,
+    wl_iters: int = 2,
+    hidden: int = 64,
+    num_layers: int = 1,
+):
+    in_width = 1 + n_exog + emb_dim
+
+    fig, ax = plt.subplots(figsize=(13, 10.5))
     ax.set_xlim(0, 13)
-    ax.set_ylim(0, 11)
+    ax.set_ylim(-1.0, 11.4)
     ax.axis("off")
 
-    # ----------- column headers ---------------------------------------------
-    ax.text(2.0, 10.6, "Graph2Vec\npipeline", ha="center", va="center",
-            fontsize=10, style="italic", color="#555")
-    ax.text(6.5, 10.6, "Temporal\ninput", ha="center", va="center",
-            fontsize=10, style="italic", color="#555")
-    ax.text(11.0, 10.6, "Exogenous\ninput", ha="center", va="center",
-            fontsize=10, style="italic", color="#555")
+    ax.text(6.5, 11.15, "Graph2Vec + LSTM Architecture",
+            ha="center", va="center", fontsize=15, fontweight="bold")
 
-    # Title
-    ax.text(6.5, 10.95, "Graph2Vec + LSTM Architecture",
-            ha="center", va="center", fontsize=14, fontweight="bold")
+    # column headers
+    ax.text(2.0, 10.55, "Graph2Vec pipeline\n(offline · unsupervised · frozen)",
+            ha="center", va="center", fontsize=9, style="italic", color="#555")
+    ax.text(6.5, 10.55, "Temporal input", ha="center", va="center",
+            fontsize=9, style="italic", color="#555")
+    ax.text(11.0, 10.55, "Exogenous input", ha="center", va="center",
+            fontsize=9, style="italic", color="#555")
 
     # ----------- LEFT column: Graph2Vec pipeline ----------------------------
-    b1 = box(ax, (0.6, 9.2), 2.8, 0.8,
-             "All-Items\nTime Series", COLORS["input"])
+    b1 = box(ax, (0.6, 9.2), 2.8, 0.8, "All-Items\nTime Series", COLORS["input"], 9)
     b2 = box(ax, (0.6, 8.0), 2.8, 0.8,
-             "Sliding Windows\n(width = 15, step = 1)", COLORS["process"])
+             f"Sliding Windows\n(width = {window_size}, step = 1)", COLORS["process"], 9)
     b3 = box(ax, (0.6, 6.8), 2.8, 0.8,
-             "Similarity Graphs\n(Spearman / DTW / CID ...)", COLORS["process"])
+             "Per-Window Similarity Graphs\n(Spearman, thr = 0.70)", COLORS["process"], 9)
     b4 = box(ax, (0.6, 5.6), 2.8, 0.8,
-             "Graph2Vec Model\n(WL Kernel + Doc2Vec)",
-             COLORS["model"], bold=True)
+             f"Graph2Vec\n(WL kernel, {wl_iters} iters + Doc2Vec)",
+             COLORS["model"], 9, bold=True)
     b5 = box(ax, (0.6, 4.4), 2.8, 0.8,
-             "Graph Embeddings\n(dim = 20 per window)", COLORS["embed"])
+             f"Per-Window Graph Embeddings\n(dim = {emb_dim})", COLORS["embed"], 9)
 
     for a, b in [(b1, b2), (b2, b3), (b3, b4), (b4, b5)]:
-        arrow(ax, (a[0], a[1]), (b[2], b[3]))
+        arrow(ax, a["bot"], b["top"])
+    ax.text(3.6, 5.05, "frozen\n(no grad)", ha="left", va="center",
+            fontsize=7.5, color=FROZEN, style="italic", fontweight="bold")
 
-    # ----------- MIDDLE column: Target series -------------------------------
+    # ----------- MIDDLE / RIGHT inputs --------------------------------------
     t1 = box(ax, (5.0, 9.2), 3.0, 0.8,
-             "Target Time Series  (MinMax Scaled)", COLORS["input"])
-
-    # ----------- RIGHT column: Exogenous ------------------------------------
-    e1 = box(ax, (9.6, 9.2), 3.0, 0.8,
-             "Exogenous Features\n(Calendar, Holidays — 28 cols)",
-             COLORS["input"])
+             "Target Time Series\n(MinMax scaled)", COLORS["input"], 9)
+    e1 = box(ax, (9.4, 9.2), 3.2, 0.8,
+             f"Exogenous Features\n(calendar / holiday / lags — {n_exog} cols)",
+             COLORS["input"], 9)
 
     # ----------- Feature concatenation --------------------------------------
     concat = box(
-        ax, (3.2, 3.0), 6.6, 1.0,
-        "Feature Concatenation\n"
-        "[ Target  |  Exog. Features  |  Graph Embeddings ]\n"
-        "Input shape per step:  (seq_len = 30,  1 + 28 + 20 = 49)",
-        COLORS["concat"],
+        ax, (3.0, 2.9), 7.0, 1.15,
+        "Per-step Feature Concatenation\n"
+        "[ y$_t$  ‖  exog$_t$  ‖  graph-emb$_t$ ]\n"
+        f"per-step width: 1 + {n_exog} + {emb_dim} = {in_width}   "
+        f"→   (B, L={seq_len}, {in_width})",
+        COLORS["concat"], 9.5,
     )
 
     # arrows into concat
-    # from embeddings (left, going right-down)
-    arrow(ax, (b5[0], b5[1]), (4.2, 4.0), curve=-0.1)
-    # from target (middle going down)
-    arrow(ax, (t1[0], t1[1]), (6.5, 4.0))
-    # from exogenous (right going left-down)
-    arrow(ax, (e1[0], e1[1]), (8.8, 4.0), curve=0.15)
+    arrow(ax, b5["bot"], (4.0, 4.05), curve=-0.12, color=FROZEN, style=(0, (5, 3)),
+          label="fixed input", label_dxy=(-0.7, 0.0))
+    arrow(ax, t1["bot"], (6.3, 4.05))
+    arrow(ax, e1["bot"], (8.8, 4.05), curve=0.12)
+
+    # per-window -> per-step alignment note
+    ax.text(6.5, 2.55,
+            f"embeddings aligned per step (first {window_size} steps zero-padded)",
+            ha="center", va="center", fontsize=7.5, color="#666", style="italic")
 
     # ----------- LSTM -------------------------------------------------------
-    lstm = box(ax, (3.2, 1.7), 6.6, 0.9,
-               "LSTM  (hidden = 32,  num_layers = 1,  batch_first = True)",
-               COLORS["lstm"], bold=True)
-    arrow(ax, (concat[0], concat[1]), (lstm[2], lstm[3]))
+    lstm = box(ax, (3.0, 1.45), 7.0, 0.85,
+               f"LSTM  (hidden = {hidden},  layers = {num_layers},  batch_first)",
+               COLORS["lstm"], 10, bold=True)
+    arrow(ax, concat["bot"], lstm["top"])
 
-    # Dropout + Linear head
-    head = box(ax, (3.8, 0.7), 5.4, 0.6,
-               "Dropout  →  Linear (hidden → 1)   [ last hidden state ]",
-               COLORS["embed"])
-    arrow(ax, (lstm[0], lstm[1]), (head[2], head[3]))
+    head = box(ax, (3.7, 0.45), 5.6, 0.6,
+               f"Dropout → Linear({hidden} → 1)   [last hidden state]",
+               COLORS["embed"], 9)
+    arrow(ax, lstm["bot"], head["top"])
 
-    # Forecast
-    out = box(ax, (5.0, -0.3), 3.0, 0.7,
-              "Forecast  t+1\n(inverse-scaled)", COLORS["output"], bold=True)
-    arrow(ax, (head[0], head[1]), (out[2], out[3]))
+    out = box(ax, (4.9, -0.6), 3.2, 0.65,
+              "Forecast t+1  (inverse-scaled)", COLORS["output"], 9.5, bold=True)
+    arrow(ax, head["bot"], out["top"])
 
-    # ----------- Stage separator -------------------------------------------
-    ax.plot([0.3, 12.7], [4.25, 4.25], linestyle=(0, (4, 4)),
-            color="#888", linewidth=0.8)
-    ax.text(0.35, 4.35, "Offline pre-processing  (Graph2Vec)",
+    # loss + backprop (only through the online branch)
+    loss = box(ax, (9.6, -0.6), 2.6, 0.65, "MSE Loss", COLORS["loss"], 9.5, bold=True)
+    arrow(ax, out["right"], loss["left"])
+    arrow(ax, loss["top"], (10.9, 1.45), color="#C0392B", curve=-0.25, lw=1.8,
+          label="$\\partial L/\\partial\\theta$ (LSTM only)", label_dxy=(1.0, 0.2))
+
+    # ----------- Offline / online separator ---------------------------------
+    ax.plot([0.3, 12.7], [4.22, 4.22], linestyle=(0, (4, 4)),
+            color="#888", linewidth=0.9)
+    ax.text(0.35, 4.36, "Offline pre-processing  (Graph2Vec — frozen)",
             fontsize=8, color="#666")
-    ax.text(0.35, 4.05, "Online training / inference  (LSTM)",
+    ax.text(0.35, 4.04, "Online training / inference  (LSTM — trainable)",
             fontsize=8, color="#666")
+
+    # ----------- legend -----------------------------------------------------
+    ax.add_patch(FancyArrowPatch((0.6, -0.85), (1.3, -0.85), arrowstyle="-|>",
+                 mutation_scale=12, color=EDGE, lw=1.3))
+    ax.text(1.45, -0.85, "forward / trainable", fontsize=7.5, va="center")
+    ax.add_patch(FancyArrowPatch((3.5, -0.85), (4.2, -0.85), arrowstyle="-|>",
+                 mutation_scale=12, color=FROZEN, lw=1.3, linestyle=(0, (5, 3))))
+    ax.text(4.35, -0.85, "frozen embedding (fixed input)", fontsize=7.5, va="center")
 
     plt.tight_layout()
-
     out_dir = os.path.dirname(os.path.abspath(__file__))
     png_path = os.path.join(out_dir, "graph2vec_lstm_architecture.png")
     pdf_path = os.path.join(out_dir, "graph2vec_lstm_architecture.pdf")

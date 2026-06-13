@@ -38,14 +38,33 @@ def compute_similarities_1vsAll(target_ts, all_ts, metric='pearson', eps=1e-12):
         return sim.cpu().numpy()
         
     elif metric == 'spearman':
-        _, target_indices = torch.sort(target, dim=1)
-        target_ranks = torch.empty_like(target)
-        target_ranks.scatter_(1, target_indices, torch.arange(1, target.shape[1]+1, dtype=torch.float32, device=device).unsqueeze(0))
-        
-        _, X_indices = torch.sort(X, dim=1)
-        X_ranks = torch.empty_like(X)
-        X_ranks.scatter_(1, X_indices, torch.arange(1, X.shape[1]+1, dtype=torch.float32, device=device).unsqueeze(0).expand_as(X))
-        
+        # Average-rank (fractional) ranking with proper tie handling, fully vectorised.
+        # Ordinal ranking (argsort + scatter) is WRONG when the window contains ties:
+        # tied values get sequential ranks in original-index order, which is identical
+        # across every series, manufacturing spurious ~1.0 correlations. This is acute in
+        # sparse early windows (many co-located zeros from .fillna(0)).
+        def _avg_ranks(M):
+            R, n = M.shape
+            sorted_vals, order = torch.sort(M, dim=1)
+            positions = torch.arange(n, device=device).unsqueeze(0).expand(R, n)
+            # Mark group starts/ends among tied (equal) sorted values
+            is_new = torch.ones(R, n, dtype=torch.bool, device=device)
+            is_new[:, 1:] = sorted_vals[:, 1:] != sorted_vals[:, :-1]
+            is_end = torch.ones(R, n, dtype=torch.bool, device=device)
+            is_end[:, :-1] = sorted_vals[:, :-1] != sorted_vals[:, 1:]
+            # First/last sorted position of each tie group, propagated to every member
+            start_idx = torch.cummax(torch.where(is_new, positions, torch.zeros_like(positions)), dim=1)[0]
+            end_pos = torch.where(is_end, positions, torch.full_like(positions, n))
+            end_idx = torch.flip(torch.cummin(torch.flip(end_pos, [1]), dim=1)[0], [1])
+            # Average ordinal rank over the group: ((start+1) + (end+1)) / 2
+            avg_ord = (start_idx + end_idx).to(M.dtype) / 2.0 + 1.0
+            ranks = torch.empty_like(M)
+            ranks.scatter_(1, order, avg_ord)
+            return ranks
+
+        target_ranks = _avg_ranks(target)
+        X_ranks = _avg_ranks(X)
+
         target_mean = torch.mean(target_ranks, dim=1, keepdim=True)
         X_mean = torch.mean(X_ranks, dim=1, keepdim=True)
         

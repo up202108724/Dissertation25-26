@@ -1,253 +1,203 @@
+"""
+Draw the architecture of the PER-STEP GCN + Time-Distributed MLP forecaster
+(``SimpleGCNMLPForecaster``).
+
+Pipeline (matches gcn_mlp_model.py exactly):
+
+    one ego-graph per lookback day  (B*L graphs)
+        -> 2-layer GCN -> LayerNorm -> z_t            (B, L, d_g)
+    concat per step [ y_t || exog_t || z_t ]          (B, L, ts_in + d_g)
+        -> time-distributed MLP (shared weights over the L steps)   (B, L, H)
+        -> pool: cat[ last_step , mean_over_L ]        (B, 2H)
+        -> Linear head                                  (B, horizon)
+
+Run:
+    python draw_architecture.py
+Outputs ``gcn_tdmlp_architecture.png`` (and .pdf) next to this script.
+"""
+
+import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.patches import FancyBboxPatch, Rectangle
+from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Circle
+from matplotlib.lines import Line2D
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ── palette ────────────────────────────────────────────────────────────────
+C_INPUT  = "#AED6F1"   # inputs
+C_GCN    = "#F9E79F"   # GCN encoder
+C_CONCAT = "#A9DFBF"   # concat
+C_TD     = "#FAD7A0"   # time-distributed MLP
+C_POOL   = "#D7BDE2"   # pooling
+C_HEAD   = "#F5B7B1"   # head / output
+C_LOSS   = "#F1948A"   # loss
+C_EDGE   = "#555555"
 
 
-def draw_gcn_mlp_architecture(
+def draw_gcn_tdmlp_architecture(
     seq_len: int = 30,
     n_exog: int = 28,
-    in_channels: int = 8,
-    gcn_hidden: int = 32,
+    in_channels: int = 24,
+    gcn_hidden: int = 64,
     d_g: int = 16,
-    mlp_hidden: tuple = (64, 32),
+    hidden_sizes: tuple = (128, 64),
     save_path: str = None,
 ):
-    """
-    Draws the GCN + MLP per-step forecaster architecture.
+    ts_in        = 1 + n_exog
+    per_step_in  = ts_in + d_g
+    H            = hidden_sizes[-1]
 
-    Parameters
-    ----------
-    seq_len     : lookback window length  (default 30)
-    n_exog      : number of exogenous features  (default 28)
-    in_channels : GCN node-feature dimension  (default 8)
-    gcn_hidden  : GCNConv₁ output width  (default 32)
-    d_g         : GCNConv₂ output width / embedding dim  (default 16)
-    mlp_hidden  : tuple of MLP hidden layer widths  (default (64, 32))
-    save_path   : path to save PNG; if None, shows interactively
-    """
+    fig, ax = plt.subplots(figsize=(11, 14))
+    ax.set_xlim(0, 11)
+    ax.set_ylim(0, 17.5)
+    ax.axis("off")
+    fig.patch.set_facecolor("white")
 
-    fig, ax = plt.subplots(figsize=(9, 15))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 17)
-    ax.axis('off')
-    fig.patch.set_facecolor('white')
+    def box(cx, cy, w, h, label, color, fs=9, sub=None, sub_fs=7.5):
+        ax.add_patch(FancyBboxPatch(
+            (cx - w / 2, cy - h / 2), w, h, boxstyle="round,pad=0.04",
+            linewidth=1.3, edgecolor=C_EDGE, facecolor=color, zorder=3))
+        yo = 0.16 if sub else 0.0
+        ax.text(cx, cy + yo, label, ha="center", va="center",
+                fontsize=fs, fontweight="bold", zorder=4)
+        if sub:
+            ax.text(cx, cy - 0.20, sub, ha="center", va="center",
+                    fontsize=sub_fs, color="#333", zorder=4)
 
-    # ------------------------------------------------------------------
-    # Colour palette
-    # ------------------------------------------------------------------
-    C_INPUT  = '#AED6F1'   # light blue  – inputs
-    C_GCN    = '#F9E79F'   # yellow      – GCN encoder
-    C_CONCAT = '#A9DFBF'   # green       – concat / output
-    C_FLAT   = '#D5DBDB'   # grey        – flatten / reshape
-    C_MLP    = '#FAD7A0'   # pale orange – MLP layers
-    C_LOSS   = '#F1948A'   # salmon      – loss
-    C_EDGE   = '#555555'
+    def varrow(x, y0, y1, color=C_EDGE, lw=1.5, text=None, dx=0.25):
+        ax.add_patch(FancyArrowPatch((x, y0), (x, y1), arrowstyle="-|>",
+                     mutation_scale=14, lw=lw, color=color, zorder=5))
+        if text:
+            ax.text(x + dx, (y0 + y1) / 2, text, ha="left", va="center",
+                    fontsize=7, color="#333", style="italic")
 
-    ts_input_size = 1 + n_exog
-    flat_per_step = ts_input_size + d_g
-    flat_total    = seq_len * flat_per_step
+    def diag(x0, y0, x1, y1, color=C_EDGE, lw=1.3):
+        ax.add_patch(FancyArrowPatch((x0, y0), (x1, y1), arrowstyle="-|>",
+                     mutation_scale=12, lw=lw, color=color, zorder=5))
 
-    # ------------------------------------------------------------------
-    # Helper: rounded box
-    # ------------------------------------------------------------------
-    def box(cx, cy, w, h, label, color, fontsize=9):
-        rect = FancyBboxPatch(
-            (cx - w / 2, cy - h / 2), w, h,
-            boxstyle="round,pad=0.05",
-            linewidth=1.2, edgecolor=C_EDGE,
-            facecolor=color, zorder=3,
-        )
-        ax.add_patch(rect)
-        ax.text(cx, cy, label,
-                ha='center', va='center', fontsize=fontsize,
-                fontweight='bold', zorder=4)
+    cx     = 5.5      # main column
+    cx_g   = 2.7      # GCN column
+    cx_t   = 8.3      # temporal column
 
-    def subtext(cx, cy, text, fontsize=7.5):
-        ax.text(cx, cy, text, ha='center', va='center',
-                fontsize=fontsize, color='#333333', zorder=4)
+    # ── (1) Inputs ─────────────────────────────────────────────────────────
+    y_inp = 16.4
+    box(cx_g, y_inp, 4.2, 0.9, "Ego-Graph  (per step)", C_INPUT,
+        sub=f"L = {seq_len} graphs · {in_channels} node feats each")
+    box(cx_t, y_inp, 4.0, 0.9, "Target + Exogenous", C_INPUT,
+        sub=f"[ y_t ‖ exog_t ]  →  {ts_in} feats/step")
 
-    # Helper: straight vertical arrow
-    def arrow(x, y_start, y_end, color=C_EDGE):
-        ax.annotate('', xy=(x, y_end + 0.02), xytext=(x, y_start - 0.02),
-                    arrowprops=dict(arrowstyle='->', color=color, lw=1.4),
-                    zorder=5)
+    # tiny ego-graph glyph
+    gx, gy = cx_g, y_inp - 1.15
+    for nb in [(-0.5, -0.35), (0.5, -0.35), (-0.35, 0.4), (0.4, 0.38)]:
+        ax.add_line(Line2D([gx, gx + nb[0]], [gy, gy + nb[1]],
+                    color="#7a7a7a", lw=1.0, zorder=2))
+        ax.add_patch(Circle((gx + nb[0], gy + nb[1]), 0.08,
+                    facecolor="white", edgecolor="#7a7a7a", lw=1.0, zorder=4))
+    ax.add_patch(Circle((gx, gy), 0.12, facecolor="#E67E22",
+                 edgecolor=C_EDGE, lw=1.3, zorder=5))
 
-    # Helper: diagonal arrow between two points
-    def diag_arrow(x1, y1, x2, y2, color=C_EDGE):
-        ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle='->', color=color, lw=1.2),
-                    zorder=5)
+    # ── (2) GCN encoder ────────────────────────────────────────────────────
+    y_gcn = 13.7
+    ax.add_patch(FancyBboxPatch((cx_g - 2.35, y_gcn - 0.75), 4.7, 1.5,
+                 boxstyle="round,pad=0.04", linewidth=1.3,
+                 edgecolor=C_EDGE, facecolor=C_GCN, zorder=3))
+    ax.text(cx_g, y_gcn + 0.45, "GCN Encoder  (per step)",
+            ha="center", fontsize=9, fontweight="bold", zorder=4)
+    ax.text(cx_g, y_gcn + 0.08, f"GCNConv({in_channels}→{gcn_hidden}) → ReLU → Dropout",
+            ha="center", fontsize=7.5, color="#333", zorder=4)
+    ax.text(cx_g, y_gcn - 0.25, f"GCNConv({gcn_hidden}→{d_g}) → LayerNorm",
+            ha="center", fontsize=7.5, color="#333", zorder=4)
+    ax.text(cx_g, y_gcn - 0.55, f"→  zₜ ∈ ℝ^{d_g}   (target node)",
+            ha="center", fontsize=7.5, color="#333", zorder=4)
+    varrow(cx_g, y_inp - 1.5, y_gcn + 0.78)
 
-    cx = 5.0   # horizontal centre of main column
+    # dashed per-step box
+    ax.add_patch(plt.Rectangle((0.2, y_gcn - 0.95), 5.0, (y_inp + 0.55) - (y_gcn - 0.95),
+                 linewidth=1.4, edgecolor="#888", facecolor="none",
+                 linestyle="--", zorder=2))
+    ax.text(0.28, y_inp + 0.62, f"per step  (t = 0 … L−1,  L = {seq_len})",
+            ha="left", va="bottom", fontsize=7.5, color="#666")
 
-    # ------------------------------------------------------------------
-    # (1) Top inputs
-    # ------------------------------------------------------------------
-    y_inp  = 15.5
-    cx_gcn = 2.5   # left column centre (ego-graph / GCN)
-    cx_ts  = 7.5   # right column centre (target + exog)
+    # ── (3) Per-step concatenation ─────────────────────────────────────────
+    y_cat = 11.8
+    diag(cx_g, y_gcn - 0.95, cx - 0.6, y_cat + 0.45)
+    diag(cx_t, y_inp - 0.5, cx + 0.6, y_cat + 0.45)
+    box(cx, y_cat, 8.2, 0.9, "Per-step Concatenation", C_CONCAT,
+        sub=f"[ zₜ ‖ yₜ ‖ exogₜ ]  →  (B, {seq_len}, {d_g}+{ts_in}) = (B, {seq_len}, {per_step_in})")
 
-    box(cx_gcn, y_inp, 4.2, 0.9, 'Ego-Graph  (per step)', C_INPUT)
-    subtext(cx_gcn, y_inp - 0.26,
-            f'L = {seq_len} graphs  |  {in_channels} node features each')
+    # ── (4) Time-distributed MLP ───────────────────────────────────────────
+    y_td = 10.0
+    varrow(cx, y_cat - 0.45, y_td + 0.55)
+    sub_layers = " → ".join(f"Linear({a}→{b})·ReLU·Drop"
+                            for a, b in zip([per_step_in, *hidden_sizes[:-1]], hidden_sizes))
+    box(cx, y_td, 8.2, 1.0, "Time-Distributed MLP  (shared weights over L steps)", C_TD,
+        fs=8.5, sub=sub_layers, sub_fs=7)
+    ax.text(cx, y_td - 0.62, f"applied to each of the {seq_len} steps  →  (B, {seq_len}, {H})",
+            ha="center", fontsize=7, color="#333", style="italic", zorder=4)
 
-    box(cx_ts, y_inp, 4.2, 0.9, 'Target  +  Exogenous', C_INPUT)
-    subtext(cx_ts, y_inp - 0.26,
-            f'[ y_t  ‖  exog_t ]  —  {ts_input_size} features/step')
+    # ── (5) Pooling: cat[last, mean] ───────────────────────────────────────
+    y_pool = 8.1
+    varrow(cx - 1.6, y_td - 0.65, y_pool + 0.45)
+    varrow(cx + 1.6, y_td - 0.65, y_pool + 0.45)
+    box(cx, y_pool, 8.2, 0.9, "Temporal Pooling", C_POOL,
+        sub=f"concat[ last_step (B,{H})  ‖  mean_over_L (B,{H}) ]  →  (B, {2*H})")
 
-    # ------------------------------------------------------------------
-    # (2) GCN Encoder  (left column, inside dashed "per-step" box)
-    # ------------------------------------------------------------------
-    y_gcn  = 13.6
-    gcn_h  = 1.35
+    # ── (6) Linear head ────────────────────────────────────────────────────
+    y_head = 6.5
+    varrow(cx, y_pool - 0.45, y_head + 0.4)
+    box(cx, y_head, 5.2, 0.8, f"Linear({2*H} → horizon)", C_HEAD)
 
-    # Draw GCN box manually (3 lines of text)
-    rect_gcn = FancyBboxPatch(
-        (cx_gcn - 2.3, y_gcn - gcn_h / 2), 4.6, gcn_h,
-        boxstyle="round,pad=0.05",
-        linewidth=1.2, edgecolor=C_EDGE,
-        facecolor=C_GCN, zorder=3,
-    )
-    ax.add_patch(rect_gcn)
-    ax.text(cx_gcn, y_gcn + 0.33, 'GCN Encoder  (per step)',
-            ha='center', va='center', fontsize=8.5,
-            fontweight='bold', zorder=4)
-    ax.text(cx_gcn, y_gcn - 0.03,
-            f'GCNConv({in_channels}\u2192{gcn_hidden}) \u2192 ReLU \u2192 Dropout',
-            ha='center', va='center', fontsize=7.5, color='#333333', zorder=4)
-    ax.text(cx_gcn, y_gcn - 0.38,
-            f'GCNConv({gcn_hidden}\u2192{d_g}) \u2192 LayerNorm  \u2192  z\u209c  \u2208 \u211d\u207f  (n={d_g})',
-            ha='center', va='center', fontsize=7.5, color='#333333', zorder=4)
+    # ── (7) Forecast ───────────────────────────────────────────────────────
+    y_out = 5.1
+    varrow(cx, y_head - 0.4, y_out + 0.4)
+    box(cx, y_out, 3.6, 0.8, "Forecast  ŷ(t+1)", C_CONCAT, fs=10,
+        sub="(recursive roll-out)")
 
-    # Arrow: ego-graph input → GCN encoder
-    arrow(cx_gcn, y_inp, y_gcn)
+    # ── (8) Loss ───────────────────────────────────────────────────────────
+    y_loss = 3.7
+    varrow(cx, y_out - 0.4, y_loss + 0.4)
+    box(cx, y_loss, 4.6, 0.75, "MSE Loss   ℒ = ‖ŷ − y‖²", C_LOSS, fs=8.5)
 
-    # ------------------------------------------------------------------
-    # Dashed "per-step" rectangle around ego-graph + GCN
-    # ------------------------------------------------------------------
-    y_ps_bot = y_gcn - gcn_h / 2 - 0.1
-    y_ps_top = y_inp + 0.55
-    rect_ps = Rectangle(
-        (0.18, y_ps_bot), 5.0, y_ps_top - y_ps_bot,
-        linewidth=1.5, edgecolor='#888888',
-        facecolor='none', linestyle='--', zorder=2,
-    )
-    ax.add_patch(rect_ps)
-    ax.text(0.23, y_ps_top + 0.05,
-            f' per step  (t = 0 \u2026 L\u20131,  L = {seq_len})',
-            ha='left', va='bottom', fontsize=7.5, color='#666666')
+    # ── backprop annotation ────────────────────────────────────────────────
+    bp_x = 10.3
+    ax.add_patch(FancyArrowPatch((bp_x, y_loss), (bp_x, y_gcn + 0.5),
+                 arrowstyle="-|>", mutation_scale=16, lw=2.0,
+                 color="#C0392B", zorder=5))
+    ax.text(bp_x + 0.18, (y_gcn + y_loss) / 2,
+            "Back-\nprop\n(∂ℒ/∂θ)\njointly", ha="center", va="center",
+            fontsize=8, color="#C0392B", fontweight="bold")
 
-    # ------------------------------------------------------------------
-    # (3) Feature Concatenation
-    # ------------------------------------------------------------------
-    y_concat = 12.0
+    ax.set_title("GCN + Time-Distributed MLP  (per-step ego-graphs, jointly trained)",
+                 fontsize=13, fontweight="bold", pad=14)
 
-    # GCN → concat
-    diag_arrow(cx_gcn, y_gcn - gcn_h / 2 - 0.02, cx - 0.5, y_concat + 0.45)
-    # ts input → concat (skips over GCN, comes from right column)
-    diag_arrow(cx_ts, y_inp - 0.45, cx + 0.5, y_concat + 0.45)
-
-    box(cx, y_concat, 7.8, 0.85, 'Feature Concatenation  (per step)', C_CONCAT)
-    subtext(cx, y_concat - 0.25,
-            f'[ z\u209c  \u2016  y\u209c  \u2016  exog\u209c ]'
-            f'   \u2192   (B, {seq_len}, {d_g}+{ts_input_size}) = (B, {seq_len}, {flat_per_step})')
-
-    # ------------------------------------------------------------------
-    # (4) Flatten
-    # ------------------------------------------------------------------
-    y_flat = 10.75
-
-    arrow(cx, y_concat, y_flat)
-    box(cx, y_flat, 7.8, 0.85, 'Flatten', C_FLAT)
-    subtext(cx, y_flat - 0.25,
-            f'(B, {seq_len}, {flat_per_step})  \u2192  (B, {flat_total})')
-
-    # ------------------------------------------------------------------
-    # (5) MLP hidden layers
-    # ------------------------------------------------------------------
-    y_mlp = [9.5, 8.3]
-    prev  = flat_total
-    y_cur = y_flat
-
-    for i, hs in enumerate(mlp_hidden):
-        y_l = y_mlp[i]
-        arrow(cx, y_cur, y_l)
-        box(cx, y_l, 7.8, 0.85,
-            f'Linear({prev} \u2192 {hs})  \u2192  ReLU  \u2192  Dropout',
-            C_MLP)
-        prev  = hs
-        y_cur = y_l
-
-    # ------------------------------------------------------------------
-    # (6) Output linear
-    # ------------------------------------------------------------------
-    y_lin_out = 7.1
-
-    arrow(cx, y_cur, y_lin_out)
-    box(cx, y_lin_out, 5.5, 0.85,
-        f'Linear({prev} \u2192 1)',
-        C_MLP)
-
-    # ------------------------------------------------------------------
-    # (7) Forecast
-    # ------------------------------------------------------------------
-    y_out = 5.85
-
-    arrow(cx, y_lin_out, y_out)
-    box(cx, y_out, 3.5, 0.8, 'Forecast  t + 1', C_CONCAT, fontsize=10)
-    subtext(cx, y_out - 0.25, '(inverse-scaled)')
-
-    # ------------------------------------------------------------------
-    # (8) MSE Loss
-    # ------------------------------------------------------------------
-    y_loss = 4.65
-
-    arrow(cx, y_out, y_loss)
-    box(cx, y_loss, 4.8, 0.75,
-        'MSE Loss   \u2112 = \u2016\u0177 \u2212 y\u2016\u00b2',
-        C_LOSS, fontsize=8.5)
-
-    # ------------------------------------------------------------------
-    # Backprop annotation (right margin, upward red arrow)
-    # ------------------------------------------------------------------
-    bp_x = 9.35
-    ax.annotate(
-        '',
-        xy=(bp_x, y_gcn + 0.5),
-        xytext=(bp_x, y_loss - 0.05),
-        arrowprops=dict(arrowstyle='->', color='#C0392B', lw=2.0),
-        zorder=5,
-    )
-    ax.text(bp_x + 0.45, (y_gcn + y_loss) / 2,
-            'Back-\nprop\n(\u2202\u2112/\u2202\u03b8)',
-            ha='center', va='center', fontsize=8.5,
-            color='#C0392B', fontweight='bold')
-
-    # ------------------------------------------------------------------
-    # Title & legend
-    # ------------------------------------------------------------------
-    ax.set_title('GCN + MLP  Architecture  (per-step ego-graphs)',
-                 fontsize=13, fontweight='bold', pad=12)
-
-    legend_items = [
-        mpatches.Patch(color=C_INPUT,  label='Raw Inputs'),
-        mpatches.Patch(color=C_GCN,    label='GCN Encoder'),
-        mpatches.Patch(color=C_CONCAT, label='Concatenation / Output'),
-        mpatches.Patch(color=C_FLAT,   label='Reshape / Flatten'),
-        mpatches.Patch(color=C_MLP,    label='MLP Head'),
-        mpatches.Patch(color=C_LOSS,   label='Loss'),
+    legend = [
+        mpatches.Patch(color=C_INPUT,  label="Inputs"),
+        mpatches.Patch(color=C_GCN,    label="GCN encoder"),
+        mpatches.Patch(color=C_CONCAT, label="Concat / output"),
+        mpatches.Patch(color=C_TD,     label="Time-distributed MLP"),
+        mpatches.Patch(color=C_POOL,   label="Pooling (last‖mean)"),
+        mpatches.Patch(color=C_HEAD,   label="Linear head"),
+        mpatches.Patch(color=C_LOSS,   label="Loss"),
     ]
-    ax.legend(handles=legend_items, loc='lower center',
-              bbox_to_anchor=(0.5, -0.01), ncol=3, fontsize=8,
-              frameon=True, edgecolor='#cccccc')
+    ax.legend(handles=legend, loc="lower center", bbox_to_anchor=(0.5, -0.02),
+              ncol=4, fontsize=8, frameon=True, edgecolor="#ccc")
 
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        print(f"Saved to {save_path}")
+        plt.savefig(save_path, dpi=160, bbox_inches="tight")
+        plt.savefig(save_path.replace(".png", ".pdf"), bbox_inches="tight")
+        print(f"Saved to {save_path} (+ .pdf)")
     else:
         plt.show()
 
 
-if __name__ == '__main__':
-    draw_gcn_mlp_architecture(save_path='gcn_mlp_architecture.png')
+if __name__ == "__main__":
+    # Defaults mirror main_gcn_mlp.py: GCN_HIDDEN_SIZE=64, d_g=16,
+    # HIDDEN_SIZES=(128, 64), 1 + len(EXOG_COLS) temporal feats,
+    # catch24 node features (24-d).
+    draw_gcn_tdmlp_architecture(
+        seq_len=30, n_exog=28, in_channels=24,
+        gcn_hidden=64, d_g=16, hidden_sizes=(128, 64),
+        save_path=os.path.join(SCRIPT_DIR, "gcn_tdmlp_architecture.png"),
+    )

@@ -60,7 +60,7 @@ lookback_window = 7
 EXOG_COLS = [
     "day_of_week", "day_of_month", "week_of_year", "week_of_month",
     "month", "quarter", "is_weekend",
-    "lag_1", "lag_7",  "lag_30",
+    #"lag_1", "lag_7",  "lag_30",
     "is_month_start", "is_month_end", "is_quarter_start", "is_quarter_end",
     "is_monday", "is_friday",
     "is_holiday", "is_thanksgiving", "is_black_friday",

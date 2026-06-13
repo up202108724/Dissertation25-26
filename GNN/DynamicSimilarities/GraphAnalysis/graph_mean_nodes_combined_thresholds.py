@@ -11,8 +11,9 @@ from utils import compute_similarities_1vsAll, compute_distances_1vsAll, neighbo
 
 # ── Configuration ─────────────────────────────────────────────────────────
 metric     = "spearman"
-THRESHOLDS = [0.70, 0.65, 0.60]
-COLORS     = ['#1f77b4', '#ff7f0e', '#2ca02c']   # blue, orange, green
+THRESHOLDS = [0.634]  # chosen to yield ~10, ~20, ~30 mean nodes in the first window
+COLORS     = ['#1f77b4']   # blue for the single threshold; add more if you expand THRESHOLDS
+#COLORS     = ['#1f77b4', '#ff7f0e', '#2ca02c']   # blue, orange, green
 window_size = 30
 step        = 1
 ENABLE_Z_NORMALIZATION = True
@@ -98,16 +99,23 @@ for threshold in THRESHOLDS:
             window_dates = pd.to_datetime([g.graph['end_date'] for g in graphs])
 
     print()
+    if not nodes_per_product:
+        print(f"  [WARN] No products produced graphs for threshold {threshold} — skipping.")
+        continue
+
     min_len      = min(len(a) for a in nodes_per_product)
     nodes_matrix = np.vstack([a[:min_len] for a in nodes_per_product])
     window_dates = window_dates[:min_len]
 
-    results[threshold] = (
-        window_dates,
-        nodes_matrix.mean(axis=0),
-        nodes_matrix.std(axis=0),
-    )
+    mean_nodes = nodes_matrix.mean(axis=0)
+    std_nodes  = nodes_matrix.std(axis=0)
+
+    results[threshold] = (window_dates, mean_nodes, std_nodes)
+
     print(f"  → {nodes_matrix.shape[0]} products × {nodes_matrix.shape[1]} windows")
+    print(f"     mean nodes (all windows):      {mean_nodes.mean():.2f}")
+    print(f"     std  nodes (all windows):      {mean_nodes.std():.2f}")
+    print(f"     min / max mean nodes per win:  {mean_nodes.min():.1f} / {mean_nodes.max():.1f}")
 
 # ── Combined plot ─────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(14, 6))
@@ -115,8 +123,8 @@ fig, ax = plt.subplots(figsize=(14, 6))
 for (threshold, (dates, mean_n, std_n)), color in zip(results.items(), COLORS):
     ax.plot(dates, mean_n, color=color, alpha=0.9,
             label=fr'$\tau={threshold}$', linewidth=1.4)
-    ax.fill_between(dates, mean_n - std_n, mean_n + std_n,
-                    color=color, alpha=0.10)
+    ax.fill_between(dates, np.maximum(mean_n - std_n, 0), mean_n + std_n,
+                    color=color, alpha=0.15)
 
 ax.set_xlabel('Date', fontsize=11)
 ax.set_ylabel('Mean Number of Nodes (across products)', fontsize=11)
@@ -143,9 +151,9 @@ for d in pd.Series(ref_dates).dt.date.unique():
 
 ax.legend(fontsize=10)
 plt.title(
-    f'Mean Nodes per Window — Spearman | '
+    f'Mean Nodes per Window — {metric} | '
     f'window={window_size}, step={step} | '
-    f'thresholds: {THRESHOLDS}',
+    f'thresholds: {[t for t in THRESHOLDS if t in results]}',
     fontsize=11,
 )
 fig.tight_layout()
@@ -156,6 +164,43 @@ _SAVE_DIR = os.path.join(_BASE_DIR, f"similarity_{metric}", "threshold",
                          f"W{window_size}_S{step}_combined_thresholds")
 os.makedirs(_SAVE_DIR, exist_ok=True)
 _SAVE_PATH = os.path.join(_SAVE_DIR, "mean_nodes_combined_thresholds.png")
+_SAVE_PATH_PDF = os.path.join(_SAVE_DIR, "mean_nodes_combined_thresholds.pdf")
 plt.savefig(_SAVE_PATH, dpi=150, bbox_inches='tight')
+plt.savefig(_SAVE_PATH_PDF, bbox_inches='tight')
 print(f"\nSaved combined plot to {_SAVE_PATH}")
+print(f"Saved combined plot to {_SAVE_PATH_PDF}")
 plt.show()
+
+# ── CSV: avg nodes all windows vs outside-holiday windows ─────────────────
+def _is_holiday(date):
+    """True if date falls in Thanksgiving (Nov 20–Dec 1), Christmas (Dec 18–27),
+    or New Year Eve (Dec 28–Jan 2) season."""
+    m, d = date.month, date.day
+    thanksgiving = (m == 11 and d >= 20) or (m == 12 and d <= 1)
+    christmas    = (m == 12 and 18 <= d <= 27)
+    nye          = (m == 12 and d >= 28) or (m == 1 and d <= 2)
+    return thanksgiving or christmas or nye
+
+csv_rows = []
+for threshold in THRESHOLDS:
+    if threshold not in results:
+        print(f"[WARN] threshold {threshold} missing from results — skipped in CSV.")
+        continue
+    dates, mean_n, std_n = results[threshold]
+    holiday_mask  = np.array([_is_holiday(d) for d in pd.to_datetime(dates)])
+    non_hol_mean  = mean_n[~holiday_mask]
+    csv_rows.append({
+        'threshold':                 threshold,
+        'avg_nodes_all_windows':     round(float(mean_n.mean()), 4),
+        'std_nodes_all_windows':     round(float(mean_n.std()),  4),
+        'min_nodes_all_windows':     round(float(mean_n.min()),  4),
+        'max_nodes_all_windows':     round(float(mean_n.max()),  4),
+        'avg_nodes_outside_holiday': round(float(non_hol_mean.mean()), 4) if len(non_hol_mean) else float('nan'),
+        'n_windows_total':           len(mean_n),
+        'n_windows_holiday':         int(holiday_mask.sum()),
+        'n_windows_non_holiday':     int((~holiday_mask).sum()),
+    })
+
+_csv_path = os.path.join(_SAVE_DIR, "avg_nodes_by_season.csv")
+pd.DataFrame(csv_rows).to_csv(_csv_path, index=False)
+print(f"Saved avg_nodes_by_season.csv -> {_csv_path}")
