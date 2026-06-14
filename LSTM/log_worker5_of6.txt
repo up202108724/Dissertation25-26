@@ -1,0 +1,2385 @@
+Loading data from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\data_andre_classified.feather...
+Loading top products from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\top_12500.feather...
+Worker 5/6: processing 10 / 61 products  |  seeds=[42, 1000, 26008]
+\n--- Strategy: best_val, Seed: 42, Item: 16920, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018309 | Val Loss: 0.020581
+Epoch 20/1000 | Train Loss: 0.017731 | Val Loss: 0.020349
+Epoch 30/1000 | Train Loss: 0.017091 | Val Loss: 0.020867
+Epoch 40/1000 | Train Loss: 0.016107 | Val Loss: 0.023852
+Epoch 50/1000 | Train Loss: 0.016538 | Val Loss: 0.022583
+Epoch 60/1000 | Train Loss: 0.017589 | Val Loss: 0.021278
+Epoch 70/1000 | Train Loss: 0.015452 | Val Loss: 0.026833
+Epoch 80/1000 | Train Loss: 0.015321 | Val Loss: 0.025835
+Epoch 90/1000 | Train Loss: 0.015116 | Val Loss: 0.026099
+Epoch 100/1000 | Train Loss: 0.014909 | Val Loss: 0.026072
+Epoch 110/1000 | Train Loss: 0.014699 | Val Loss: 0.025796
+Epoch 120/1000 | Train Loss: 0.014325 | Val Loss: 0.024440
+Epoch 130/1000 | Train Loss: 0.014164 | Val Loss: 0.024635
+Epoch 140/1000 | Train Loss: 0.014031 | Val Loss: 0.024708
+Epoch 150/1000 | Train Loss: 0.013887 | Val Loss: 0.024922
+Epoch 160/1000 | Train Loss: 0.013720 | Val Loss: 0.025392
+Early stopping at epoch 166 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 16920, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018100 | Val Loss: 0.020305
+Epoch 20/1000 | Train Loss: 0.017101 | Val Loss: 0.021835
+Epoch 30/1000 | Train Loss: 0.017298 | Val Loss: 0.022143
+Epoch 40/1000 | Train Loss: 0.017149 | Val Loss: 0.025730
+Epoch 50/1000 | Train Loss: 0.015657 | Val Loss: 0.023009
+Epoch 60/1000 | Train Loss: 0.015907 | Val Loss: 0.021554
+Epoch 70/1000 | Train Loss: 0.015193 | Val Loss: 0.023587
+Epoch 80/1000 | Train Loss: 0.015934 | Val Loss: 0.022394
+Epoch 90/1000 | Train Loss: 0.015071 | Val Loss: 0.022321
+Epoch 100/1000 | Train Loss: 0.014612 | Val Loss: 0.023733
+Epoch 110/1000 | Train Loss: 0.014248 | Val Loss: 0.024880
+Epoch 120/1000 | Train Loss: 0.013830 | Val Loss: 0.025854
+Epoch 130/1000 | Train Loss: 0.017775 | Val Loss: 0.022215
+Epoch 140/1000 | Train Loss: 0.013616 | Val Loss: 0.023559
+Epoch 150/1000 | Train Loss: 0.013221 | Val Loss: 0.025419
+Epoch 160/1000 | Train Loss: 0.012952 | Val Loss: 0.027222
+Epoch 170/1000 | Train Loss: 0.012880 | Val Loss: 0.028730
+Early stopping at epoch 178 due to no improvement in validation loss for 150 epochs.
+Epoch 10/28 | Combined Train Loss: 0.017547
+Epoch 20/28 | Combined Train Loss: 0.016884
+Epoch 28/28 | Combined Train Loss: 0.016036
+\n--- Strategy: expanding_window, Seed: 42, Item: 16920, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 7 epochs | mean val loss = 0.020188
+  [refit] Epoch 7/7 | Train Loss: 0.017762
+\n--- Strategy: sliding_window, Seed: 42, Item: 16920, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 16 epochs | mean val loss = 0.019696
+  [refit] Epoch 10/16 | Train Loss: 0.019072
+  [refit] Epoch 16/16 | Train Loss: 0.018099
+\n--- Strategy: best_val, Seed: 42, Item: 26220, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.009907 | Val Loss: 0.003448
+Epoch 20/1000 | Train Loss: 0.007437 | Val Loss: 0.003139
+Epoch 30/1000 | Train Loss: 0.006612 | Val Loss: 0.002763
+Epoch 40/1000 | Train Loss: 0.007607 | Val Loss: 0.002857
+Epoch 50/1000 | Train Loss: 0.005830 | Val Loss: 0.002556
+Epoch 60/1000 | Train Loss: 0.006647 | Val Loss: 0.002636
+Epoch 70/1000 | Train Loss: 0.005574 | Val Loss: 0.003533
+Epoch 80/1000 | Train Loss: 0.004898 | Val Loss: 0.002981
+Epoch 90/1000 | Train Loss: 0.005088 | Val Loss: 0.002728
+Epoch 100/1000 | Train Loss: 0.004588 | Val Loss: 0.002775
+Epoch 110/1000 | Train Loss: 0.004328 | Val Loss: 0.002788
+Epoch 120/1000 | Train Loss: 0.004060 | Val Loss: 0.002775
+Epoch 130/1000 | Train Loss: 0.004508 | Val Loss: 0.003215
+Epoch 140/1000 | Train Loss: 0.003808 | Val Loss: 0.002880
+Epoch 150/1000 | Train Loss: 0.003562 | Val Loss: 0.002802
+Epoch 160/1000 | Train Loss: 0.003444 | Val Loss: 0.002764
+Epoch 170/1000 | Train Loss: 0.003327 | Val Loss: 0.002733
+Epoch 180/1000 | Train Loss: 0.003208 | Val Loss: 0.002706
+Early stopping at epoch 187 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 26220, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010458 | Val Loss: 0.003560
+Epoch 20/1000 | Train Loss: 0.007966 | Val Loss: 0.003619
+Epoch 30/1000 | Train Loss: 0.006707 | Val Loss: 0.003231
+Epoch 40/1000 | Train Loss: 0.007710 | Val Loss: 0.003295
+Epoch 50/1000 | Train Loss: 0.006166 | Val Loss: 0.004515
+Epoch 60/1000 | Train Loss: 0.005622 | Val Loss: 0.002824
+Epoch 70/1000 | Train Loss: 0.006262 | Val Loss: 0.002767
+Epoch 80/1000 | Train Loss: 0.005224 | Val Loss: 0.002557
+Epoch 90/1000 | Train Loss: 0.004683 | Val Loss: 0.002619
+Epoch 100/1000 | Train Loss: 0.004434 | Val Loss: 0.002671
+Epoch 110/1000 | Train Loss: 0.004569 | Val Loss: 0.002420
+Epoch 120/1000 | Train Loss: 0.005583 | Val Loss: 0.004977
+Epoch 130/1000 | Train Loss: 0.004228 | Val Loss: 0.003222
+Epoch 140/1000 | Train Loss: 0.004061 | Val Loss: 0.002839
+Epoch 150/1000 | Train Loss: 0.005638 | Val Loss: 0.002616
+Epoch 160/1000 | Train Loss: 0.004193 | Val Loss: 0.003132
+Epoch 170/1000 | Train Loss: 0.003625 | Val Loss: 0.002703
+Epoch 180/1000 | Train Loss: 0.003423 | Val Loss: 0.003145
+Epoch 190/1000 | Train Loss: 0.003184 | Val Loss: 0.003007
+Epoch 200/1000 | Train Loss: 0.003077 | Val Loss: 0.003153
+Epoch 210/1000 | Train Loss: 0.002947 | Val Loss: 0.002911
+Epoch 220/1000 | Train Loss: 0.002853 | Val Loss: 0.003017
+Epoch 230/1000 | Train Loss: 0.002772 | Val Loss: 0.003052
+Epoch 240/1000 | Train Loss: 0.002722 | Val Loss: 0.002897
+Epoch 250/1000 | Train Loss: 0.002675 | Val Loss: 0.003004
+Early stopping at epoch 251 due to no improvement in validation loss for 150 epochs.
+Epoch 10/101 | Combined Train Loss: 0.009863
+Epoch 20/101 | Combined Train Loss: 0.007867
+Epoch 30/101 | Combined Train Loss: 0.006266
+Epoch 40/101 | Combined Train Loss: 0.006017
+Epoch 50/101 | Combined Train Loss: 0.005322
+Epoch 60/101 | Combined Train Loss: 0.005654
+Epoch 70/101 | Combined Train Loss: 0.004896
+Epoch 80/101 | Combined Train Loss: 0.004774
+Epoch 90/101 | Combined Train Loss: 0.004494
+Epoch 100/101 | Combined Train Loss: 0.004411
+Epoch 101/101 | Combined Train Loss: 0.004546
+\n--- Strategy: expanding_window, Seed: 42, Item: 26220, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 135 epochs | mean val loss = 0.004714
+  [refit] Epoch 10/135 | Train Loss: 0.009266
+  [refit] Epoch 20/135 | Train Loss: 0.007813
+  [refit] Epoch 30/135 | Train Loss: 0.007432
+  [refit] Epoch 40/135 | Train Loss: 0.005564
+  [refit] Epoch 50/135 | Train Loss: 0.005555
+  [refit] Epoch 60/135 | Train Loss: 0.006143
+  [refit] Epoch 70/135 | Train Loss: 0.004958
+  [refit] Epoch 80/135 | Train Loss: 0.004011
+  [refit] Epoch 90/135 | Train Loss: 0.004099
+  [refit] Epoch 100/135 | Train Loss: 0.005345
+  [refit] Epoch 110/135 | Train Loss: 0.005156
+  [refit] Epoch 120/135 | Train Loss: 0.003506
+  [refit] Epoch 130/135 | Train Loss: 0.003283
+  [refit] Epoch 135/135 | Train Loss: 0.003216
+\n--- Strategy: sliding_window, Seed: 42, Item: 26220, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 131 epochs | mean val loss = 0.004958
+  [refit] Epoch 10/131 | Train Loss: 0.014077
+  [refit] Epoch 20/131 | Train Loss: 0.011383
+  [refit] Epoch 30/131 | Train Loss: 0.010893
+  [refit] Epoch 40/131 | Train Loss: 0.009041
+  [refit] Epoch 50/131 | Train Loss: 0.008152
+  [refit] Epoch 60/131 | Train Loss: 0.007379
+  [refit] Epoch 70/131 | Train Loss: 0.007108
+  [refit] Epoch 80/131 | Train Loss: 0.006229
+  [refit] Epoch 90/131 | Train Loss: 0.005859
+  [refit] Epoch 100/131 | Train Loss: 0.005794
+  [refit] Epoch 110/131 | Train Loss: 0.005292
+  [refit] Epoch 120/131 | Train Loss: 0.005178
+  [refit] Epoch 130/131 | Train Loss: 0.004662
+  [refit] Epoch 131/131 | Train Loss: 0.004371
+\n--- Strategy: best_val, Seed: 42, Item: 48375, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010062 | Val Loss: 0.012004
+Epoch 20/1000 | Train Loss: 0.008638 | Val Loss: 0.009504
+Epoch 30/1000 | Train Loss: 0.007655 | Val Loss: 0.008268
+Epoch 40/1000 | Train Loss: 0.007104 | Val Loss: 0.007716
+Epoch 50/1000 | Train Loss: 0.006764 | Val Loss: 0.008162
+Epoch 60/1000 | Train Loss: 0.006577 | Val Loss: 0.007597
+Epoch 70/1000 | Train Loss: 0.006197 | Val Loss: 0.007356
+Epoch 80/1000 | Train Loss: 0.007452 | Val Loss: 0.009102
+Epoch 90/1000 | Train Loss: 0.005869 | Val Loss: 0.007241
+Epoch 100/1000 | Train Loss: 0.005529 | Val Loss: 0.007229
+Epoch 110/1000 | Train Loss: 0.006489 | Val Loss: 0.008402
+Epoch 120/1000 | Train Loss: 0.004989 | Val Loss: 0.007403
+Epoch 130/1000 | Train Loss: 0.004950 | Val Loss: 0.008775
+Epoch 140/1000 | Train Loss: 0.004577 | Val Loss: 0.007458
+Epoch 150/1000 | Train Loss: 0.004486 | Val Loss: 0.008506
+Epoch 160/1000 | Train Loss: 0.004056 | Val Loss: 0.007842
+Epoch 170/1000 | Train Loss: 0.002742 | Val Loss: 0.008202
+Epoch 180/1000 | Train Loss: 0.002417 | Val Loss: 0.008082
+Epoch 190/1000 | Train Loss: 0.002543 | Val Loss: 0.008843
+Epoch 200/1000 | Train Loss: 0.002319 | Val Loss: 0.008217
+Epoch 210/1000 | Train Loss: 0.002124 | Val Loss: 0.009948
+Epoch 220/1000 | Train Loss: 0.001921 | Val Loss: 0.009495
+Epoch 230/1000 | Train Loss: 0.001849 | Val Loss: 0.009724
+Epoch 240/1000 | Train Loss: 0.001777 | Val Loss: 0.009965
+Epoch 250/1000 | Train Loss: 0.001703 | Val Loss: 0.010179
+Epoch 260/1000 | Train Loss: 0.001625 | Val Loss: 0.010340
+Early stopping at epoch 261 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 48375, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.009942 | Val Loss: 0.012557
+Epoch 20/1000 | Train Loss: 0.008857 | Val Loss: 0.010522
+Epoch 30/1000 | Train Loss: 0.008002 | Val Loss: 0.008908
+Epoch 40/1000 | Train Loss: 0.007417 | Val Loss: 0.008385
+Epoch 50/1000 | Train Loss: 0.007014 | Val Loss: 0.008216
+Epoch 60/1000 | Train Loss: 0.006667 | Val Loss: 0.008027
+Epoch 70/1000 | Train Loss: 0.006365 | Val Loss: 0.007917
+Epoch 80/1000 | Train Loss: 0.006091 | Val Loss: 0.007860
+Epoch 90/1000 | Train Loss: 0.005823 | Val Loss: 0.007783
+Epoch 100/1000 | Train Loss: 0.005463 | Val Loss: 0.008326
+Epoch 110/1000 | Train Loss: 0.005228 | Val Loss: 0.008400
+Epoch 120/1000 | Train Loss: 0.005550 | Val Loss: 0.007409
+Epoch 130/1000 | Train Loss: 0.004953 | Val Loss: 0.008195
+Epoch 140/1000 | Train Loss: 0.005140 | Val Loss: 0.007468
+Epoch 150/1000 | Train Loss: 0.004485 | Val Loss: 0.007290
+Epoch 160/1000 | Train Loss: 0.004250 | Val Loss: 0.008000
+Epoch 170/1000 | Train Loss: 0.003653 | Val Loss: 0.008193
+Epoch 180/1000 | Train Loss: 0.003407 | Val Loss: 0.007953
+Epoch 190/1000 | Train Loss: 0.002864 | Val Loss: 0.008137
+Epoch 200/1000 | Train Loss: 0.002692 | Val Loss: 0.007995
+Epoch 210/1000 | Train Loss: 0.002552 | Val Loss: 0.007842
+Epoch 220/1000 | Train Loss: 0.002413 | Val Loss: 0.007755
+Epoch 230/1000 | Train Loss: 0.002394 | Val Loss: 0.007866
+Epoch 240/1000 | Train Loss: 0.002300 | Val Loss: 0.007766
+Epoch 250/1000 | Train Loss: 0.002111 | Val Loss: 0.008039
+Epoch 260/1000 | Train Loss: 0.002079 | Val Loss: 0.007603
+Epoch 270/1000 | Train Loss: 0.002184 | Val Loss: 0.008066
+Epoch 280/1000 | Train Loss: 0.001744 | Val Loss: 0.008455
+Epoch 290/1000 | Train Loss: 0.001579 | Val Loss: 0.008391
+Epoch 300/1000 | Train Loss: 0.001508 | Val Loss: 0.008390
+Epoch 310/1000 | Train Loss: 0.001444 | Val Loss: 0.008456
+Epoch 320/1000 | Train Loss: 0.001384 | Val Loss: 0.008589
+Epoch 330/1000 | Train Loss: 0.001329 | Val Loss: 0.008792
+Epoch 340/1000 | Train Loss: 0.001277 | Val Loss: 0.009020
+Epoch 350/1000 | Train Loss: 0.001250 | Val Loss: 0.009094
+Epoch 360/1000 | Train Loss: 0.001234 | Val Loss: 0.009172
+Epoch 370/1000 | Train Loss: 0.001217 | Val Loss: 0.009180
+Epoch 380/1000 | Train Loss: 0.001191 | Val Loss: 0.009125
+Early stopping at epoch 384 due to no improvement in validation loss for 150 epochs.
+Epoch 10/234 | Combined Train Loss: 0.009376
+Epoch 20/234 | Combined Train Loss: 0.008127
+Epoch 30/234 | Combined Train Loss: 0.007359
+Epoch 40/234 | Combined Train Loss: 0.006937
+Epoch 50/234 | Combined Train Loss: 0.006627
+Epoch 60/234 | Combined Train Loss: 0.006341
+Epoch 70/234 | Combined Train Loss: 0.006077
+Epoch 80/234 | Combined Train Loss: 0.005792
+Epoch 90/234 | Combined Train Loss: 0.005599
+Epoch 100/234 | Combined Train Loss: 0.005969
+Epoch 110/234 | Combined Train Loss: 0.005473
+Epoch 120/234 | Combined Train Loss: 0.005460
+Epoch 130/234 | Combined Train Loss: 0.004760
+Epoch 140/234 | Combined Train Loss: 0.004532
+Epoch 150/234 | Combined Train Loss: 0.004971
+Epoch 160/234 | Combined Train Loss: 0.004300
+Epoch 170/234 | Combined Train Loss: 0.004049
+Epoch 180/234 | Combined Train Loss: 0.003362
+Epoch 190/234 | Combined Train Loss: 0.002769
+Epoch 200/234 | Combined Train Loss: 0.003606
+Epoch 210/234 | Combined Train Loss: 0.003119
+Epoch 220/234 | Combined Train Loss: 0.002557
+Epoch 230/234 | Combined Train Loss: 0.001932
+Epoch 234/234 | Combined Train Loss: 0.002074
+\n--- Strategy: expanding_window, Seed: 42, Item: 48375, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 94 epochs | mean val loss = 0.005148
+  [refit] Epoch 10/94 | Train Loss: 0.008975
+  [refit] Epoch 20/94 | Train Loss: 0.007649
+  [refit] Epoch 30/94 | Train Loss: 0.007038
+  [refit] Epoch 40/94 | Train Loss: 0.006670
+  [refit] Epoch 50/94 | Train Loss: 0.006389
+  [refit] Epoch 60/94 | Train Loss: 0.006078
+  [refit] Epoch 70/94 | Train Loss: 0.005671
+  [refit] Epoch 80/94 | Train Loss: 0.005228
+  [refit] Epoch 90/94 | Train Loss: 0.005907
+  [refit] Epoch 94/94 | Train Loss: 0.005626
+\n--- Strategy: sliding_window, Seed: 42, Item: 48375, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 117 epochs | mean val loss = 0.005421
+  [refit] Epoch 10/117 | Train Loss: 0.008998
+  [refit] Epoch 20/117 | Train Loss: 0.007887
+  [refit] Epoch 30/117 | Train Loss: 0.007189
+  [refit] Epoch 40/117 | Train Loss: 0.006770
+  [refit] Epoch 50/117 | Train Loss: 0.006477
+  [refit] Epoch 60/117 | Train Loss: 0.006155
+  [refit] Epoch 70/117 | Train Loss: 0.006539
+  [refit] Epoch 80/117 | Train Loss: 0.005982
+  [refit] Epoch 90/117 | Train Loss: 0.005656
+  [refit] Epoch 100/117 | Train Loss: 0.006087
+  [refit] Epoch 110/117 | Train Loss: 0.006992
+  [refit] Epoch 117/117 | Train Loss: 0.005136
+\n--- Strategy: best_val, Seed: 42, Item: 213625, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.013882 | Val Loss: 0.011759
+Epoch 20/1000 | Train Loss: 0.011847 | Val Loss: 0.008654
+Epoch 30/1000 | Train Loss: 0.011504 | Val Loss: 0.008123
+Epoch 40/1000 | Train Loss: 0.011123 | Val Loss: 0.007913
+Epoch 50/1000 | Train Loss: 0.010326 | Val Loss: 0.008166
+Epoch 60/1000 | Train Loss: 0.010037 | Val Loss: 0.008284
+Epoch 70/1000 | Train Loss: 0.009639 | Val Loss: 0.009351
+Epoch 80/1000 | Train Loss: 0.009497 | Val Loss: 0.009250
+Epoch 90/1000 | Train Loss: 0.009507 | Val Loss: 0.007893
+Epoch 100/1000 | Train Loss: 0.010221 | Val Loss: 0.008903
+Epoch 110/1000 | Train Loss: 0.009031 | Val Loss: 0.008235
+Epoch 120/1000 | Train Loss: 0.009439 | Val Loss: 0.008894
+Epoch 130/1000 | Train Loss: 0.008862 | Val Loss: 0.008228
+Epoch 140/1000 | Train Loss: 0.008291 | Val Loss: 0.008417
+Epoch 150/1000 | Train Loss: 0.008113 | Val Loss: 0.008811
+Epoch 160/1000 | Train Loss: 0.007950 | Val Loss: 0.008630
+Epoch 170/1000 | Train Loss: 0.008254 | Val Loss: 0.007821
+Epoch 180/1000 | Train Loss: 0.007801 | Val Loss: 0.009504
+Epoch 190/1000 | Train Loss: 0.007719 | Val Loss: 0.008327
+Epoch 200/1000 | Train Loss: 0.007616 | Val Loss: 0.007630
+Epoch 210/1000 | Train Loss: 0.008438 | Val Loss: 0.006866
+Epoch 220/1000 | Train Loss: 0.007726 | Val Loss: 0.008966
+Epoch 230/1000 | Train Loss: 0.007435 | Val Loss: 0.008502
+Epoch 240/1000 | Train Loss: 0.008128 | Val Loss: 0.006976
+Epoch 250/1000 | Train Loss: 0.007302 | Val Loss: 0.010373
+Epoch 260/1000 | Train Loss: 0.007166 | Val Loss: 0.008399
+Epoch 270/1000 | Train Loss: 0.006973 | Val Loss: 0.008016
+Epoch 280/1000 | Train Loss: 0.006913 | Val Loss: 0.007971
+Epoch 290/1000 | Train Loss: 0.006854 | Val Loss: 0.007916
+Epoch 300/1000 | Train Loss: 0.006795 | Val Loss: 0.007865
+Epoch 310/1000 | Train Loss: 0.006719 | Val Loss: 0.007883
+Epoch 320/1000 | Train Loss: 0.006688 | Val Loss: 0.007873
+Epoch 330/1000 | Train Loss: 0.006656 | Val Loss: 0.007862
+Epoch 340/1000 | Train Loss: 0.006623 | Val Loss: 0.007853
+Epoch 350/1000 | Train Loss: 0.006589 | Val Loss: 0.007844
+Early stopping at epoch 357 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 213625, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.012365 | Val Loss: 0.009864
+Epoch 20/1000 | Train Loss: 0.011451 | Val Loss: 0.008425
+Epoch 30/1000 | Train Loss: 0.011003 | Val Loss: 0.008207
+Epoch 40/1000 | Train Loss: 0.010454 | Val Loss: 0.008206
+Epoch 50/1000 | Train Loss: 0.010024 | Val Loss: 0.008366
+Epoch 60/1000 | Train Loss: 0.009739 | Val Loss: 0.008417
+Epoch 70/1000 | Train Loss: 0.009496 | Val Loss: 0.008528
+Epoch 80/1000 | Train Loss: 0.009282 | Val Loss: 0.008644
+Epoch 90/1000 | Train Loss: 0.009169 | Val Loss: 0.007905
+Epoch 100/1000 | Train Loss: 0.008917 | Val Loss: 0.008067
+Epoch 110/1000 | Train Loss: 0.008727 | Val Loss: 0.008406
+Epoch 120/1000 | Train Loss: 0.008754 | Val Loss: 0.008403
+Epoch 130/1000 | Train Loss: 0.008626 | Val Loss: 0.008204
+Epoch 140/1000 | Train Loss: 0.008451 | Val Loss: 0.008151
+Epoch 150/1000 | Train Loss: 0.007934 | Val Loss: 0.008085
+Epoch 160/1000 | Train Loss: 0.007997 | Val Loss: 0.007839
+Epoch 170/1000 | Train Loss: 0.007786 | Val Loss: 0.007908
+Epoch 180/1000 | Train Loss: 0.007646 | Val Loss: 0.007853
+Epoch 190/1000 | Train Loss: 0.007461 | Val Loss: 0.007822
+Epoch 200/1000 | Train Loss: 0.007164 | Val Loss: 0.007767
+Epoch 210/1000 | Train Loss: 0.007082 | Val Loss: 0.007698
+Epoch 220/1000 | Train Loss: 0.007001 | Val Loss: 0.007649
+Epoch 230/1000 | Train Loss: 0.006922 | Val Loss: 0.007623
+Early stopping at epoch 239 due to no improvement in validation loss for 150 epochs.
+Epoch 10/89 | Combined Train Loss: 0.011510
+Epoch 20/89 | Combined Train Loss: 0.010802
+Epoch 30/89 | Combined Train Loss: 0.010367
+Epoch 40/89 | Combined Train Loss: 0.009884
+Epoch 50/89 | Combined Train Loss: 0.009623
+Epoch 60/89 | Combined Train Loss: 0.009404
+Epoch 70/89 | Combined Train Loss: 0.009189
+Epoch 80/89 | Combined Train Loss: 0.009007
+Epoch 89/89 | Combined Train Loss: 0.008900
+\n--- Strategy: expanding_window, Seed: 42, Item: 213625, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 40 epochs | mean val loss = 0.010462
+  [refit] Epoch 10/40 | Train Loss: 0.011079
+  [refit] Epoch 20/40 | Train Loss: 0.010618
+  [refit] Epoch 30/40 | Train Loss: 0.010108
+  [refit] Epoch 40/40 | Train Loss: 0.009509
+\n--- Strategy: sliding_window, Seed: 42, Item: 213625, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 48 epochs | mean val loss = 0.011017
+  [refit] Epoch 10/48 | Train Loss: 0.014003
+  [refit] Epoch 20/48 | Train Loss: 0.011969
+  [refit] Epoch 30/48 | Train Loss: 0.011464
+  [refit] Epoch 40/48 | Train Loss: 0.010860
+  [refit] Epoch 48/48 | Train Loss: 0.010198
+\n--- Strategy: best_val, Seed: 42, Item: 213631, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014547 | Val Loss: 0.007952
+Epoch 20/1000 | Train Loss: 0.013921 | Val Loss: 0.007848
+Epoch 30/1000 | Train Loss: 0.013505 | Val Loss: 0.007899
+Epoch 40/1000 | Train Loss: 0.013018 | Val Loss: 0.008189
+Epoch 50/1000 | Train Loss: 0.012707 | Val Loss: 0.008558
+Epoch 60/1000 | Train Loss: 0.012487 | Val Loss: 0.008917
+Epoch 70/1000 | Train Loss: 0.012139 | Val Loss: 0.008993
+Epoch 80/1000 | Train Loss: 0.012053 | Val Loss: 0.009161
+Epoch 90/1000 | Train Loss: 0.011955 | Val Loss: 0.009328
+Epoch 100/1000 | Train Loss: 0.011854 | Val Loss: 0.009461
+Epoch 110/1000 | Train Loss: 0.011749 | Val Loss: 0.009576
+Epoch 120/1000 | Train Loss: 0.011553 | Val Loss: 0.009398
+Epoch 130/1000 | Train Loss: 0.011473 | Val Loss: 0.009604
+Epoch 140/1000 | Train Loss: 0.011404 | Val Loss: 0.009654
+Epoch 150/1000 | Train Loss: 0.011460 | Val Loss: 0.009568
+Epoch 160/1000 | Train Loss: 0.011304 | Val Loss: 0.009751
+Early stopping at epoch 167 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 213631, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014232 | Val Loss: 0.007945
+Epoch 20/1000 | Train Loss: 0.013827 | Val Loss: 0.008036
+Epoch 30/1000 | Train Loss: 0.013515 | Val Loss: 0.008109
+Epoch 40/1000 | Train Loss: 0.013161 | Val Loss: 0.008239
+Epoch 50/1000 | Train Loss: 0.012811 | Val Loss: 0.008540
+Epoch 60/1000 | Train Loss: 0.012546 | Val Loss: 0.008934
+Epoch 70/1000 | Train Loss: 0.012247 | Val Loss: 0.008995
+Epoch 80/1000 | Train Loss: 0.012113 | Val Loss: 0.009286
+Epoch 90/1000 | Train Loss: 0.012362 | Val Loss: 0.008738
+Epoch 100/1000 | Train Loss: 0.011942 | Val Loss: 0.009553
+Epoch 110/1000 | Train Loss: 0.012375 | Val Loss: 0.008268
+Epoch 120/1000 | Train Loss: 0.011789 | Val Loss: 0.009370
+Epoch 130/1000 | Train Loss: 0.011698 | Val Loss: 0.009618
+Epoch 140/1000 | Train Loss: 0.011618 | Val Loss: 0.009718
+Epoch 150/1000 | Train Loss: 0.011531 | Val Loss: 0.009782
+Early stopping at epoch 159 due to no improvement in validation loss for 150 epochs.
+Epoch 9/9 | Combined Train Loss: 0.013329
+\n--- Strategy: expanding_window, Seed: 42, Item: 213631, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 32 epochs | mean val loss = 0.011001
+  [refit] Epoch 10/32 | Train Loss: 0.013559
+  [refit] Epoch 20/32 | Train Loss: 0.012998
+  [refit] Epoch 30/32 | Train Loss: 0.012758
+  [refit] Epoch 32/32 | Train Loss: 0.012712
+\n--- Strategy: sliding_window, Seed: 42, Item: 213631, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 19 epochs | mean val loss = 0.011171
+  [refit] Epoch 10/19 | Train Loss: 0.014826
+  [refit] Epoch 19/19 | Train Loss: 0.013701
+\n--- Strategy: best_val, Seed: 42, Item: 538923, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014285 | Val Loss: 0.015225
+Epoch 20/1000 | Train Loss: 0.013963 | Val Loss: 0.014877
+Epoch 30/1000 | Train Loss: 0.013718 | Val Loss: 0.014643
+Epoch 40/1000 | Train Loss: 0.013476 | Val Loss: 0.014464
+Epoch 50/1000 | Train Loss: 0.013211 | Val Loss: 0.014382
+Epoch 60/1000 | Train Loss: 0.012975 | Val Loss: 0.014659
+Epoch 70/1000 | Train Loss: 0.012762 | Val Loss: 0.015046
+Epoch 80/1000 | Train Loss: 0.012513 | Val Loss: 0.015138
+Epoch 90/1000 | Train Loss: 0.012259 | Val Loss: 0.015477
+Epoch 100/1000 | Train Loss: 0.011885 | Val Loss: 0.017091
+Epoch 110/1000 | Train Loss: 0.011808 | Val Loss: 0.016162
+Epoch 120/1000 | Train Loss: 0.011640 | Val Loss: 0.016759
+Epoch 130/1000 | Train Loss: 0.011406 | Val Loss: 0.017128
+Epoch 140/1000 | Train Loss: 0.011460 | Val Loss: 0.015573
+Epoch 150/1000 | Train Loss: 0.011022 | Val Loss: 0.016909
+Epoch 160/1000 | Train Loss: 0.010846 | Val Loss: 0.016570
+Epoch 170/1000 | Train Loss: 0.010732 | Val Loss: 0.016563
+Epoch 180/1000 | Train Loss: 0.010853 | Val Loss: 0.015946
+Epoch 190/1000 | Train Loss: 0.010587 | Val Loss: 0.016702
+Early stopping at epoch 198 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 538923, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014526 | Val Loss: 0.016118
+Epoch 20/1000 | Train Loss: 0.014101 | Val Loss: 0.015213
+Epoch 30/1000 | Train Loss: 0.013871 | Val Loss: 0.014962
+Epoch 40/1000 | Train Loss: 0.013656 | Val Loss: 0.014830
+Epoch 50/1000 | Train Loss: 0.013450 | Val Loss: 0.014794
+Epoch 60/1000 | Train Loss: 0.013260 | Val Loss: 0.014834
+Epoch 70/1000 | Train Loss: 0.013066 | Val Loss: 0.014875
+Epoch 80/1000 | Train Loss: 0.012842 | Val Loss: 0.014933
+Epoch 90/1000 | Train Loss: 0.012588 | Val Loss: 0.015190
+Epoch 100/1000 | Train Loss: 0.012030 | Val Loss: 0.014644
+Epoch 110/1000 | Train Loss: 0.011834 | Val Loss: 0.015570
+Epoch 120/1000 | Train Loss: 0.011988 | Val Loss: 0.015136
+Epoch 130/1000 | Train Loss: 0.011464 | Val Loss: 0.015906
+Epoch 140/1000 | Train Loss: 0.011355 | Val Loss: 0.015837
+Epoch 150/1000 | Train Loss: 0.011185 | Val Loss: 0.016637
+Epoch 160/1000 | Train Loss: 0.010999 | Val Loss: 0.016753
+Epoch 170/1000 | Train Loss: 0.011165 | Val Loss: 0.017731
+Epoch 180/1000 | Train Loss: 0.010415 | Val Loss: 0.017597
+Epoch 190/1000 | Train Loss: 0.010238 | Val Loss: 0.017801
+Epoch 200/1000 | Train Loss: 0.010058 | Val Loss: 0.018028
+Epoch 210/1000 | Train Loss: 0.009871 | Val Loss: 0.018277
+Epoch 220/1000 | Train Loss: 0.010785 | Val Loss: 0.021138
+Epoch 230/1000 | Train Loss: 0.009564 | Val Loss: 0.018738
+Epoch 240/1000 | Train Loss: 0.009456 | Val Loss: 0.018802
+Epoch 250/1000 | Train Loss: 0.009347 | Val Loss: 0.018880
+Epoch 260/1000 | Train Loss: 0.009236 | Val Loss: 0.018961
+Early stopping at epoch 269 due to no improvement in validation loss for 150 epochs.
+Epoch 10/119 | Combined Train Loss: 0.018575
+Epoch 20/119 | Combined Train Loss: 0.017664
+Epoch 30/119 | Combined Train Loss: 0.016961
+Epoch 40/119 | Combined Train Loss: 0.016324
+Epoch 50/119 | Combined Train Loss: 0.015741
+Epoch 60/119 | Combined Train Loss: 0.015125
+Epoch 70/119 | Combined Train Loss: 0.014503
+Epoch 80/119 | Combined Train Loss: 0.013966
+Epoch 90/119 | Combined Train Loss: 0.013503
+Epoch 100/119 | Combined Train Loss: 0.013016
+Epoch 110/119 | Combined Train Loss: 0.012497
+Epoch 119/119 | Combined Train Loss: 0.012029
+\n--- Strategy: expanding_window, Seed: 42, Item: 538923, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 50 epochs | mean val loss = 0.024834
+  [refit] Epoch 10/50 | Train Loss: 0.019417
+  [refit] Epoch 20/50 | Train Loss: 0.018158
+  [refit] Epoch 30/50 | Train Loss: 0.017584
+  [refit] Epoch 40/50 | Train Loss: 0.017068
+  [refit] Epoch 50/50 | Train Loss: 0.016569
+\n--- Strategy: sliding_window, Seed: 42, Item: 538923, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 30 epochs | mean val loss = 0.026248
+  [refit] Epoch 10/30 | Train Loss: 0.023325
+  [refit] Epoch 20/30 | Train Loss: 0.021282
+  [refit] Epoch 30/30 | Train Loss: 0.019975
+\n--- Strategy: best_val, Seed: 42, Item: 606214, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.021573 | Val Loss: 0.011876
+Epoch 20/1000 | Train Loss: 0.020987 | Val Loss: 0.011115
+Epoch 30/1000 | Train Loss: 0.020434 | Val Loss: 0.011057
+Epoch 40/1000 | Train Loss: 0.019746 | Val Loss: 0.011007
+Epoch 50/1000 | Train Loss: 0.019098 | Val Loss: 0.011172
+Epoch 60/1000 | Train Loss: 0.018479 | Val Loss: 0.011483
+Epoch 70/1000 | Train Loss: 0.017782 | Val Loss: 0.011958
+Epoch 80/1000 | Train Loss: 0.017723 | Val Loss: 0.012598
+Epoch 90/1000 | Train Loss: 0.017126 | Val Loss: 0.013229
+Epoch 100/1000 | Train Loss: 0.016759 | Val Loss: 0.013586
+Epoch 110/1000 | Train Loss: 0.016484 | Val Loss: 0.013896
+Epoch 120/1000 | Train Loss: 0.016192 | Val Loss: 0.014398
+Epoch 130/1000 | Train Loss: 0.015799 | Val Loss: 0.015364
+Epoch 140/1000 | Train Loss: 0.015156 | Val Loss: 0.017107
+Epoch 150/1000 | Train Loss: 0.015503 | Val Loss: 0.016367
+Epoch 160/1000 | Train Loss: 0.014528 | Val Loss: 0.018673
+Epoch 170/1000 | Train Loss: 0.014331 | Val Loss: 0.019245
+Epoch 180/1000 | Train Loss: 0.013909 | Val Loss: 0.020664
+Early stopping at epoch 189 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 606214, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.021767 | Val Loss: 0.012086
+Epoch 20/1000 | Train Loss: 0.021147 | Val Loss: 0.010943
+Epoch 30/1000 | Train Loss: 0.020681 | Val Loss: 0.010866
+Epoch 40/1000 | Train Loss: 0.019991 | Val Loss: 0.010818
+Epoch 50/1000 | Train Loss: 0.019211 | Val Loss: 0.010848
+Epoch 60/1000 | Train Loss: 0.018641 | Val Loss: 0.011059
+Epoch 70/1000 | Train Loss: 0.018180 | Val Loss: 0.011326
+Epoch 80/1000 | Train Loss: 0.017739 | Val Loss: 0.011529
+Epoch 90/1000 | Train Loss: 0.017290 | Val Loss: 0.011626
+Epoch 100/1000 | Train Loss: 0.016735 | Val Loss: 0.012288
+Epoch 110/1000 | Train Loss: 0.016333 | Val Loss: 0.011689
+Epoch 120/1000 | Train Loss: 0.016056 | Val Loss: 0.011993
+Epoch 130/1000 | Train Loss: 0.016169 | Val Loss: 0.013390
+Epoch 140/1000 | Train Loss: 0.016129 | Val Loss: 0.012474
+Epoch 150/1000 | Train Loss: 0.014768 | Val Loss: 0.013688
+Epoch 160/1000 | Train Loss: 0.014513 | Val Loss: 0.013355
+Epoch 170/1000 | Train Loss: 0.014221 | Val Loss: 0.013781
+Epoch 180/1000 | Train Loss: 0.014072 | Val Loss: 0.013504
+Epoch 190/1000 | Train Loss: 0.014006 | Val Loss: 0.013268
+Early stopping at epoch 194 due to no improvement in validation loss for 150 epochs.
+Epoch 10/44 | Combined Train Loss: 0.022022
+Epoch 20/44 | Combined Train Loss: 0.021431
+Epoch 30/44 | Combined Train Loss: 0.020938
+Epoch 40/44 | Combined Train Loss: 0.020195
+Epoch 44/44 | Combined Train Loss: 0.019915
+\n--- Strategy: expanding_window, Seed: 42, Item: 606214, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 29 epochs | mean val loss = 0.018372
+  [refit] Epoch 10/29 | Train Loss: 0.022002
+  [refit] Epoch 20/29 | Train Loss: 0.021350
+  [refit] Epoch 29/29 | Train Loss: 0.020928
+\n--- Strategy: sliding_window, Seed: 42, Item: 606214, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 36 epochs | mean val loss = 0.018246
+  [refit] Epoch 10/36 | Train Loss: 0.026577
+  [refit] Epoch 20/36 | Train Loss: 0.023263
+  [refit] Epoch 30/36 | Train Loss: 0.022450
+  [refit] Epoch 36/36 | Train Loss: 0.022178
+\n--- Strategy: best_val, Seed: 42, Item: 907970, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.022161 | Val Loss: 0.066793
+Epoch 20/1000 | Train Loss: 0.020867 | Val Loss: 0.063089
+Epoch 30/1000 | Train Loss: 0.019970 | Val Loss: 0.057228
+Epoch 40/1000 | Train Loss: 0.018306 | Val Loss: 0.048657
+Epoch 50/1000 | Train Loss: 0.016650 | Val Loss: 0.044898
+Epoch 60/1000 | Train Loss: 0.016262 | Val Loss: 0.045145
+Epoch 70/1000 | Train Loss: 0.016066 | Val Loss: 0.044741
+Epoch 80/1000 | Train Loss: 0.015402 | Val Loss: 0.050523
+Epoch 90/1000 | Train Loss: 0.015318 | Val Loss: 0.055329
+Epoch 100/1000 | Train Loss: 0.014576 | Val Loss: 0.052717
+Epoch 110/1000 | Train Loss: 0.014479 | Val Loss: 0.054541
+Epoch 120/1000 | Train Loss: 0.013407 | Val Loss: 0.054182
+Epoch 130/1000 | Train Loss: 0.014109 | Val Loss: 0.054393
+Epoch 140/1000 | Train Loss: 0.013231 | Val Loss: 0.056208
+Epoch 150/1000 | Train Loss: 0.012591 | Val Loss: 0.054438
+Epoch 160/1000 | Train Loss: 0.011811 | Val Loss: 0.057049
+Epoch 170/1000 | Train Loss: 0.011396 | Val Loss: 0.055950
+Epoch 180/1000 | Train Loss: 0.011117 | Val Loss: 0.056197
+Epoch 190/1000 | Train Loss: 0.010849 | Val Loss: 0.056590
+Epoch 200/1000 | Train Loss: 0.010754 | Val Loss: 0.056864
+Early stopping at epoch 207 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 907970, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.023198 | Val Loss: 0.063151
+Epoch 20/1000 | Train Loss: 0.021102 | Val Loss: 0.059667
+Epoch 30/1000 | Train Loss: 0.020185 | Val Loss: 0.055986
+Epoch 40/1000 | Train Loss: 0.019026 | Val Loss: 0.051226
+Epoch 50/1000 | Train Loss: 0.017550 | Val Loss: 0.044563
+Epoch 60/1000 | Train Loss: 0.016352 | Val Loss: 0.041756
+Epoch 70/1000 | Train Loss: 0.015338 | Val Loss: 0.041498
+Epoch 80/1000 | Train Loss: 0.014836 | Val Loss: 0.043634
+Epoch 90/1000 | Train Loss: 0.015140 | Val Loss: 0.043395
+Epoch 100/1000 | Train Loss: 0.014549 | Val Loss: 0.042971
+Epoch 110/1000 | Train Loss: 0.014227 | Val Loss: 0.043908
+Epoch 120/1000 | Train Loss: 0.013702 | Val Loss: 0.044997
+Epoch 130/1000 | Train Loss: 0.016046 | Val Loss: 0.046284
+Epoch 140/1000 | Train Loss: 0.014673 | Val Loss: 0.055199
+Epoch 150/1000 | Train Loss: 0.012590 | Val Loss: 0.049390
+Epoch 160/1000 | Train Loss: 0.013169 | Val Loss: 0.050625
+Epoch 170/1000 | Train Loss: 0.011194 | Val Loss: 0.054940
+Epoch 180/1000 | Train Loss: 0.011479 | Val Loss: 0.055592
+Epoch 190/1000 | Train Loss: 0.010988 | Val Loss: 0.058586
+Epoch 200/1000 | Train Loss: 0.011300 | Val Loss: 0.058223
+Epoch 210/1000 | Train Loss: 0.010482 | Val Loss: 0.057455
+Epoch 220/1000 | Train Loss: 0.009286 | Val Loss: 0.059912
+Epoch 230/1000 | Train Loss: 0.009342 | Val Loss: 0.061066
+Epoch 240/1000 | Train Loss: 0.009219 | Val Loss: 0.062197
+Epoch 250/1000 | Train Loss: 0.009032 | Val Loss: 0.063381
+Early stopping at epoch 259 due to no improvement in validation loss for 150 epochs.
+Epoch 10/109 | Combined Train Loss: 0.026420
+Epoch 20/109 | Combined Train Loss: 0.022916
+Epoch 30/109 | Combined Train Loss: 0.019896
+Epoch 40/109 | Combined Train Loss: 0.019205
+Epoch 50/109 | Combined Train Loss: 0.018721
+Epoch 60/109 | Combined Train Loss: 0.018848
+Epoch 70/109 | Combined Train Loss: 0.017232
+Epoch 80/109 | Combined Train Loss: 0.016805
+Epoch 90/109 | Combined Train Loss: 0.017702
+Epoch 100/109 | Combined Train Loss: 0.016000
+Epoch 109/109 | Combined Train Loss: 0.015840
+\n--- Strategy: expanding_window, Seed: 42, Item: 907970, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 75 epochs | mean val loss = 0.036015
+  [refit] Epoch 10/75 | Train Loss: 0.026877
+  [refit] Epoch 20/75 | Train Loss: 0.022619
+  [refit] Epoch 30/75 | Train Loss: 0.019488
+  [refit] Epoch 40/75 | Train Loss: 0.021406
+  [refit] Epoch 50/75 | Train Loss: 0.018079
+  [refit] Epoch 60/75 | Train Loss: 0.018041
+  [refit] Epoch 70/75 | Train Loss: 0.017846
+  [refit] Epoch 75/75 | Train Loss: 0.017067
+\n--- Strategy: sliding_window, Seed: 42, Item: 907970, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 57 epochs | mean val loss = 0.038523
+  [refit] Epoch 10/57 | Train Loss: 0.035562
+  [refit] Epoch 20/57 | Train Loss: 0.030896
+  [refit] Epoch 30/57 | Train Loss: 0.027181
+  [refit] Epoch 40/57 | Train Loss: 0.029657
+  [refit] Epoch 50/57 | Train Loss: 0.025081
+  [refit] Epoch 57/57 | Train Loss: 0.024033
+\n--- Strategy: best_val, Seed: 42, Item: 918537, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014996 | Val Loss: 0.011030
+Epoch 20/1000 | Train Loss: 0.013301 | Val Loss: 0.011100
+Epoch 30/1000 | Train Loss: 0.012107 | Val Loss: 0.010948
+Epoch 40/1000 | Train Loss: 0.011556 | Val Loss: 0.010841
+Epoch 50/1000 | Train Loss: 0.011186 | Val Loss: 0.010831
+Epoch 60/1000 | Train Loss: 0.010700 | Val Loss: 0.010988
+Epoch 70/1000 | Train Loss: 0.010475 | Val Loss: 0.011156
+Epoch 80/1000 | Train Loss: 0.010248 | Val Loss: 0.011533
+Epoch 90/1000 | Train Loss: 0.009986 | Val Loss: 0.012076
+Epoch 100/1000 | Train Loss: 0.009719 | Val Loss: 0.012059
+Epoch 110/1000 | Train Loss: 0.009322 | Val Loss: 0.012716
+Epoch 120/1000 | Train Loss: 0.009088 | Val Loss: 0.012891
+Epoch 130/1000 | Train Loss: 0.009309 | Val Loss: 0.013685
+Epoch 140/1000 | Train Loss: 0.008913 | Val Loss: 0.013234
+Epoch 150/1000 | Train Loss: 0.008693 | Val Loss: 0.013295
+Early stopping at epoch 152 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 918537, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015498 | Val Loss: 0.011199
+Epoch 20/1000 | Train Loss: 0.014500 | Val Loss: 0.011074
+Epoch 30/1000 | Train Loss: 0.013779 | Val Loss: 0.011126
+Epoch 40/1000 | Train Loss: 0.013159 | Val Loss: 0.011063
+Epoch 50/1000 | Train Loss: 0.012640 | Val Loss: 0.010883
+Epoch 60/1000 | Train Loss: 0.012089 | Val Loss: 0.010728
+Epoch 70/1000 | Train Loss: 0.011858 | Val Loss: 0.010634
+Epoch 80/1000 | Train Loss: 0.011644 | Val Loss: 0.010577
+Epoch 90/1000 | Train Loss: 0.011459 | Val Loss: 0.010552
+Epoch 100/1000 | Train Loss: 0.011306 | Val Loss: 0.010547
+Epoch 110/1000 | Train Loss: 0.011069 | Val Loss: 0.010543
+Epoch 120/1000 | Train Loss: 0.011005 | Val Loss: 0.010561
+Epoch 130/1000 | Train Loss: 0.010943 | Val Loss: 0.010579
+Epoch 140/1000 | Train Loss: 0.010880 | Val Loss: 0.010599
+Epoch 150/1000 | Train Loss: 0.010811 | Val Loss: 0.010622
+Early stopping at epoch 151 due to no improvement in validation loss for 150 epochs.
+Epoch 1/1 | Combined Train Loss: 0.088986
+\n--- Strategy: expanding_window, Seed: 42, Item: 918537, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 84 epochs | mean val loss = 0.015507
+  [refit] Epoch 10/84 | Train Loss: 0.015122
+  [refit] Epoch 20/84 | Train Loss: 0.014166
+  [refit] Epoch 30/84 | Train Loss: 0.013309
+  [refit] Epoch 40/84 | Train Loss: 0.012691
+  [refit] Epoch 50/84 | Train Loss: 0.012258
+  [refit] Epoch 60/84 | Train Loss: 0.011886
+  [refit] Epoch 70/84 | Train Loss: 0.011491
+  [refit] Epoch 80/84 | Train Loss: 0.010834
+  [refit] Epoch 84/84 | Train Loss: 0.010518
+\n--- Strategy: sliding_window, Seed: 42, Item: 918537, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 61 epochs | mean val loss = 0.015823
+  [refit] Epoch 10/61 | Train Loss: 0.015794
+  [refit] Epoch 20/61 | Train Loss: 0.014867
+  [refit] Epoch 30/61 | Train Loss: 0.014047
+  [refit] Epoch 40/61 | Train Loss: 0.013154
+  [refit] Epoch 50/61 | Train Loss: 0.012238
+  [refit] Epoch 60/61 | Train Loss: 0.011384
+  [refit] Epoch 61/61 | Train Loss: 0.011286
+\n--- Strategy: best_val, Seed: 42, Item: 936693, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018224 | Val Loss: 0.017155
+Epoch 20/1000 | Train Loss: 0.017921 | Val Loss: 0.017191
+Epoch 30/1000 | Train Loss: 0.017617 | Val Loss: 0.017149
+Epoch 40/1000 | Train Loss: 0.017239 | Val Loss: 0.017121
+Epoch 50/1000 | Train Loss: 0.016719 | Val Loss: 0.017106
+Epoch 60/1000 | Train Loss: 0.015946 | Val Loss: 0.017174
+Epoch 70/1000 | Train Loss: 0.015694 | Val Loss: 0.017312
+Epoch 80/1000 | Train Loss: 0.015456 | Val Loss: 0.017493
+Epoch 90/1000 | Train Loss: 0.015244 | Val Loss: 0.017794
+Epoch 100/1000 | Train Loss: 0.015055 | Val Loss: 0.018120
+Epoch 110/1000 | Train Loss: 0.014773 | Val Loss: 0.018267
+Epoch 120/1000 | Train Loss: 0.014681 | Val Loss: 0.018397
+Epoch 130/1000 | Train Loss: 0.014591 | Val Loss: 0.018514
+Epoch 140/1000 | Train Loss: 0.014497 | Val Loss: 0.018636
+Epoch 150/1000 | Train Loss: 0.014393 | Val Loss: 0.018769
+Early stopping at epoch 155 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 42, Item: 936693, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018703 | Val Loss: 0.016813
+Epoch 20/1000 | Train Loss: 0.018241 | Val Loss: 0.017049
+Epoch 30/1000 | Train Loss: 0.018027 | Val Loss: 0.017122
+Epoch 40/1000 | Train Loss: 0.017824 | Val Loss: 0.017112
+Epoch 50/1000 | Train Loss: 0.017612 | Val Loss: 0.017090
+Epoch 60/1000 | Train Loss: 0.017204 | Val Loss: 0.017018
+Epoch 70/1000 | Train Loss: 0.016911 | Val Loss: 0.016999
+Epoch 80/1000 | Train Loss: 0.016782 | Val Loss: 0.016979
+Epoch 90/1000 | Train Loss: 0.016633 | Val Loss: 0.016949
+Epoch 100/1000 | Train Loss: 0.016467 | Val Loss: 0.016917
+Epoch 110/1000 | Train Loss: 0.016292 | Val Loss: 0.016902
+Epoch 120/1000 | Train Loss: 0.016041 | Val Loss: 0.016952
+Epoch 130/1000 | Train Loss: 0.015952 | Val Loss: 0.016961
+Epoch 140/1000 | Train Loss: 0.015863 | Val Loss: 0.016973
+Epoch 150/1000 | Train Loss: 0.015772 | Val Loss: 0.016987
+Early stopping at epoch 158 due to no improvement in validation loss for 150 epochs.
+Epoch 8/8 | Combined Train Loss: 0.019498
+\n--- Strategy: expanding_window, Seed: 42, Item: 936693, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 7 epochs | mean val loss = 0.019608
+  [refit] Epoch 7/7 | Train Loss: 0.019830
+\n--- Strategy: sliding_window, Seed: 42, Item: 936693, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 22 epochs | mean val loss = 0.019427
+  [refit] Epoch 10/22 | Train Loss: 0.021351
+  [refit] Epoch 20/22 | Train Loss: 0.019351
+  [refit] Epoch 22/22 | Train Loss: 0.019218
+\n--- Strategy: best_val, Seed: 1000, Item: 16920, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018352 | Val Loss: 0.021047
+Epoch 20/1000 | Train Loss: 0.017628 | Val Loss: 0.020833
+Epoch 30/1000 | Train Loss: 0.016520 | Val Loss: 0.023375
+Epoch 40/1000 | Train Loss: 0.015839 | Val Loss: 0.023474
+Epoch 50/1000 | Train Loss: 0.015387 | Val Loss: 0.027504
+Epoch 60/1000 | Train Loss: 0.016327 | Val Loss: 0.022086
+Epoch 70/1000 | Train Loss: 0.015203 | Val Loss: 0.022105
+Epoch 80/1000 | Train Loss: 0.015748 | Val Loss: 0.031536
+Epoch 90/1000 | Train Loss: 0.014499 | Val Loss: 0.024583
+Epoch 100/1000 | Train Loss: 0.015031 | Val Loss: 0.021876
+Epoch 110/1000 | Train Loss: 0.013522 | Val Loss: 0.024716
+Epoch 120/1000 | Train Loss: 0.013054 | Val Loss: 0.025448
+Epoch 130/1000 | Train Loss: 0.013131 | Val Loss: 0.027861
+Epoch 140/1000 | Train Loss: 0.012644 | Val Loss: 0.028194
+Epoch 150/1000 | Train Loss: 0.011997 | Val Loss: 0.027233
+Epoch 160/1000 | Train Loss: 0.011431 | Val Loss: 0.026876
+Epoch 170/1000 | Train Loss: 0.011152 | Val Loss: 0.026845
+Epoch 180/1000 | Train Loss: 0.010878 | Val Loss: 0.026868
+Epoch 190/1000 | Train Loss: 0.010562 | Val Loss: 0.027215
+Epoch 200/1000 | Train Loss: 0.010672 | Val Loss: 0.024416
+Early stopping at epoch 203 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 16920, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018214 | Val Loss: 0.020834
+Epoch 20/1000 | Train Loss: 0.017669 | Val Loss: 0.020399
+Epoch 30/1000 | Train Loss: 0.017154 | Val Loss: 0.020545
+Epoch 40/1000 | Train Loss: 0.016320 | Val Loss: 0.023615
+Epoch 50/1000 | Train Loss: 0.015908 | Val Loss: 0.022874
+Epoch 60/1000 | Train Loss: 0.015933 | Val Loss: 0.021885
+Epoch 70/1000 | Train Loss: 0.016205 | Val Loss: 0.022156
+Epoch 80/1000 | Train Loss: 0.014973 | Val Loss: 0.025636
+Epoch 90/1000 | Train Loss: 0.014699 | Val Loss: 0.027631
+Epoch 100/1000 | Train Loss: 0.014430 | Val Loss: 0.028600
+Epoch 110/1000 | Train Loss: 0.014244 | Val Loss: 0.037615
+Epoch 120/1000 | Train Loss: 0.013945 | Val Loss: 0.028495
+Epoch 130/1000 | Train Loss: 0.013568 | Val Loss: 0.029681
+Epoch 140/1000 | Train Loss: 0.013363 | Val Loss: 0.029919
+Epoch 150/1000 | Train Loss: 0.013163 | Val Loss: 0.029262
+Epoch 160/1000 | Train Loss: 0.013126 | Val Loss: 0.027871
+Epoch 170/1000 | Train Loss: 0.012897 | Val Loss: 0.027990
+Early stopping at epoch 173 due to no improvement in validation loss for 150 epochs.
+Epoch 10/23 | Combined Train Loss: 0.017617
+Epoch 20/23 | Combined Train Loss: 0.017147
+Epoch 23/23 | Combined Train Loss: 0.017031
+\n--- Strategy: expanding_window, Seed: 1000, Item: 16920, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 8 epochs | mean val loss = 0.020383
+  [refit] Epoch 8/8 | Train Loss: 0.017789
+\n--- Strategy: sliding_window, Seed: 1000, Item: 16920, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 12 epochs | mean val loss = 0.020229
+  [refit] Epoch 10/12 | Train Loss: 0.018259
+  [refit] Epoch 12/12 | Train Loss: 0.018018
+\n--- Strategy: best_val, Seed: 1000, Item: 26220, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.009207 | Val Loss: 0.003209
+Epoch 20/1000 | Train Loss: 0.008395 | Val Loss: 0.004650
+Epoch 30/1000 | Train Loss: 0.006533 | Val Loss: 0.003192
+Epoch 40/1000 | Train Loss: 0.006133 | Val Loss: 0.002920
+Epoch 50/1000 | Train Loss: 0.005930 | Val Loss: 0.002955
+Epoch 60/1000 | Train Loss: 0.006226 | Val Loss: 0.002620
+Epoch 70/1000 | Train Loss: 0.005170 | Val Loss: 0.002993
+Epoch 80/1000 | Train Loss: 0.005088 | Val Loss: 0.002764
+Epoch 90/1000 | Train Loss: 0.005035 | Val Loss: 0.002756
+Epoch 100/1000 | Train Loss: 0.004794 | Val Loss: 0.003164
+Epoch 110/1000 | Train Loss: 0.004152 | Val Loss: 0.002776
+Epoch 120/1000 | Train Loss: 0.003573 | Val Loss: 0.002991
+Epoch 130/1000 | Train Loss: 0.003319 | Val Loss: 0.002777
+Epoch 140/1000 | Train Loss: 0.002981 | Val Loss: 0.002858
+Epoch 150/1000 | Train Loss: 0.002785 | Val Loss: 0.002918
+Epoch 160/1000 | Train Loss: 0.002689 | Val Loss: 0.002988
+Epoch 170/1000 | Train Loss: 0.002611 | Val Loss: 0.003054
+Epoch 180/1000 | Train Loss: 0.002450 | Val Loss: 0.003175
+Epoch 190/1000 | Train Loss: 0.002406 | Val Loss: 0.003213
+Epoch 200/1000 | Train Loss: 0.002366 | Val Loss: 0.003316
+Epoch 210/1000 | Train Loss: 0.002333 | Val Loss: 0.003357
+Early stopping at epoch 218 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 26220, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010414 | Val Loss: 0.004407
+Epoch 20/1000 | Train Loss: 0.007622 | Val Loss: 0.003973
+Epoch 30/1000 | Train Loss: 0.007903 | Val Loss: 0.004826
+Epoch 40/1000 | Train Loss: 0.007989 | Val Loss: 0.005229
+Epoch 50/1000 | Train Loss: 0.006794 | Val Loss: 0.003614
+Epoch 60/1000 | Train Loss: 0.006507 | Val Loss: 0.003160
+Epoch 70/1000 | Train Loss: 0.005561 | Val Loss: 0.002676
+Epoch 80/1000 | Train Loss: 0.005903 | Val Loss: 0.003168
+Epoch 90/1000 | Train Loss: 0.005759 | Val Loss: 0.003541
+Epoch 100/1000 | Train Loss: 0.004743 | Val Loss: 0.002958
+Epoch 110/1000 | Train Loss: 0.004469 | Val Loss: 0.003607
+Epoch 120/1000 | Train Loss: 0.004228 | Val Loss: 0.002849
+Epoch 130/1000 | Train Loss: 0.003814 | Val Loss: 0.002903
+Epoch 140/1000 | Train Loss: 0.003987 | Val Loss: 0.002992
+Epoch 150/1000 | Train Loss: 0.003245 | Val Loss: 0.002802
+Epoch 160/1000 | Train Loss: 0.003139 | Val Loss: 0.002757
+Epoch 170/1000 | Train Loss: 0.003442 | Val Loss: 0.002829
+Epoch 180/1000 | Train Loss: 0.002926 | Val Loss: 0.002748
+Epoch 190/1000 | Train Loss: 0.002871 | Val Loss: 0.002870
+Epoch 200/1000 | Train Loss: 0.002716 | Val Loss: 0.002758
+Epoch 210/1000 | Train Loss: 0.002666 | Val Loss: 0.002774
+Epoch 220/1000 | Train Loss: 0.002619 | Val Loss: 0.002788
+Epoch 230/1000 | Train Loss: 0.002574 | Val Loss: 0.002798
+Early stopping at epoch 238 due to no improvement in validation loss for 150 epochs.
+Epoch 10/88 | Combined Train Loss: 0.009904
+Epoch 20/88 | Combined Train Loss: 0.007333
+Epoch 30/88 | Combined Train Loss: 0.006822
+Epoch 40/88 | Combined Train Loss: 0.006967
+Epoch 50/88 | Combined Train Loss: 0.006517
+Epoch 60/88 | Combined Train Loss: 0.005755
+Epoch 70/88 | Combined Train Loss: 0.005408
+Epoch 80/88 | Combined Train Loss: 0.005130
+Epoch 88/88 | Combined Train Loss: 0.004862
+\n--- Strategy: expanding_window, Seed: 1000, Item: 26220, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 143 epochs | mean val loss = 0.004671
+  [refit] Epoch 10/143 | Train Loss: 0.009790
+  [refit] Epoch 20/143 | Train Loss: 0.007246
+  [refit] Epoch 30/143 | Train Loss: 0.006300
+  [refit] Epoch 40/143 | Train Loss: 0.005894
+  [refit] Epoch 50/143 | Train Loss: 0.006339
+  [refit] Epoch 60/143 | Train Loss: 0.005480
+  [refit] Epoch 70/143 | Train Loss: 0.005215
+  [refit] Epoch 80/143 | Train Loss: 0.005191
+  [refit] Epoch 90/143 | Train Loss: 0.004947
+  [refit] Epoch 100/143 | Train Loss: 0.005604
+  [refit] Epoch 110/143 | Train Loss: 0.004532
+  [refit] Epoch 120/143 | Train Loss: 0.004282
+  [refit] Epoch 130/143 | Train Loss: 0.004093
+  [refit] Epoch 140/143 | Train Loss: 0.003626
+  [refit] Epoch 143/143 | Train Loss: 0.003484
+\n--- Strategy: sliding_window, Seed: 1000, Item: 26220, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 130 epochs | mean val loss = 0.004889
+  [refit] Epoch 10/130 | Train Loss: 0.013045
+  [refit] Epoch 20/130 | Train Loss: 0.017528
+  [refit] Epoch 30/130 | Train Loss: 0.010520
+  [refit] Epoch 40/130 | Train Loss: 0.009902
+  [refit] Epoch 50/130 | Train Loss: 0.009906
+  [refit] Epoch 60/130 | Train Loss: 0.007933
+  [refit] Epoch 70/130 | Train Loss: 0.009149
+  [refit] Epoch 80/130 | Train Loss: 0.007859
+  [refit] Epoch 90/130 | Train Loss: 0.008625
+  [refit] Epoch 100/130 | Train Loss: 0.006432
+  [refit] Epoch 110/130 | Train Loss: 0.006890
+  [refit] Epoch 120/130 | Train Loss: 0.005529
+  [refit] Epoch 130/130 | Train Loss: 0.005089
+\n--- Strategy: best_val, Seed: 1000, Item: 48375, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.009790 | Val Loss: 0.012262
+Epoch 20/1000 | Train Loss: 0.008308 | Val Loss: 0.008957
+Epoch 30/1000 | Train Loss: 0.007479 | Val Loss: 0.008068
+Epoch 40/1000 | Train Loss: 0.007034 | Val Loss: 0.007807
+Epoch 50/1000 | Train Loss: 0.006670 | Val Loss: 0.007598
+Epoch 60/1000 | Train Loss: 0.006228 | Val Loss: 0.007543
+Epoch 70/1000 | Train Loss: 0.005566 | Val Loss: 0.007833
+Epoch 80/1000 | Train Loss: 0.005559 | Val Loss: 0.007582
+Epoch 90/1000 | Train Loss: 0.004620 | Val Loss: 0.011435
+Epoch 100/1000 | Train Loss: 0.004585 | Val Loss: 0.009827
+Epoch 110/1000 | Train Loss: 0.003542 | Val Loss: 0.012312
+Epoch 120/1000 | Train Loss: 0.004257 | Val Loss: 0.008243
+Epoch 130/1000 | Train Loss: 0.002885 | Val Loss: 0.008540
+Epoch 140/1000 | Train Loss: 0.002330 | Val Loss: 0.006932
+Epoch 150/1000 | Train Loss: 0.003010 | Val Loss: 0.008261
+Epoch 160/1000 | Train Loss: 0.001651 | Val Loss: 0.006526
+Epoch 170/1000 | Train Loss: 0.001467 | Val Loss: 0.007911
+Epoch 180/1000 | Train Loss: 0.001502 | Val Loss: 0.008817
+Epoch 190/1000 | Train Loss: 0.001373 | Val Loss: 0.008786
+Epoch 200/1000 | Train Loss: 0.001282 | Val Loss: 0.008683
+Epoch 210/1000 | Train Loss: 0.001202 | Val Loss: 0.007661
+Epoch 220/1000 | Train Loss: 0.001108 | Val Loss: 0.008009
+Epoch 230/1000 | Train Loss: 0.001073 | Val Loss: 0.009026
+Epoch 240/1000 | Train Loss: 0.001070 | Val Loss: 0.009489
+Epoch 250/1000 | Train Loss: 0.001040 | Val Loss: 0.009524
+Early stopping at epoch 257 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 48375, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.009751 | Val Loss: 0.011579
+Epoch 20/1000 | Train Loss: 0.008553 | Val Loss: 0.009211
+Epoch 30/1000 | Train Loss: 0.007762 | Val Loss: 0.008096
+Epoch 40/1000 | Train Loss: 0.007338 | Val Loss: 0.007655
+Epoch 50/1000 | Train Loss: 0.007022 | Val Loss: 0.007454
+Epoch 60/1000 | Train Loss: 0.006694 | Val Loss: 0.007296
+Epoch 70/1000 | Train Loss: 0.006278 | Val Loss: 0.007220
+Epoch 80/1000 | Train Loss: 0.005730 | Val Loss: 0.007242
+Epoch 90/1000 | Train Loss: 0.005174 | Val Loss: 0.007231
+Epoch 100/1000 | Train Loss: 0.005660 | Val Loss: 0.007172
+Epoch 110/1000 | Train Loss: 0.005111 | Val Loss: 0.008175
+Epoch 120/1000 | Train Loss: 0.004996 | Val Loss: 0.007374
+Epoch 130/1000 | Train Loss: 0.004915 | Val Loss: 0.008240
+Epoch 140/1000 | Train Loss: 0.005075 | Val Loss: 0.007844
+Epoch 150/1000 | Train Loss: 0.004139 | Val Loss: 0.009604
+Epoch 160/1000 | Train Loss: 0.003777 | Val Loss: 0.009531
+Epoch 170/1000 | Train Loss: 0.003488 | Val Loss: 0.009740
+Epoch 180/1000 | Train Loss: 0.004526 | Val Loss: 0.009701
+Epoch 190/1000 | Train Loss: 0.003290 | Val Loss: 0.010084
+Epoch 200/1000 | Train Loss: 0.002872 | Val Loss: 0.010656
+Epoch 210/1000 | Train Loss: 0.002617 | Val Loss: 0.011057
+Epoch 220/1000 | Train Loss: 0.003526 | Val Loss: 0.014015
+Epoch 230/1000 | Train Loss: 0.002343 | Val Loss: 0.011520
+Epoch 240/1000 | Train Loss: 0.002198 | Val Loss: 0.011977
+Early stopping at epoch 249 due to no improvement in validation loss for 150 epochs.
+Epoch 10/99 | Combined Train Loss: 0.009080
+Epoch 20/99 | Combined Train Loss: 0.007791
+Epoch 30/99 | Combined Train Loss: 0.007123
+Epoch 40/99 | Combined Train Loss: 0.006845
+Epoch 50/99 | Combined Train Loss: 0.006424
+Epoch 60/99 | Combined Train Loss: 0.006147
+Epoch 70/99 | Combined Train Loss: 0.005846
+Epoch 80/99 | Combined Train Loss: 0.005742
+Epoch 90/99 | Combined Train Loss: 0.005244
+Epoch 99/99 | Combined Train Loss: 0.006184
+\n--- Strategy: expanding_window, Seed: 1000, Item: 48375, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 143 epochs | mean val loss = 0.005167
+  [refit] Epoch 10/143 | Train Loss: 0.009788
+  [refit] Epoch 20/143 | Train Loss: 0.008645
+  [refit] Epoch 30/143 | Train Loss: 0.007920
+  [refit] Epoch 40/143 | Train Loss: 0.007436
+  [refit] Epoch 50/143 | Train Loss: 0.007084
+  [refit] Epoch 60/143 | Train Loss: 0.006860
+  [refit] Epoch 70/143 | Train Loss: 0.006675
+  [refit] Epoch 80/143 | Train Loss: 0.006483
+  [refit] Epoch 90/143 | Train Loss: 0.006262
+  [refit] Epoch 100/143 | Train Loss: 0.006022
+  [refit] Epoch 110/143 | Train Loss: 0.005737
+  [refit] Epoch 120/143 | Train Loss: 0.005384
+  [refit] Epoch 130/143 | Train Loss: 0.006145
+  [refit] Epoch 140/143 | Train Loss: 0.005517
+  [refit] Epoch 143/143 | Train Loss: 0.005420
+\n--- Strategy: sliding_window, Seed: 1000, Item: 48375, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 104 epochs | mean val loss = 0.005141
+  [refit] Epoch 10/104 | Train Loss: 0.009409
+  [refit] Epoch 20/104 | Train Loss: 0.008168
+  [refit] Epoch 30/104 | Train Loss: 0.007348
+  [refit] Epoch 40/104 | Train Loss: 0.006865
+  [refit] Epoch 50/104 | Train Loss: 0.006501
+  [refit] Epoch 60/104 | Train Loss: 0.006160
+  [refit] Epoch 70/104 | Train Loss: 0.005824
+  [refit] Epoch 80/104 | Train Loss: 0.005908
+  [refit] Epoch 90/104 | Train Loss: 0.005554
+  [refit] Epoch 100/104 | Train Loss: 0.005551
+  [refit] Epoch 104/104 | Train Loss: 0.005336
+\n--- Strategy: best_val, Seed: 1000, Item: 213625, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.012458 | Val Loss: 0.010171
+Epoch 20/1000 | Train Loss: 0.011396 | Val Loss: 0.008864
+Epoch 30/1000 | Train Loss: 0.011007 | Val Loss: 0.008732
+Epoch 40/1000 | Train Loss: 0.010595 | Val Loss: 0.008750
+Epoch 50/1000 | Train Loss: 0.010232 | Val Loss: 0.008765
+Epoch 60/1000 | Train Loss: 0.009918 | Val Loss: 0.008745
+Epoch 70/1000 | Train Loss: 0.009628 | Val Loss: 0.008752
+Epoch 80/1000 | Train Loss: 0.009388 | Val Loss: 0.008737
+Epoch 90/1000 | Train Loss: 0.009112 | Val Loss: 0.008742
+Epoch 100/1000 | Train Loss: 0.008992 | Val Loss: 0.008717
+Epoch 110/1000 | Train Loss: 0.008864 | Val Loss: 0.008682
+Epoch 120/1000 | Train Loss: 0.008735 | Val Loss: 0.008691
+Epoch 130/1000 | Train Loss: 0.009051 | Val Loss: 0.008237
+Epoch 140/1000 | Train Loss: 0.008639 | Val Loss: 0.008169
+Epoch 150/1000 | Train Loss: 0.008433 | Val Loss: 0.008702
+Epoch 160/1000 | Train Loss: 0.008662 | Val Loss: 0.008158
+Epoch 170/1000 | Train Loss: 0.008221 | Val Loss: 0.008577
+Epoch 180/1000 | Train Loss: 0.007886 | Val Loss: 0.008787
+Epoch 190/1000 | Train Loss: 0.007800 | Val Loss: 0.008723
+Epoch 200/1000 | Train Loss: 0.007707 | Val Loss: 0.008740
+Epoch 210/1000 | Train Loss: 0.007612 | Val Loss: 0.008766
+Epoch 220/1000 | Train Loss: 0.007521 | Val Loss: 0.008794
+Epoch 230/1000 | Train Loss: 0.007394 | Val Loss: 0.008757
+Epoch 240/1000 | Train Loss: 0.007339 | Val Loss: 0.008799
+Epoch 250/1000 | Train Loss: 0.007294 | Val Loss: 0.008818
+Epoch 260/1000 | Train Loss: 0.007248 | Val Loss: 0.008835
+Epoch 270/1000 | Train Loss: 0.007203 | Val Loss: 0.008848
+Early stopping at epoch 277 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 213625, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.012595 | Val Loss: 0.009575
+Epoch 20/1000 | Train Loss: 0.011478 | Val Loss: 0.008217
+Epoch 30/1000 | Train Loss: 0.010940 | Val Loss: 0.008161
+Epoch 40/1000 | Train Loss: 0.010152 | Val Loss: 0.008978
+Epoch 50/1000 | Train Loss: 0.010501 | Val Loss: 0.008693
+Epoch 60/1000 | Train Loss: 0.009459 | Val Loss: 0.009285
+Epoch 70/1000 | Train Loss: 0.009267 | Val Loss: 0.009459
+Epoch 80/1000 | Train Loss: 0.009017 | Val Loss: 0.009599
+Epoch 90/1000 | Train Loss: 0.008832 | Val Loss: 0.009223
+Epoch 100/1000 | Train Loss: 0.008677 | Val Loss: 0.008705
+Epoch 110/1000 | Train Loss: 0.008435 | Val Loss: 0.008991
+Epoch 120/1000 | Train Loss: 0.008314 | Val Loss: 0.008987
+Epoch 130/1000 | Train Loss: 0.008220 | Val Loss: 0.008552
+Epoch 140/1000 | Train Loss: 0.008123 | Val Loss: 0.009038
+Epoch 150/1000 | Train Loss: 0.008215 | Val Loss: 0.009698
+Epoch 160/1000 | Train Loss: 0.008014 | Val Loss: 0.009701
+Epoch 170/1000 | Train Loss: 0.007909 | Val Loss: 0.011293
+Epoch 180/1000 | Train Loss: 0.007890 | Val Loss: 0.007522
+Epoch 190/1000 | Train Loss: 0.007793 | Val Loss: 0.007417
+Epoch 200/1000 | Train Loss: 0.008074 | Val Loss: 0.007493
+Epoch 210/1000 | Train Loss: 0.007893 | Val Loss: 0.008628
+Epoch 220/1000 | Train Loss: 0.007520 | Val Loss: 0.010176
+Epoch 230/1000 | Train Loss: 0.007435 | Val Loss: 0.008176
+Epoch 240/1000 | Train Loss: 0.007234 | Val Loss: 0.007641
+Epoch 250/1000 | Train Loss: 0.007037 | Val Loss: 0.008785
+Epoch 260/1000 | Train Loss: 0.006923 | Val Loss: 0.008810
+Epoch 270/1000 | Train Loss: 0.006602 | Val Loss: 0.008365
+Epoch 280/1000 | Train Loss: 0.006464 | Val Loss: 0.008463
+Epoch 290/1000 | Train Loss: 0.006572 | Val Loss: 0.008813
+Epoch 300/1000 | Train Loss: 0.006295 | Val Loss: 0.008681
+Epoch 310/1000 | Train Loss: 0.006202 | Val Loss: 0.008910
+Epoch 320/1000 | Train Loss: 0.006023 | Val Loss: 0.009147
+Epoch 330/1000 | Train Loss: 0.005954 | Val Loss: 0.009228
+Epoch 340/1000 | Train Loss: 0.005896 | Val Loss: 0.009310
+Epoch 350/1000 | Train Loss: 0.005839 | Val Loss: 0.009411
+Epoch 360/1000 | Train Loss: 0.005854 | Val Loss: 0.009650
+Early stopping at epoch 366 due to no improvement in validation loss for 150 epochs.
+Epoch 10/216 | Combined Train Loss: 0.011648
+Epoch 20/216 | Combined Train Loss: 0.010827
+Epoch 30/216 | Combined Train Loss: 0.010329
+Epoch 40/216 | Combined Train Loss: 0.009678
+Epoch 50/216 | Combined Train Loss: 0.009388
+Epoch 60/216 | Combined Train Loss: 0.009318
+Epoch 70/216 | Combined Train Loss: 0.009215
+Epoch 80/216 | Combined Train Loss: 0.008998
+Epoch 90/216 | Combined Train Loss: 0.008834
+Epoch 100/216 | Combined Train Loss: 0.008612
+Epoch 110/216 | Combined Train Loss: 0.008372
+Epoch 120/216 | Combined Train Loss: 0.008021
+Epoch 130/216 | Combined Train Loss: 0.007779
+Epoch 140/216 | Combined Train Loss: 0.007533
+Epoch 150/216 | Combined Train Loss: 0.007598
+Epoch 160/216 | Combined Train Loss: 0.007276
+Epoch 170/216 | Combined Train Loss: 0.007087
+Epoch 180/216 | Combined Train Loss: 0.006754
+Epoch 190/216 | Combined Train Loss: 0.007401
+Epoch 200/216 | Combined Train Loss: 0.006279
+Epoch 210/216 | Combined Train Loss: 0.006628
+Epoch 216/216 | Combined Train Loss: 0.006036
+\n--- Strategy: expanding_window, Seed: 1000, Item: 213625, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 86 epochs | mean val loss = 0.010781
+  [refit] Epoch 10/86 | Train Loss: 0.011614
+  [refit] Epoch 20/86 | Train Loss: 0.011042
+  [refit] Epoch 30/86 | Train Loss: 0.010840
+  [refit] Epoch 40/86 | Train Loss: 0.010588
+  [refit] Epoch 50/86 | Train Loss: 0.010171
+  [refit] Epoch 60/86 | Train Loss: 0.009689
+  [refit] Epoch 70/86 | Train Loss: 0.009506
+  [refit] Epoch 80/86 | Train Loss: 0.009323
+  [refit] Epoch 86/86 | Train Loss: 0.009219
+\n--- Strategy: sliding_window, Seed: 1000, Item: 213625, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 58 epochs | mean val loss = 0.011329
+  [refit] Epoch 10/58 | Train Loss: 0.014946
+  [refit] Epoch 20/58 | Train Loss: 0.012499
+  [refit] Epoch 30/58 | Train Loss: 0.012043
+  [refit] Epoch 40/58 | Train Loss: 0.011744
+  [refit] Epoch 50/58 | Train Loss: 0.011432
+  [refit] Epoch 58/58 | Train Loss: 0.011095
+\n--- Strategy: best_val, Seed: 1000, Item: 213631, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014401 | Val Loss: 0.007861
+Epoch 20/1000 | Train Loss: 0.013837 | Val Loss: 0.007872
+Epoch 30/1000 | Train Loss: 0.013493 | Val Loss: 0.007986
+Epoch 40/1000 | Train Loss: 0.013152 | Val Loss: 0.008189
+Epoch 50/1000 | Train Loss: 0.012848 | Val Loss: 0.008553
+Epoch 60/1000 | Train Loss: 0.012607 | Val Loss: 0.008970
+Epoch 70/1000 | Train Loss: 0.012300 | Val Loss: 0.009000
+Epoch 80/1000 | Train Loss: 0.012214 | Val Loss: 0.009194
+Epoch 90/1000 | Train Loss: 0.012131 | Val Loss: 0.009363
+Epoch 100/1000 | Train Loss: 0.012040 | Val Loss: 0.009550
+Epoch 110/1000 | Train Loss: 0.011933 | Val Loss: 0.009779
+Epoch 120/1000 | Train Loss: 0.011755 | Val Loss: 0.009797
+Epoch 130/1000 | Train Loss: 0.011684 | Val Loss: 0.009962
+Epoch 140/1000 | Train Loss: 0.011606 | Val Loss: 0.010126
+Epoch 150/1000 | Train Loss: 0.011521 | Val Loss: 0.010296
+Epoch 160/1000 | Train Loss: 0.011424 | Val Loss: 0.010449
+Early stopping at epoch 163 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 213631, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015481 | Val Loss: 0.008139
+Epoch 20/1000 | Train Loss: 0.014302 | Val Loss: 0.007811
+Epoch 30/1000 | Train Loss: 0.014056 | Val Loss: 0.007865
+Epoch 40/1000 | Train Loss: 0.013896 | Val Loss: 0.007891
+Epoch 50/1000 | Train Loss: 0.013732 | Val Loss: 0.007915
+Epoch 60/1000 | Train Loss: 0.013527 | Val Loss: 0.007956
+Epoch 70/1000 | Train Loss: 0.013160 | Val Loss: 0.008120
+Epoch 80/1000 | Train Loss: 0.013034 | Val Loss: 0.008180
+Epoch 90/1000 | Train Loss: 0.012919 | Val Loss: 0.008279
+Epoch 100/1000 | Train Loss: 0.012811 | Val Loss: 0.008389
+Epoch 110/1000 | Train Loss: 0.012709 | Val Loss: 0.008506
+Epoch 120/1000 | Train Loss: 0.012613 | Val Loss: 0.008630
+Epoch 130/1000 | Train Loss: 0.012470 | Val Loss: 0.008448
+Epoch 140/1000 | Train Loss: 0.012425 | Val Loss: 0.008514
+Epoch 150/1000 | Train Loss: 0.012383 | Val Loss: 0.008573
+Epoch 160/1000 | Train Loss: 0.012342 | Val Loss: 0.008629
+Early stopping at epoch 168 due to no improvement in validation loss for 150 epochs.
+Epoch 10/18 | Combined Train Loss: 0.014158
+Epoch 18/18 | Combined Train Loss: 0.013416
+\n--- Strategy: expanding_window, Seed: 1000, Item: 213631, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 30 epochs | mean val loss = 0.011216
+  [refit] Epoch 10/30 | Train Loss: 0.013605
+  [refit] Epoch 20/30 | Train Loss: 0.013106
+  [refit] Epoch 30/30 | Train Loss: 0.012805
+\n--- Strategy: sliding_window, Seed: 1000, Item: 213631, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 18 epochs | mean val loss = 0.011011
+  [refit] Epoch 10/18 | Train Loss: 0.014453
+  [refit] Epoch 18/18 | Train Loss: 0.013638
+\n--- Strategy: best_val, Seed: 1000, Item: 538923, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014479 | Val Loss: 0.015332
+Epoch 20/1000 | Train Loss: 0.014072 | Val Loss: 0.015056
+Epoch 30/1000 | Train Loss: 0.013801 | Val Loss: 0.014979
+Epoch 40/1000 | Train Loss: 0.013541 | Val Loss: 0.014956
+Epoch 50/1000 | Train Loss: 0.013275 | Val Loss: 0.014999
+Epoch 60/1000 | Train Loss: 0.013000 | Val Loss: 0.015171
+Epoch 70/1000 | Train Loss: 0.012822 | Val Loss: 0.015471
+Epoch 80/1000 | Train Loss: 0.012214 | Val Loss: 0.016273
+Epoch 90/1000 | Train Loss: 0.012546 | Val Loss: 0.015321
+Epoch 100/1000 | Train Loss: 0.011660 | Val Loss: 0.016423
+Epoch 110/1000 | Train Loss: 0.011365 | Val Loss: 0.016433
+Epoch 120/1000 | Train Loss: 0.011153 | Val Loss: 0.016352
+Epoch 130/1000 | Train Loss: 0.010987 | Val Loss: 0.016254
+Epoch 140/1000 | Train Loss: 0.010698 | Val Loss: 0.016588
+Epoch 150/1000 | Train Loss: 0.010434 | Val Loss: 0.016292
+Epoch 160/1000 | Train Loss: 0.010279 | Val Loss: 0.016279
+Epoch 170/1000 | Train Loss: 0.010163 | Val Loss: 0.016240
+Epoch 180/1000 | Train Loss: 0.010000 | Val Loss: 0.015994
+Early stopping at epoch 190 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 538923, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.016457 | Val Loss: 0.016166
+Epoch 20/1000 | Train Loss: 0.014646 | Val Loss: 0.015366
+Epoch 30/1000 | Train Loss: 0.014291 | Val Loss: 0.015146
+Epoch 40/1000 | Train Loss: 0.014090 | Val Loss: 0.015024
+Epoch 50/1000 | Train Loss: 0.013913 | Val Loss: 0.015003
+Epoch 60/1000 | Train Loss: 0.013733 | Val Loss: 0.015036
+Epoch 70/1000 | Train Loss: 0.013543 | Val Loss: 0.015074
+Epoch 80/1000 | Train Loss: 0.013362 | Val Loss: 0.015036
+Epoch 90/1000 | Train Loss: 0.013146 | Val Loss: 0.015183
+Epoch 100/1000 | Train Loss: 0.012776 | Val Loss: 0.015174
+Epoch 110/1000 | Train Loss: 0.012639 | Val Loss: 0.015248
+Epoch 120/1000 | Train Loss: 0.012489 | Val Loss: 0.015293
+Epoch 130/1000 | Train Loss: 0.012331 | Val Loss: 0.015376
+Epoch 140/1000 | Train Loss: 0.012178 | Val Loss: 0.015515
+Epoch 150/1000 | Train Loss: 0.011987 | Val Loss: 0.015428
+Epoch 160/1000 | Train Loss: 0.011913 | Val Loss: 0.015527
+Epoch 170/1000 | Train Loss: 0.011840 | Val Loss: 0.015533
+Epoch 180/1000 | Train Loss: 0.011767 | Val Loss: 0.015517
+Epoch 190/1000 | Train Loss: 0.011692 | Val Loss: 0.015482
+Early stopping at epoch 198 due to no improvement in validation loss for 150 epochs.
+Epoch 10/48 | Combined Train Loss: 0.020438
+Epoch 20/48 | Combined Train Loss: 0.018787
+Epoch 30/48 | Combined Train Loss: 0.018191
+Epoch 40/48 | Combined Train Loss: 0.017679
+Epoch 48/48 | Combined Train Loss: 0.017292
+\n--- Strategy: expanding_window, Seed: 1000, Item: 538923, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 48 epochs | mean val loss = 0.025065
+  [refit] Epoch 10/48 | Train Loss: 0.018824
+  [refit] Epoch 20/48 | Train Loss: 0.017562
+  [refit] Epoch 30/48 | Train Loss: 0.016607
+  [refit] Epoch 40/48 | Train Loss: 0.015774
+  [refit] Epoch 48/48 | Train Loss: 0.015142
+\n--- Strategy: sliding_window, Seed: 1000, Item: 538923, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 26 epochs | mean val loss = 0.025148
+  [refit] Epoch 10/26 | Train Loss: 0.021984
+  [refit] Epoch 20/26 | Train Loss: 0.019976
+  [refit] Epoch 26/26 | Train Loss: 0.019039
+\n--- Strategy: best_val, Seed: 1000, Item: 606214, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.022705 | Val Loss: 0.014529
+Epoch 20/1000 | Train Loss: 0.021305 | Val Loss: 0.011809
+Epoch 30/1000 | Train Loss: 0.020797 | Val Loss: 0.011385
+Epoch 40/1000 | Train Loss: 0.020165 | Val Loss: 0.011147
+Epoch 50/1000 | Train Loss: 0.019494 | Val Loss: 0.010925
+Epoch 60/1000 | Train Loss: 0.018949 | Val Loss: 0.011030
+Epoch 70/1000 | Train Loss: 0.018347 | Val Loss: 0.011302
+Epoch 80/1000 | Train Loss: 0.017609 | Val Loss: 0.011707
+Epoch 90/1000 | Train Loss: 0.020624 | Val Loss: 0.012515
+Epoch 100/1000 | Train Loss: 0.016980 | Val Loss: 0.012312
+Epoch 110/1000 | Train Loss: 0.016310 | Val Loss: 0.012764
+Epoch 120/1000 | Train Loss: 0.015911 | Val Loss: 0.013336
+Epoch 130/1000 | Train Loss: 0.015940 | Val Loss: 0.013024
+Epoch 140/1000 | Train Loss: 0.015711 | Val Loss: 0.013443
+Epoch 150/1000 | Train Loss: 0.015395 | Val Loss: 0.013628
+Epoch 160/1000 | Train Loss: 0.014904 | Val Loss: 0.014319
+Epoch 170/1000 | Train Loss: 0.014716 | Val Loss: 0.014521
+Epoch 180/1000 | Train Loss: 0.014891 | Val Loss: 0.014764
+Epoch 190/1000 | Train Loss: 0.014642 | Val Loss: 0.015023
+Early stopping at epoch 200 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 606214, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.021912 | Val Loss: 0.012987
+Epoch 20/1000 | Train Loss: 0.021104 | Val Loss: 0.011258
+Epoch 30/1000 | Train Loss: 0.020764 | Val Loss: 0.011080
+Epoch 40/1000 | Train Loss: 0.020365 | Val Loss: 0.011044
+Epoch 50/1000 | Train Loss: 0.019838 | Val Loss: 0.011059
+Epoch 60/1000 | Train Loss: 0.019055 | Val Loss: 0.010988
+Epoch 70/1000 | Train Loss: 0.018353 | Val Loss: 0.011133
+Epoch 80/1000 | Train Loss: 0.017861 | Val Loss: 0.011569
+Epoch 90/1000 | Train Loss: 0.017327 | Val Loss: 0.012343
+Epoch 100/1000 | Train Loss: 0.018133 | Val Loss: 0.013404
+Epoch 110/1000 | Train Loss: 0.016676 | Val Loss: 0.013932
+Epoch 120/1000 | Train Loss: 0.015720 | Val Loss: 0.014571
+Epoch 130/1000 | Train Loss: 0.015453 | Val Loss: 0.015296
+Epoch 140/1000 | Train Loss: 0.015149 | Val Loss: 0.016203
+Epoch 150/1000 | Train Loss: 0.014820 | Val Loss: 0.017189
+Epoch 160/1000 | Train Loss: 0.014517 | Val Loss: 0.018242
+Epoch 170/1000 | Train Loss: 0.014127 | Val Loss: 0.020049
+Epoch 180/1000 | Train Loss: 0.013973 | Val Loss: 0.021201
+Epoch 190/1000 | Train Loss: 0.013828 | Val Loss: 0.022096
+Epoch 200/1000 | Train Loss: 0.013686 | Val Loss: 0.022847
+Epoch 210/1000 | Train Loss: 0.013543 | Val Loss: 0.023538
+Early stopping at epoch 212 due to no improvement in validation loss for 150 epochs.
+Epoch 10/62 | Combined Train Loss: 0.022249
+Epoch 20/62 | Combined Train Loss: 0.021547
+Epoch 30/62 | Combined Train Loss: 0.021198
+Epoch 40/62 | Combined Train Loss: 0.020803
+Epoch 50/62 | Combined Train Loss: 0.020257
+Epoch 60/62 | Combined Train Loss: 0.019427
+Epoch 62/62 | Combined Train Loss: 0.019254
+\n--- Strategy: expanding_window, Seed: 1000, Item: 606214, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 54 epochs | mean val loss = 0.018065
+  [refit] Epoch 10/54 | Train Loss: 0.022205
+  [refit] Epoch 20/54 | Train Loss: 0.021162
+  [refit] Epoch 30/54 | Train Loss: 0.020667
+  [refit] Epoch 40/54 | Train Loss: 0.019612
+  [refit] Epoch 50/54 | Train Loss: 0.021274
+  [refit] Epoch 54/54 | Train Loss: 0.019386
+\n--- Strategy: sliding_window, Seed: 1000, Item: 606214, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 29 epochs | mean val loss = 0.018395
+  [refit] Epoch 10/29 | Train Loss: 0.024910
+  [refit] Epoch 20/29 | Train Loss: 0.022643
+  [refit] Epoch 29/29 | Train Loss: 0.022061
+\n--- Strategy: best_val, Seed: 1000, Item: 907970, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.023165 | Val Loss: 0.066144
+Epoch 20/1000 | Train Loss: 0.020872 | Val Loss: 0.062220
+Epoch 30/1000 | Train Loss: 0.019463 | Val Loss: 0.057441
+Epoch 40/1000 | Train Loss: 0.017928 | Val Loss: 0.050732
+Epoch 50/1000 | Train Loss: 0.016652 | Val Loss: 0.046834
+Epoch 60/1000 | Train Loss: 0.015293 | Val Loss: 0.048126
+Epoch 70/1000 | Train Loss: 0.015774 | Val Loss: 0.050010
+Epoch 80/1000 | Train Loss: 0.014468 | Val Loss: 0.051698
+Epoch 90/1000 | Train Loss: 0.013767 | Val Loss: 0.048924
+Epoch 100/1000 | Train Loss: 0.013156 | Val Loss: 0.049943
+Epoch 110/1000 | Train Loss: 0.012367 | Val Loss: 0.053243
+Epoch 120/1000 | Train Loss: 0.012879 | Val Loss: 0.051666
+Epoch 130/1000 | Train Loss: 0.011931 | Val Loss: 0.051794
+Epoch 140/1000 | Train Loss: 0.012957 | Val Loss: 0.059533
+Epoch 150/1000 | Train Loss: 0.012710 | Val Loss: 0.054101
+Epoch 160/1000 | Train Loss: 0.011074 | Val Loss: 0.056552
+Epoch 170/1000 | Train Loss: 0.010786 | Val Loss: 0.057573
+Epoch 180/1000 | Train Loss: 0.010566 | Val Loss: 0.059128
+Epoch 190/1000 | Train Loss: 0.010311 | Val Loss: 0.060610
+Epoch 200/1000 | Train Loss: 0.010443 | Val Loss: 0.061164
+Early stopping at epoch 205 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 907970, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.023291 | Val Loss: 0.069527
+Epoch 20/1000 | Train Loss: 0.021339 | Val Loss: 0.063648
+Epoch 30/1000 | Train Loss: 0.020359 | Val Loss: 0.057524
+Epoch 40/1000 | Train Loss: 0.018836 | Val Loss: 0.046958
+Epoch 50/1000 | Train Loss: 0.017389 | Val Loss: 0.045007
+Epoch 60/1000 | Train Loss: 0.017112 | Val Loss: 0.042916
+Epoch 70/1000 | Train Loss: 0.015997 | Val Loss: 0.043421
+Epoch 80/1000 | Train Loss: 0.014928 | Val Loss: 0.046023
+Epoch 90/1000 | Train Loss: 0.014573 | Val Loss: 0.048482
+Epoch 100/1000 | Train Loss: 0.014544 | Val Loss: 0.049349
+Epoch 110/1000 | Train Loss: 0.014646 | Val Loss: 0.050976
+Epoch 120/1000 | Train Loss: 0.013911 | Val Loss: 0.051330
+Epoch 130/1000 | Train Loss: 0.013645 | Val Loss: 0.052594
+Epoch 140/1000 | Train Loss: 0.013488 | Val Loss: 0.053497
+Epoch 150/1000 | Train Loss: 0.012792 | Val Loss: 0.055016
+Epoch 160/1000 | Train Loss: 0.013739 | Val Loss: 0.056972
+Epoch 170/1000 | Train Loss: 0.011940 | Val Loss: 0.058188
+Epoch 180/1000 | Train Loss: 0.011689 | Val Loss: 0.059734
+Epoch 190/1000 | Train Loss: 0.011614 | Val Loss: 0.062016
+Epoch 200/1000 | Train Loss: 0.011483 | Val Loss: 0.063770
+Early stopping at epoch 210 due to no improvement in validation loss for 150 epochs.
+Epoch 10/60 | Combined Train Loss: 0.027643
+Epoch 20/60 | Combined Train Loss: 0.022941
+Epoch 30/60 | Combined Train Loss: 0.020514
+Epoch 40/60 | Combined Train Loss: 0.019157
+Epoch 50/60 | Combined Train Loss: 0.018434
+Epoch 60/60 | Combined Train Loss: 0.017874
+\n--- Strategy: expanding_window, Seed: 1000, Item: 907970, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 52 epochs | mean val loss = 0.033419
+  [refit] Epoch 10/52 | Train Loss: 0.026750
+  [refit] Epoch 20/52 | Train Loss: 0.021360
+  [refit] Epoch 30/52 | Train Loss: 0.018894
+  [refit] Epoch 40/52 | Train Loss: 0.018170
+  [refit] Epoch 50/52 | Train Loss: 0.017691
+  [refit] Epoch 52/52 | Train Loss: 0.018482
+\n--- Strategy: sliding_window, Seed: 1000, Item: 907970, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 125 epochs | mean val loss = 0.043113
+  [refit] Epoch 10/125 | Train Loss: 0.037039
+  [refit] Epoch 20/125 | Train Loss: 0.033781
+  [refit] Epoch 30/125 | Train Loss: 0.029468
+  [refit] Epoch 40/125 | Train Loss: 0.026414
+  [refit] Epoch 50/125 | Train Loss: 0.025808
+  [refit] Epoch 60/125 | Train Loss: 0.024203
+  [refit] Epoch 70/125 | Train Loss: 0.027939
+  [refit] Epoch 80/125 | Train Loss: 0.024335
+  [refit] Epoch 90/125 | Train Loss: 0.021233
+  [refit] Epoch 100/125 | Train Loss: 0.019795
+  [refit] Epoch 110/125 | Train Loss: 0.018166
+  [refit] Epoch 120/125 | Train Loss: 0.017737
+  [refit] Epoch 125/125 | Train Loss: 0.017034
+\n--- Strategy: best_val, Seed: 1000, Item: 918537, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015573 | Val Loss: 0.010577
+Epoch 20/1000 | Train Loss: 0.014400 | Val Loss: 0.011059
+Epoch 30/1000 | Train Loss: 0.013426 | Val Loss: 0.011186
+Epoch 40/1000 | Train Loss: 0.012506 | Val Loss: 0.011095
+Epoch 50/1000 | Train Loss: 0.011861 | Val Loss: 0.011048
+Epoch 60/1000 | Train Loss: 0.011419 | Val Loss: 0.011116
+Epoch 70/1000 | Train Loss: 0.011308 | Val Loss: 0.011130
+Epoch 80/1000 | Train Loss: 0.011217 | Val Loss: 0.011135
+Epoch 90/1000 | Train Loss: 0.011129 | Val Loss: 0.011146
+Epoch 100/1000 | Train Loss: 0.011024 | Val Loss: 0.011173
+Epoch 110/1000 | Train Loss: 0.010785 | Val Loss: 0.011271
+Epoch 120/1000 | Train Loss: 0.010580 | Val Loss: 0.011336
+Epoch 130/1000 | Train Loss: 0.010362 | Val Loss: 0.011320
+Epoch 140/1000 | Train Loss: 0.010354 | Val Loss: 0.011592
+Epoch 150/1000 | Train Loss: 0.009980 | Val Loss: 0.011477
+Early stopping at epoch 153 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 918537, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015511 | Val Loss: 0.010810
+Epoch 20/1000 | Train Loss: 0.014131 | Val Loss: 0.011259
+Epoch 30/1000 | Train Loss: 0.013027 | Val Loss: 0.011320
+Epoch 40/1000 | Train Loss: 0.012147 | Val Loss: 0.011275
+Epoch 50/1000 | Train Loss: 0.011695 | Val Loss: 0.011199
+Epoch 60/1000 | Train Loss: 0.011214 | Val Loss: 0.011239
+Epoch 70/1000 | Train Loss: 0.010967 | Val Loss: 0.011252
+Epoch 80/1000 | Train Loss: 0.010760 | Val Loss: 0.011289
+Epoch 90/1000 | Train Loss: 0.010530 | Val Loss: 0.011340
+Epoch 100/1000 | Train Loss: 0.010383 | Val Loss: 0.011435
+Epoch 110/1000 | Train Loss: 0.009965 | Val Loss: 0.011299
+Epoch 120/1000 | Train Loss: 0.009694 | Val Loss: 0.011449
+Epoch 130/1000 | Train Loss: 0.009504 | Val Loss: 0.011560
+Epoch 140/1000 | Train Loss: 0.009307 | Val Loss: 0.011677
+Epoch 150/1000 | Train Loss: 0.009090 | Val Loss: 0.011795
+Early stopping at epoch 158 due to no improvement in validation loss for 150 epochs.
+Epoch 8/8 | Combined Train Loss: 0.015677
+\n--- Strategy: expanding_window, Seed: 1000, Item: 918537, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 28 epochs | mean val loss = 0.015653
+  [refit] Epoch 10/28 | Train Loss: 0.014701
+  [refit] Epoch 20/28 | Train Loss: 0.013514
+  [refit] Epoch 28/28 | Train Loss: 0.012874
+\n--- Strategy: sliding_window, Seed: 1000, Item: 918537, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 63 epochs | mean val loss = 0.015861
+  [refit] Epoch 10/63 | Train Loss: 0.015870
+  [refit] Epoch 20/63 | Train Loss: 0.015266
+  [refit] Epoch 30/63 | Train Loss: 0.014655
+  [refit] Epoch 40/63 | Train Loss: 0.013888
+  [refit] Epoch 50/63 | Train Loss: 0.012908
+  [refit] Epoch 60/63 | Train Loss: 0.011957
+  [refit] Epoch 63/63 | Train Loss: 0.011717
+\n--- Strategy: best_val, Seed: 1000, Item: 936693, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018188 | Val Loss: 0.017230
+Epoch 20/1000 | Train Loss: 0.017809 | Val Loss: 0.017525
+Epoch 30/1000 | Train Loss: 0.017446 | Val Loss: 0.017383
+Epoch 40/1000 | Train Loss: 0.016828 | Val Loss: 0.017097
+Epoch 50/1000 | Train Loss: 0.016160 | Val Loss: 0.017070
+Epoch 60/1000 | Train Loss: 0.015571 | Val Loss: 0.017251
+Epoch 70/1000 | Train Loss: 0.015338 | Val Loss: 0.017375
+Epoch 80/1000 | Train Loss: 0.015176 | Val Loss: 0.017590
+Epoch 90/1000 | Train Loss: 0.015028 | Val Loss: 0.017831
+Epoch 100/1000 | Train Loss: 0.014876 | Val Loss: 0.018089
+Epoch 110/1000 | Train Loss: 0.014609 | Val Loss: 0.018305
+Epoch 120/1000 | Train Loss: 0.014479 | Val Loss: 0.018436
+Epoch 130/1000 | Train Loss: 0.014446 | Val Loss: 0.018412
+Epoch 140/1000 | Train Loss: 0.014309 | Val Loss: 0.018689
+Epoch 150/1000 | Train Loss: 0.014251 | Val Loss: 0.018697
+Early stopping at epoch 154 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 1000, Item: 936693, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018868 | Val Loss: 0.017704
+Epoch 20/1000 | Train Loss: 0.018454 | Val Loss: 0.018108
+Epoch 30/1000 | Train Loss: 0.018208 | Val Loss: 0.018132
+Epoch 40/1000 | Train Loss: 0.017949 | Val Loss: 0.018065
+Epoch 50/1000 | Train Loss: 0.017634 | Val Loss: 0.017966
+Epoch 60/1000 | Train Loss: 0.016882 | Val Loss: 0.017609
+Epoch 70/1000 | Train Loss: 0.016725 | Val Loss: 0.017590
+Epoch 80/1000 | Train Loss: 0.016539 | Val Loss: 0.017559
+Epoch 90/1000 | Train Loss: 0.016352 | Val Loss: 0.017521
+Epoch 100/1000 | Train Loss: 0.016163 | Val Loss: 0.017476
+Epoch 110/1000 | Train Loss: 0.015977 | Val Loss: 0.017440
+Epoch 120/1000 | Train Loss: 0.015800 | Val Loss: 0.017454
+Epoch 130/1000 | Train Loss: 0.015634 | Val Loss: 0.017544
+Epoch 140/1000 | Train Loss: 0.015478 | Val Loss: 0.017704
+Epoch 150/1000 | Train Loss: 0.015331 | Val Loss: 0.017916
+Epoch 160/1000 | Train Loss: 0.015194 | Val Loss: 0.018158
+Epoch 170/1000 | Train Loss: 0.014962 | Val Loss: 0.018329
+Epoch 180/1000 | Train Loss: 0.014903 | Val Loss: 0.018443
+Epoch 190/1000 | Train Loss: 0.014846 | Val Loss: 0.018566
+Epoch 200/1000 | Train Loss: 0.014791 | Val Loss: 0.018690
+Epoch 210/1000 | Train Loss: 0.014737 | Val Loss: 0.018813
+Epoch 220/1000 | Train Loss: 0.014640 | Val Loss: 0.018906
+Epoch 230/1000 | Train Loss: 0.014613 | Val Loss: 0.018960
+Epoch 240/1000 | Train Loss: 0.014587 | Val Loss: 0.019016
+Epoch 250/1000 | Train Loss: 0.014562 | Val Loss: 0.019073
+Epoch 260/1000 | Train Loss: 0.014537 | Val Loss: 0.019129
+Early stopping at epoch 263 due to no improvement in validation loss for 150 epochs.
+Epoch 10/113 | Combined Train Loss: 0.019437
+Epoch 20/113 | Combined Train Loss: 0.019041
+Epoch 30/113 | Combined Train Loss: 0.018766
+Epoch 40/113 | Combined Train Loss: 0.018474
+Epoch 50/113 | Combined Train Loss: 0.018115
+Epoch 60/113 | Combined Train Loss: 0.017692
+Epoch 70/113 | Combined Train Loss: 0.017261
+Epoch 80/113 | Combined Train Loss: 0.016893
+Epoch 90/113 | Combined Train Loss: 0.016568
+Epoch 100/113 | Combined Train Loss: 0.016268
+Epoch 110/113 | Combined Train Loss: 0.015952
+Epoch 113/113 | Combined Train Loss: 0.015843
+\n--- Strategy: expanding_window, Seed: 1000, Item: 936693, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 3 epochs | mean val loss = 0.018629
+  [refit] Epoch 3/3 | Train Loss: 0.021662
+\n--- Strategy: sliding_window, Seed: 1000, Item: 936693, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 17 epochs | mean val loss = 0.019510
+  [refit] Epoch 10/17 | Train Loss: 0.019929
+  [refit] Epoch 17/17 | Train Loss: 0.019067
+\n--- Strategy: best_val, Seed: 26008, Item: 16920, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018180 | Val Loss: 0.019902
+Epoch 20/1000 | Train Loss: 0.017385 | Val Loss: 0.020702
+Epoch 30/1000 | Train Loss: 0.016629 | Val Loss: 0.022812
+Epoch 40/1000 | Train Loss: 0.015677 | Val Loss: 0.024450
+Epoch 50/1000 | Train Loss: 0.014934 | Val Loss: 0.025434
+Epoch 60/1000 | Train Loss: 0.014755 | Val Loss: 0.026849
+Epoch 70/1000 | Train Loss: 0.016049 | Val Loss: 0.022913
+Epoch 80/1000 | Train Loss: 0.014317 | Val Loss: 0.025085
+Epoch 90/1000 | Train Loss: 0.015570 | Val Loss: 0.022516
+Epoch 100/1000 | Train Loss: 0.013978 | Val Loss: 0.024716
+Epoch 110/1000 | Train Loss: 0.013983 | Val Loss: 0.023920
+Epoch 120/1000 | Train Loss: 0.013591 | Val Loss: 0.025992
+Epoch 130/1000 | Train Loss: 0.013474 | Val Loss: 0.026224
+Epoch 140/1000 | Train Loss: 0.013357 | Val Loss: 0.026328
+Epoch 150/1000 | Train Loss: 0.013230 | Val Loss: 0.026391
+Epoch 160/1000 | Train Loss: 0.013089 | Val Loss: 0.026443
+Early stopping at epoch 161 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 16920, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018132 | Val Loss: 0.020900
+Epoch 20/1000 | Train Loss: 0.017088 | Val Loss: 0.021312
+Epoch 30/1000 | Train Loss: 0.015868 | Val Loss: 0.024253
+Epoch 40/1000 | Train Loss: 0.015204 | Val Loss: 0.030188
+Epoch 50/1000 | Train Loss: 0.016397 | Val Loss: 0.022291
+Epoch 60/1000 | Train Loss: 0.015422 | Val Loss: 0.023378
+Epoch 70/1000 | Train Loss: 0.014212 | Val Loss: 0.024152
+Epoch 80/1000 | Train Loss: 0.013957 | Val Loss: 0.024187
+Epoch 90/1000 | Train Loss: 0.013697 | Val Loss: 0.024664
+Epoch 100/1000 | Train Loss: 0.013442 | Val Loss: 0.025276
+Epoch 110/1000 | Train Loss: 0.013751 | Val Loss: 0.023640
+Epoch 120/1000 | Train Loss: 0.012889 | Val Loss: 0.025586
+Epoch 130/1000 | Train Loss: 0.012625 | Val Loss: 0.026092
+Epoch 140/1000 | Train Loss: 0.012290 | Val Loss: 0.026820
+Epoch 150/1000 | Train Loss: 0.011950 | Val Loss: 0.028226
+Early stopping at epoch 160 due to no improvement in validation loss for 150 epochs.
+Epoch 10/10 | Combined Train Loss: 0.017564
+\n--- Strategy: expanding_window, Seed: 26008, Item: 16920, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 10 epochs | mean val loss = 0.020204
+  [refit] Epoch 10/10 | Train Loss: 0.017913
+\n--- Strategy: sliding_window, Seed: 26008, Item: 16920, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 13 epochs | mean val loss = 0.019980
+  [refit] Epoch 10/13 | Train Loss: 0.018542
+  [refit] Epoch 13/13 | Train Loss: 0.018112
+\n--- Strategy: best_val, Seed: 26008, Item: 26220, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010427 | Val Loss: 0.003786
+Epoch 20/1000 | Train Loss: 0.008575 | Val Loss: 0.004144
+Epoch 30/1000 | Train Loss: 0.006914 | Val Loss: 0.003266
+Epoch 40/1000 | Train Loss: 0.006006 | Val Loss: 0.002884
+Epoch 50/1000 | Train Loss: 0.005379 | Val Loss: 0.002632
+Epoch 60/1000 | Train Loss: 0.008824 | Val Loss: 0.002866
+Epoch 70/1000 | Train Loss: 0.005693 | Val Loss: 0.003154
+Epoch 80/1000 | Train Loss: 0.004742 | Val Loss: 0.002698
+Epoch 90/1000 | Train Loss: 0.004634 | Val Loss: 0.002622
+Epoch 100/1000 | Train Loss: 0.005053 | Val Loss: 0.003024
+Epoch 110/1000 | Train Loss: 0.004440 | Val Loss: 0.002865
+Epoch 120/1000 | Train Loss: 0.004221 | Val Loss: 0.002798
+Epoch 130/1000 | Train Loss: 0.004010 | Val Loss: 0.002744
+Epoch 140/1000 | Train Loss: 0.003784 | Val Loss: 0.002711
+Epoch 150/1000 | Train Loss: 0.003798 | Val Loss: 0.002793
+Epoch 160/1000 | Train Loss: 0.003482 | Val Loss: 0.002720
+Epoch 170/1000 | Train Loss: 0.003335 | Val Loss: 0.002726
+Epoch 180/1000 | Train Loss: 0.003310 | Val Loss: 0.002759
+Epoch 190/1000 | Train Loss: 0.003213 | Val Loss: 0.002756
+Epoch 200/1000 | Train Loss: 0.003067 | Val Loss: 0.002761
+Early stopping at epoch 203 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 26220, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010474 | Val Loss: 0.003761
+Epoch 20/1000 | Train Loss: 0.008921 | Val Loss: 0.003609
+Epoch 30/1000 | Train Loss: 0.006874 | Val Loss: 0.003090
+Epoch 40/1000 | Train Loss: 0.008816 | Val Loss: 0.004468
+Epoch 50/1000 | Train Loss: 0.005812 | Val Loss: 0.003773
+Epoch 60/1000 | Train Loss: 0.005523 | Val Loss: 0.002657
+Epoch 70/1000 | Train Loss: 0.005627 | Val Loss: 0.003064
+Epoch 80/1000 | Train Loss: 0.005151 | Val Loss: 0.002829
+Epoch 90/1000 | Train Loss: 0.004699 | Val Loss: 0.002709
+Epoch 100/1000 | Train Loss: 0.004631 | Val Loss: 0.002739
+Epoch 110/1000 | Train Loss: 0.004418 | Val Loss: 0.003357
+Epoch 120/1000 | Train Loss: 0.003836 | Val Loss: 0.002626
+Epoch 130/1000 | Train Loss: 0.003513 | Val Loss: 0.002557
+Epoch 140/1000 | Train Loss: 0.003558 | Val Loss: 0.002610
+Epoch 150/1000 | Train Loss: 0.003317 | Val Loss: 0.002542
+Epoch 160/1000 | Train Loss: 0.003234 | Val Loss: 0.002508
+Epoch 170/1000 | Train Loss: 0.003122 | Val Loss: 0.002560
+Epoch 180/1000 | Train Loss: 0.003154 | Val Loss: 0.002490
+Epoch 190/1000 | Train Loss: 0.003006 | Val Loss: 0.002525
+Epoch 200/1000 | Train Loss: 0.002840 | Val Loss: 0.002524
+Epoch 210/1000 | Train Loss: 0.002818 | Val Loss: 0.002465
+Epoch 220/1000 | Train Loss: 0.002748 | Val Loss: 0.002486
+Epoch 230/1000 | Train Loss: 0.002991 | Val Loss: 0.002589
+Epoch 240/1000 | Train Loss: 0.004381 | Val Loss: 0.003462
+Epoch 250/1000 | Train Loss: 0.002512 | Val Loss: 0.002525
+Epoch 260/1000 | Train Loss: 0.002435 | Val Loss: 0.002513
+Epoch 270/1000 | Train Loss: 0.002412 | Val Loss: 0.002463
+Epoch 280/1000 | Train Loss: 0.002365 | Val Loss: 0.002475
+Epoch 290/1000 | Train Loss: 0.002258 | Val Loss: 0.002482
+Epoch 300/1000 | Train Loss: 0.002225 | Val Loss: 0.002483
+Epoch 310/1000 | Train Loss: 0.002193 | Val Loss: 0.002485
+Epoch 320/1000 | Train Loss: 0.002159 | Val Loss: 0.002490
+Epoch 330/1000 | Train Loss: 0.002125 | Val Loss: 0.002498
+Epoch 340/1000 | Train Loss: 0.002082 | Val Loss: 0.002510
+Epoch 350/1000 | Train Loss: 0.002062 | Val Loss: 0.002517
+Epoch 360/1000 | Train Loss: 0.002042 | Val Loss: 0.002528
+Epoch 370/1000 | Train Loss: 0.002020 | Val Loss: 0.002539
+Epoch 380/1000 | Train Loss: 0.001998 | Val Loss: 0.002553
+Early stopping at epoch 383 due to no improvement in validation loss for 150 epochs.
+Epoch 10/233 | Combined Train Loss: 0.009798
+Epoch 20/233 | Combined Train Loss: 0.008434
+Epoch 30/233 | Combined Train Loss: 0.006570
+Epoch 40/233 | Combined Train Loss: 0.005737
+Epoch 50/233 | Combined Train Loss: 0.005204
+Epoch 60/233 | Combined Train Loss: 0.006228
+Epoch 70/233 | Combined Train Loss: 0.004709
+Epoch 80/233 | Combined Train Loss: 0.004820
+Epoch 90/233 | Combined Train Loss: 0.005949
+Epoch 100/233 | Combined Train Loss: 0.004357
+Epoch 110/233 | Combined Train Loss: 0.004339
+Epoch 120/233 | Combined Train Loss: 0.004109
+Epoch 130/233 | Combined Train Loss: 0.003309
+Epoch 140/233 | Combined Train Loss: 0.003324
+Epoch 150/233 | Combined Train Loss: 0.003557
+Epoch 160/233 | Combined Train Loss: 0.002818
+Epoch 170/233 | Combined Train Loss: 0.002653
+Epoch 180/233 | Combined Train Loss: 0.002879
+Epoch 190/233 | Combined Train Loss: 0.002509
+Epoch 200/233 | Combined Train Loss: 0.002602
+Epoch 210/233 | Combined Train Loss: 0.002314
+Epoch 220/233 | Combined Train Loss: 0.002226
+Epoch 230/233 | Combined Train Loss: 0.002375
+Epoch 233/233 | Combined Train Loss: 0.002569
+\n--- Strategy: expanding_window, Seed: 26008, Item: 26220, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 171 epochs | mean val loss = 0.004725
+  [refit] Epoch 10/171 | Train Loss: 0.009850
+  [refit] Epoch 20/171 | Train Loss: 0.008396
+  [refit] Epoch 30/171 | Train Loss: 0.006676
+  [refit] Epoch 40/171 | Train Loss: 0.005755
+  [refit] Epoch 50/171 | Train Loss: 0.006598
+  [refit] Epoch 60/171 | Train Loss: 0.005240
+  [refit] Epoch 70/171 | Train Loss: 0.006641
+  [refit] Epoch 80/171 | Train Loss: 0.004778
+  [refit] Epoch 90/171 | Train Loss: 0.005196
+  [refit] Epoch 100/171 | Train Loss: 0.004250
+  [refit] Epoch 110/171 | Train Loss: 0.004624
+  [refit] Epoch 120/171 | Train Loss: 0.003774
+  [refit] Epoch 130/171 | Train Loss: 0.004312
+  [refit] Epoch 140/171 | Train Loss: 0.003559
+  [refit] Epoch 150/171 | Train Loss: 0.003454
+  [refit] Epoch 160/171 | Train Loss: 0.003312
+  [refit] Epoch 170/171 | Train Loss: 0.002910
+  [refit] Epoch 171/171 | Train Loss: 0.002970
+\n--- Strategy: sliding_window, Seed: 26008, Item: 26220, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 88 epochs | mean val loss = 0.004905
+  [refit] Epoch 10/88 | Train Loss: 0.014005
+  [refit] Epoch 20/88 | Train Loss: 0.011975
+  [refit] Epoch 30/88 | Train Loss: 0.009582
+  [refit] Epoch 40/88 | Train Loss: 0.009669
+  [refit] Epoch 50/88 | Train Loss: 0.009576
+  [refit] Epoch 60/88 | Train Loss: 0.007678
+  [refit] Epoch 70/88 | Train Loss: 0.007681
+  [refit] Epoch 80/88 | Train Loss: 0.007817
+  [refit] Epoch 88/88 | Train Loss: 0.006884
+\n--- Strategy: best_val, Seed: 26008, Item: 48375, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010100 | Val Loss: 0.012361
+Epoch 20/1000 | Train Loss: 0.008902 | Val Loss: 0.010097
+Epoch 30/1000 | Train Loss: 0.007984 | Val Loss: 0.008623
+Epoch 40/1000 | Train Loss: 0.007361 | Val Loss: 0.008068
+Epoch 50/1000 | Train Loss: 0.006817 | Val Loss: 0.007674
+Epoch 60/1000 | Train Loss: 0.006246 | Val Loss: 0.007386
+Epoch 70/1000 | Train Loss: 0.005637 | Val Loss: 0.007110
+Epoch 80/1000 | Train Loss: 0.006824 | Val Loss: 0.007366
+Epoch 90/1000 | Train Loss: 0.005997 | Val Loss: 0.007248
+Epoch 100/1000 | Train Loss: 0.005674 | Val Loss: 0.007231
+Epoch 110/1000 | Train Loss: 0.005294 | Val Loss: 0.007701
+Epoch 120/1000 | Train Loss: 0.004894 | Val Loss: 0.007945
+Epoch 130/1000 | Train Loss: 0.004580 | Val Loss: 0.008221
+Epoch 140/1000 | Train Loss: 0.004455 | Val Loss: 0.007629
+Epoch 150/1000 | Train Loss: 0.004422 | Val Loss: 0.007766
+Epoch 160/1000 | Train Loss: 0.003751 | Val Loss: 0.007155
+Epoch 170/1000 | Train Loss: 0.003547 | Val Loss: 0.007426
+Epoch 180/1000 | Train Loss: 0.003211 | Val Loss: 0.007291
+Epoch 190/1000 | Train Loss: 0.003114 | Val Loss: 0.007287
+Epoch 200/1000 | Train Loss: 0.002997 | Val Loss: 0.007198
+Epoch 210/1000 | Train Loss: 0.003490 | Val Loss: 0.006912
+Epoch 220/1000 | Train Loss: 0.002926 | Val Loss: 0.007172
+Epoch 230/1000 | Train Loss: 0.002852 | Val Loss: 0.007058
+Epoch 240/1000 | Train Loss: 0.002901 | Val Loss: 0.007082
+Epoch 250/1000 | Train Loss: 0.002736 | Val Loss: 0.006827
+Epoch 260/1000 | Train Loss: 0.003112 | Val Loss: 0.006382
+Epoch 270/1000 | Train Loss: 0.002738 | Val Loss: 0.006826
+Epoch 280/1000 | Train Loss: 0.002686 | Val Loss: 0.006552
+Epoch 290/1000 | Train Loss: 0.002550 | Val Loss: 0.006844
+Epoch 300/1000 | Train Loss: 0.002400 | Val Loss: 0.006923
+Epoch 310/1000 | Train Loss: 0.002378 | Val Loss: 0.006938
+Epoch 320/1000 | Train Loss: 0.002366 | Val Loss: 0.006846
+Epoch 330/1000 | Train Loss: 0.002191 | Val Loss: 0.007340
+Epoch 340/1000 | Train Loss: 0.002127 | Val Loss: 0.007397
+Epoch 350/1000 | Train Loss: 0.002123 | Val Loss: 0.007417
+Epoch 360/1000 | Train Loss: 0.002066 | Val Loss: 0.007249
+Epoch 370/1000 | Train Loss: 0.002075 | Val Loss: 0.007369
+Epoch 380/1000 | Train Loss: 0.002030 | Val Loss: 0.007768
+Epoch 390/1000 | Train Loss: 0.001739 | Val Loss: 0.008291
+Epoch 400/1000 | Train Loss: 0.001699 | Val Loss: 0.008446
+Epoch 410/1000 | Train Loss: 0.001666 | Val Loss: 0.008581
+Epoch 420/1000 | Train Loss: 0.001722 | Val Loss: 0.008736
+Epoch 430/1000 | Train Loss: 0.001728 | Val Loss: 0.008564
+Epoch 440/1000 | Train Loss: 0.001582 | Val Loss: 0.008865
+Epoch 450/1000 | Train Loss: 0.001565 | Val Loss: 0.008939
+Epoch 460/1000 | Train Loss: 0.001549 | Val Loss: 0.008997
+Epoch 470/1000 | Train Loss: 0.001534 | Val Loss: 0.009052
+Epoch 480/1000 | Train Loss: 0.001518 | Val Loss: 0.009107
+Early stopping at epoch 482 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 48375, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.009292 | Val Loss: 0.011099
+Epoch 20/1000 | Train Loss: 0.008032 | Val Loss: 0.008643
+Epoch 30/1000 | Train Loss: 0.007279 | Val Loss: 0.007870
+Epoch 40/1000 | Train Loss: 0.006748 | Val Loss: 0.007744
+Epoch 50/1000 | Train Loss: 0.006368 | Val Loss: 0.007720
+Epoch 60/1000 | Train Loss: 0.005997 | Val Loss: 0.007689
+Epoch 70/1000 | Train Loss: 0.005614 | Val Loss: 0.007646
+Epoch 80/1000 | Train Loss: 0.005375 | Val Loss: 0.008375
+Epoch 90/1000 | Train Loss: 0.006530 | Val Loss: 0.007957
+Epoch 100/1000 | Train Loss: 0.005326 | Val Loss: 0.008070
+Epoch 110/1000 | Train Loss: 0.004975 | Val Loss: 0.008141
+Epoch 120/1000 | Train Loss: 0.004999 | Val Loss: 0.008892
+Epoch 130/1000 | Train Loss: 0.004369 | Val Loss: 0.008229
+Epoch 140/1000 | Train Loss: 0.004299 | Val Loss: 0.008485
+Epoch 150/1000 | Train Loss: 0.003903 | Val Loss: 0.008787
+Epoch 160/1000 | Train Loss: 0.003752 | Val Loss: 0.007856
+Epoch 170/1000 | Train Loss: 0.003143 | Val Loss: 0.008029
+Epoch 180/1000 | Train Loss: 0.002711 | Val Loss: 0.007821
+Epoch 190/1000 | Train Loss: 0.002627 | Val Loss: 0.007929
+Epoch 200/1000 | Train Loss: 0.003575 | Val Loss: 0.008176
+Epoch 210/1000 | Train Loss: 0.002328 | Val Loss: 0.007929
+Epoch 220/1000 | Train Loss: 0.002264 | Val Loss: 0.007953
+Epoch 230/1000 | Train Loss: 0.002168 | Val Loss: 0.007976
+Epoch 240/1000 | Train Loss: 0.002027 | Val Loss: 0.008025
+Epoch 250/1000 | Train Loss: 0.001979 | Val Loss: 0.008065
+Epoch 260/1000 | Train Loss: 0.001945 | Val Loss: 0.008106
+Epoch 270/1000 | Train Loss: 0.001912 | Val Loss: 0.008146
+Epoch 280/1000 | Train Loss: 0.001880 | Val Loss: 0.008189
+Epoch 290/1000 | Train Loss: 0.001844 | Val Loss: 0.008235
+Epoch 300/1000 | Train Loss: 0.001828 | Val Loss: 0.008263
+Epoch 310/1000 | Train Loss: 0.001812 | Val Loss: 0.008288
+Epoch 320/1000 | Train Loss: 0.001796 | Val Loss: 0.008316
+Epoch 330/1000 | Train Loss: 0.001780 | Val Loss: 0.008344
+Early stopping at epoch 337 due to no improvement in validation loss for 150 epochs.
+Epoch 10/187 | Combined Train Loss: 0.008560
+Epoch 20/187 | Combined Train Loss: 0.007418
+Epoch 30/187 | Combined Train Loss: 0.006847
+Epoch 40/187 | Combined Train Loss: 0.006464
+Epoch 50/187 | Combined Train Loss: 0.006146
+Epoch 60/187 | Combined Train Loss: 0.005769
+Epoch 70/187 | Combined Train Loss: 0.005457
+Epoch 80/187 | Combined Train Loss: 0.005752
+Epoch 90/187 | Combined Train Loss: 0.004883
+Epoch 100/187 | Combined Train Loss: 0.004668
+Epoch 110/187 | Combined Train Loss: 0.005020
+Epoch 120/187 | Combined Train Loss: 0.004815
+Epoch 130/187 | Combined Train Loss: 0.004304
+Epoch 140/187 | Combined Train Loss: 0.004340
+Epoch 150/187 | Combined Train Loss: 0.003540
+Epoch 160/187 | Combined Train Loss: 0.006505
+Epoch 170/187 | Combined Train Loss: 0.003306
+Epoch 180/187 | Combined Train Loss: 0.003147
+Epoch 187/187 | Combined Train Loss: 0.005510
+\n--- Strategy: expanding_window, Seed: 26008, Item: 48375, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 95 epochs | mean val loss = 0.005182
+  [refit] Epoch 10/95 | Train Loss: 0.009529
+  [refit] Epoch 20/95 | Train Loss: 0.008370
+  [refit] Epoch 30/95 | Train Loss: 0.007594
+  [refit] Epoch 40/95 | Train Loss: 0.007091
+  [refit] Epoch 50/95 | Train Loss: 0.006705
+  [refit] Epoch 60/95 | Train Loss: 0.006320
+  [refit] Epoch 70/95 | Train Loss: 0.006057
+  [refit] Epoch 80/95 | Train Loss: 0.005919
+  [refit] Epoch 90/95 | Train Loss: 0.005694
+  [refit] Epoch 95/95 | Train Loss: 0.005780
+\n--- Strategy: sliding_window, Seed: 26008, Item: 48375, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 165 epochs | mean val loss = 0.005403
+  [refit] Epoch 10/165 | Train Loss: 0.009209
+  [refit] Epoch 20/165 | Train Loss: 0.008107
+  [refit] Epoch 30/165 | Train Loss: 0.007400
+  [refit] Epoch 40/165 | Train Loss: 0.006978
+  [refit] Epoch 50/165 | Train Loss: 0.006722
+  [refit] Epoch 60/165 | Train Loss: 0.006534
+  [refit] Epoch 70/165 | Train Loss: 0.006359
+  [refit] Epoch 80/165 | Train Loss: 0.006164
+  [refit] Epoch 90/165 | Train Loss: 0.005928
+  [refit] Epoch 100/165 | Train Loss: 0.005397
+  [refit] Epoch 110/165 | Train Loss: 0.006257
+  [refit] Epoch 120/165 | Train Loss: 0.005581
+  [refit] Epoch 130/165 | Train Loss: 0.005229
+  [refit] Epoch 140/165 | Train Loss: 0.004656
+  [refit] Epoch 150/165 | Train Loss: 0.004518
+  [refit] Epoch 160/165 | Train Loss: 0.004185
+  [refit] Epoch 165/165 | Train Loss: 0.004643
+\n--- Strategy: best_val, Seed: 26008, Item: 213625, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.012028 | Val Loss: 0.009239
+Epoch 20/1000 | Train Loss: 0.011441 | Val Loss: 0.008248
+Epoch 30/1000 | Train Loss: 0.010917 | Val Loss: 0.007930
+Epoch 40/1000 | Train Loss: 0.009974 | Val Loss: 0.008416
+Epoch 50/1000 | Train Loss: 0.009539 | Val Loss: 0.008909
+Epoch 60/1000 | Train Loss: 0.009986 | Val Loss: 0.009547
+Epoch 70/1000 | Train Loss: 0.009200 | Val Loss: 0.008659
+Epoch 80/1000 | Train Loss: 0.008959 | Val Loss: 0.008010
+Epoch 90/1000 | Train Loss: 0.008657 | Val Loss: 0.008597
+Epoch 100/1000 | Train Loss: 0.009432 | Val Loss: 0.007433
+Epoch 110/1000 | Train Loss: 0.009908 | Val Loss: 0.007515
+Epoch 120/1000 | Train Loss: 0.008614 | Val Loss: 0.012442
+Epoch 130/1000 | Train Loss: 0.009069 | Val Loss: 0.007422
+Epoch 140/1000 | Train Loss: 0.008330 | Val Loss: 0.009922
+Epoch 150/1000 | Train Loss: 0.008111 | Val Loss: 0.008250
+Epoch 160/1000 | Train Loss: 0.008846 | Val Loss: 0.007342
+Epoch 170/1000 | Train Loss: 0.008506 | Val Loss: 0.007550
+Epoch 180/1000 | Train Loss: 0.007532 | Val Loss: 0.009167
+Epoch 190/1000 | Train Loss: 0.007390 | Val Loss: 0.010282
+Epoch 200/1000 | Train Loss: 0.007803 | Val Loss: 0.011801
+Epoch 210/1000 | Train Loss: 0.007305 | Val Loss: 0.010405
+Epoch 220/1000 | Train Loss: 0.008267 | Val Loss: 0.006804
+Epoch 230/1000 | Train Loss: 0.006834 | Val Loss: 0.008594
+Epoch 240/1000 | Train Loss: 0.006537 | Val Loss: 0.007749
+Epoch 250/1000 | Train Loss: 0.006382 | Val Loss: 0.007116
+Epoch 260/1000 | Train Loss: 0.005952 | Val Loss: 0.007782
+Epoch 270/1000 | Train Loss: 0.005900 | Val Loss: 0.009306
+Epoch 280/1000 | Train Loss: 0.005841 | Val Loss: 0.008063
+Epoch 290/1000 | Train Loss: 0.005638 | Val Loss: 0.008116
+Epoch 300/1000 | Train Loss: 0.005620 | Val Loss: 0.007093
+Epoch 310/1000 | Train Loss: 0.005294 | Val Loss: 0.007358
+Epoch 320/1000 | Train Loss: 0.005195 | Val Loss: 0.007351
+Epoch 330/1000 | Train Loss: 0.005097 | Val Loss: 0.007260
+Epoch 340/1000 | Train Loss: 0.005119 | Val Loss: 0.007915
+Early stopping at epoch 349 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 213625, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.012580 | Val Loss: 0.009913
+Epoch 20/1000 | Train Loss: 0.011685 | Val Loss: 0.008448
+Epoch 30/1000 | Train Loss: 0.011313 | Val Loss: 0.008140
+Epoch 40/1000 | Train Loss: 0.010649 | Val Loss: 0.008175
+Epoch 50/1000 | Train Loss: 0.010193 | Val Loss: 0.008264
+Epoch 60/1000 | Train Loss: 0.009903 | Val Loss: 0.008225
+Epoch 70/1000 | Train Loss: 0.009646 | Val Loss: 0.008294
+Epoch 80/1000 | Train Loss: 0.009416 | Val Loss: 0.008438
+Epoch 90/1000 | Train Loss: 0.009073 | Val Loss: 0.008575
+Epoch 100/1000 | Train Loss: 0.008978 | Val Loss: 0.008609
+Epoch 110/1000 | Train Loss: 0.008872 | Val Loss: 0.008726
+Epoch 120/1000 | Train Loss: 0.008765 | Val Loss: 0.008843
+Epoch 130/1000 | Train Loss: 0.008700 | Val Loss: 0.008801
+Epoch 140/1000 | Train Loss: 0.008475 | Val Loss: 0.009292
+Epoch 150/1000 | Train Loss: 0.008414 | Val Loss: 0.009373
+Epoch 160/1000 | Train Loss: 0.008344 | Val Loss: 0.009485
+Epoch 170/1000 | Train Loss: 0.008269 | Val Loss: 0.009565
+Epoch 180/1000 | Train Loss: 0.008187 | Val Loss: 0.009585
+Epoch 190/1000 | Train Loss: 0.008055 | Val Loss: 0.009623
+Epoch 200/1000 | Train Loss: 0.008000 | Val Loss: 0.009625
+Epoch 210/1000 | Train Loss: 0.007948 | Val Loss: 0.009580
+Epoch 220/1000 | Train Loss: 0.007896 | Val Loss: 0.009525
+Epoch 230/1000 | Train Loss: 0.007844 | Val Loss: 0.009469
+Early stopping at epoch 236 due to no improvement in validation loss for 150 epochs.
+Epoch 10/86 | Combined Train Loss: 0.011753
+Epoch 20/86 | Combined Train Loss: 0.011071
+Epoch 30/86 | Combined Train Loss: 0.010763
+Epoch 40/86 | Combined Train Loss: 0.010162
+Epoch 50/86 | Combined Train Loss: 0.009790
+Epoch 60/86 | Combined Train Loss: 0.009568
+Epoch 70/86 | Combined Train Loss: 0.009339
+Epoch 80/86 | Combined Train Loss: 0.009120
+Epoch 86/86 | Combined Train Loss: 0.008996
+\n--- Strategy: expanding_window, Seed: 26008, Item: 213625, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 29 epochs | mean val loss = 0.010908
+  [refit] Epoch 10/29 | Train Loss: 0.011520
+  [refit] Epoch 20/29 | Train Loss: 0.010724
+  [refit] Epoch 29/29 | Train Loss: 0.010366
+\n--- Strategy: sliding_window, Seed: 26008, Item: 213625, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 40 epochs | mean val loss = 0.011040
+  [refit] Epoch 10/40 | Train Loss: 0.014323
+  [refit] Epoch 20/40 | Train Loss: 0.012180
+  [refit] Epoch 30/40 | Train Loss: 0.011696
+  [refit] Epoch 40/40 | Train Loss: 0.011373
+\n--- Strategy: best_val, Seed: 26008, Item: 213631, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015104 | Val Loss: 0.007849
+Epoch 20/1000 | Train Loss: 0.014043 | Val Loss: 0.007982
+Epoch 30/1000 | Train Loss: 0.013720 | Val Loss: 0.008108
+Epoch 40/1000 | Train Loss: 0.013449 | Val Loss: 0.008178
+Epoch 50/1000 | Train Loss: 0.013190 | Val Loss: 0.008235
+Epoch 60/1000 | Train Loss: 0.012947 | Val Loss: 0.008301
+Epoch 70/1000 | Train Loss: 0.012701 | Val Loss: 0.008269
+Epoch 80/1000 | Train Loss: 0.012603 | Val Loss: 0.008325
+Epoch 90/1000 | Train Loss: 0.012513 | Val Loss: 0.008394
+Epoch 100/1000 | Train Loss: 0.012430 | Val Loss: 0.008475
+Epoch 110/1000 | Train Loss: 0.012351 | Val Loss: 0.008567
+Epoch 120/1000 | Train Loss: 0.012235 | Val Loss: 0.008558
+Epoch 130/1000 | Train Loss: 0.012194 | Val Loss: 0.008608
+Epoch 140/1000 | Train Loss: 0.012153 | Val Loss: 0.008657
+Epoch 150/1000 | Train Loss: 0.012112 | Val Loss: 0.008708
+Epoch 160/1000 | Train Loss: 0.012070 | Val Loss: 0.008761
+Early stopping at epoch 162 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 213631, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014776 | Val Loss: 0.007866
+Epoch 20/1000 | Train Loss: 0.014022 | Val Loss: 0.007886
+Epoch 30/1000 | Train Loss: 0.013691 | Val Loss: 0.007975
+Epoch 40/1000 | Train Loss: 0.013341 | Val Loss: 0.008167
+Epoch 50/1000 | Train Loss: 0.013006 | Val Loss: 0.008425
+Epoch 60/1000 | Train Loss: 0.012684 | Val Loss: 0.008850
+Epoch 70/1000 | Train Loss: 0.012358 | Val Loss: 0.008933
+Epoch 80/1000 | Train Loss: 0.012237 | Val Loss: 0.009113
+Epoch 90/1000 | Train Loss: 0.012125 | Val Loss: 0.009295
+Epoch 100/1000 | Train Loss: 0.012018 | Val Loss: 0.009487
+Epoch 110/1000 | Train Loss: 0.011911 | Val Loss: 0.009692
+Epoch 120/1000 | Train Loss: 0.011749 | Val Loss: 0.009680
+Epoch 130/1000 | Train Loss: 0.011685 | Val Loss: 0.009771
+Epoch 140/1000 | Train Loss: 0.011617 | Val Loss: 0.009863
+Epoch 150/1000 | Train Loss: 0.011545 | Val Loss: 0.009939
+Epoch 160/1000 | Train Loss: 0.011469 | Val Loss: 0.010007
+Early stopping at epoch 162 due to no improvement in validation loss for 150 epochs.
+Epoch 10/12 | Combined Train Loss: 0.013642
+Epoch 12/12 | Combined Train Loss: 0.013438
+\n--- Strategy: expanding_window, Seed: 26008, Item: 213631, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 36 epochs | mean val loss = 0.010918
+  [refit] Epoch 10/36 | Train Loss: 0.013489
+  [refit] Epoch 20/36 | Train Loss: 0.013088
+  [refit] Epoch 30/36 | Train Loss: 0.012718
+  [refit] Epoch 36/36 | Train Loss: 0.012499
+\n--- Strategy: sliding_window, Seed: 26008, Item: 213631, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 20 epochs | mean val loss = 0.011025
+  [refit] Epoch 10/20 | Train Loss: 0.014943
+  [refit] Epoch 20/20 | Train Loss: 0.013645
+\n--- Strategy: best_val, Seed: 26008, Item: 538923, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014730 | Val Loss: 0.015886
+Epoch 20/1000 | Train Loss: 0.014252 | Val Loss: 0.014978
+Epoch 30/1000 | Train Loss: 0.014019 | Val Loss: 0.014707
+Epoch 40/1000 | Train Loss: 0.013821 | Val Loss: 0.014647
+Epoch 50/1000 | Train Loss: 0.013631 | Val Loss: 0.014666
+Epoch 60/1000 | Train Loss: 0.013447 | Val Loss: 0.014728
+Epoch 70/1000 | Train Loss: 0.013265 | Val Loss: 0.014801
+Epoch 80/1000 | Train Loss: 0.013080 | Val Loss: 0.014887
+Epoch 90/1000 | Train Loss: 0.012890 | Val Loss: 0.015079
+Epoch 100/1000 | Train Loss: 0.012576 | Val Loss: 0.015127
+Epoch 110/1000 | Train Loss: 0.012457 | Val Loss: 0.015257
+Epoch 120/1000 | Train Loss: 0.012326 | Val Loss: 0.015401
+Epoch 130/1000 | Train Loss: 0.012173 | Val Loss: 0.015535
+Epoch 140/1000 | Train Loss: 0.011994 | Val Loss: 0.015603
+Epoch 150/1000 | Train Loss: 0.011776 | Val Loss: 0.015712
+Epoch 160/1000 | Train Loss: 0.011673 | Val Loss: 0.015790
+Epoch 170/1000 | Train Loss: 0.011575 | Val Loss: 0.015847
+Epoch 180/1000 | Train Loss: 0.011486 | Val Loss: 0.015892
+Epoch 190/1000 | Train Loss: 0.011402 | Val Loss: 0.015908
+Early stopping at epoch 192 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 538923, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.014617 | Val Loss: 0.015673
+Epoch 20/1000 | Train Loss: 0.014147 | Val Loss: 0.015235
+Epoch 30/1000 | Train Loss: 0.013824 | Val Loss: 0.015043
+Epoch 40/1000 | Train Loss: 0.013492 | Val Loss: 0.015068
+Epoch 50/1000 | Train Loss: 0.013243 | Val Loss: 0.015722
+Epoch 60/1000 | Train Loss: 0.012862 | Val Loss: 0.015317
+Epoch 70/1000 | Train Loss: 0.012651 | Val Loss: 0.015040
+Epoch 80/1000 | Train Loss: 0.012471 | Val Loss: 0.015770
+Epoch 90/1000 | Train Loss: 0.012538 | Val Loss: 0.014344
+Epoch 100/1000 | Train Loss: 0.012042 | Val Loss: 0.015437
+Epoch 110/1000 | Train Loss: 0.011897 | Val Loss: 0.016941
+Epoch 120/1000 | Train Loss: 0.011732 | Val Loss: 0.016277
+Epoch 130/1000 | Train Loss: 0.011947 | Val Loss: 0.015450
+Epoch 140/1000 | Train Loss: 0.011895 | Val Loss: 0.016000
+Epoch 150/1000 | Train Loss: 0.010870 | Val Loss: 0.016155
+Epoch 160/1000 | Train Loss: 0.010724 | Val Loss: 0.016371
+Epoch 170/1000 | Train Loss: 0.010558 | Val Loss: 0.016441
+Epoch 180/1000 | Train Loss: 0.010450 | Val Loss: 0.016322
+Epoch 190/1000 | Train Loss: 0.010168 | Val Loss: 0.016798
+Epoch 200/1000 | Train Loss: 0.009892 | Val Loss: 0.016431
+Epoch 210/1000 | Train Loss: 0.009763 | Val Loss: 0.016432
+Epoch 220/1000 | Train Loss: 0.009634 | Val Loss: 0.016385
+Epoch 230/1000 | Train Loss: 0.009529 | Val Loss: 0.016469
+Early stopping at epoch 240 due to no improvement in validation loss for 150 epochs.
+Epoch 10/90 | Combined Train Loss: 0.018914
+Epoch 20/90 | Combined Train Loss: 0.017989
+Epoch 30/90 | Combined Train Loss: 0.017239
+Epoch 40/90 | Combined Train Loss: 0.016489
+Epoch 50/90 | Combined Train Loss: 0.015749
+Epoch 60/90 | Combined Train Loss: 0.015109
+Epoch 70/90 | Combined Train Loss: 0.014355
+Epoch 80/90 | Combined Train Loss: 0.013842
+Epoch 90/90 | Combined Train Loss: 0.013404
+\n--- Strategy: expanding_window, Seed: 26008, Item: 538923, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 35 epochs | mean val loss = 0.025143
+  [refit] Epoch 10/35 | Train Loss: 0.018917
+  [refit] Epoch 20/35 | Train Loss: 0.017741
+  [refit] Epoch 30/35 | Train Loss: 0.016899
+  [refit] Epoch 35/35 | Train Loss: 0.016510
+\n--- Strategy: sliding_window, Seed: 26008, Item: 538923, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 31 epochs | mean val loss = 0.025727
+  [refit] Epoch 10/31 | Train Loss: 0.025543
+  [refit] Epoch 20/31 | Train Loss: 0.021866
+  [refit] Epoch 30/31 | Train Loss: 0.020344
+  [refit] Epoch 31/31 | Train Loss: 0.020223
+\n--- Strategy: best_val, Seed: 26008, Item: 606214, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.022706 | Val Loss: 0.014499
+Epoch 20/1000 | Train Loss: 0.021515 | Val Loss: 0.012147
+Epoch 30/1000 | Train Loss: 0.021178 | Val Loss: 0.011801
+Epoch 40/1000 | Train Loss: 0.020859 | Val Loss: 0.011701
+Epoch 50/1000 | Train Loss: 0.020508 | Val Loss: 0.011651
+Epoch 60/1000 | Train Loss: 0.020088 | Val Loss: 0.011602
+Epoch 70/1000 | Train Loss: 0.019574 | Val Loss: 0.011490
+Epoch 80/1000 | Train Loss: 0.019097 | Val Loss: 0.011290
+Epoch 90/1000 | Train Loss: 0.018740 | Val Loss: 0.011182
+Epoch 100/1000 | Train Loss: 0.018429 | Val Loss: 0.011195
+Epoch 110/1000 | Train Loss: 0.018106 | Val Loss: 0.011394
+Epoch 120/1000 | Train Loss: 0.017716 | Val Loss: 0.011980
+Epoch 130/1000 | Train Loss: 0.017194 | Val Loss: 0.012649
+Epoch 140/1000 | Train Loss: 0.016243 | Val Loss: 0.011762
+Epoch 150/1000 | Train Loss: 0.015738 | Val Loss: 0.011877
+Epoch 160/1000 | Train Loss: 0.015114 | Val Loss: 0.011729
+Epoch 170/1000 | Train Loss: 0.015394 | Val Loss: 0.013033
+Epoch 180/1000 | Train Loss: 0.014649 | Val Loss: 0.012467
+Epoch 190/1000 | Train Loss: 0.014483 | Val Loss: 0.013764
+Epoch 200/1000 | Train Loss: 0.013585 | Val Loss: 0.013299
+Epoch 210/1000 | Train Loss: 0.013137 | Val Loss: 0.014138
+Epoch 220/1000 | Train Loss: 0.012683 | Val Loss: 0.015186
+Epoch 230/1000 | Train Loss: 0.012438 | Val Loss: 0.016538
+Epoch 240/1000 | Train Loss: 0.013018 | Val Loss: 0.015488
+Early stopping at epoch 244 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 606214, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.022148 | Val Loss: 0.012538
+Epoch 20/1000 | Train Loss: 0.021409 | Val Loss: 0.011207
+Epoch 30/1000 | Train Loss: 0.020963 | Val Loss: 0.011054
+Epoch 40/1000 | Train Loss: 0.020427 | Val Loss: 0.010950
+Epoch 50/1000 | Train Loss: 0.019867 | Val Loss: 0.010904
+Epoch 60/1000 | Train Loss: 0.019394 | Val Loss: 0.010988
+Epoch 70/1000 | Train Loss: 0.018952 | Val Loss: 0.011177
+Epoch 80/1000 | Train Loss: 0.018508 | Val Loss: 0.011510
+Epoch 90/1000 | Train Loss: 0.018000 | Val Loss: 0.011905
+Epoch 100/1000 | Train Loss: 0.017357 | Val Loss: 0.012282
+Epoch 110/1000 | Train Loss: 0.016441 | Val Loss: 0.012430
+Epoch 120/1000 | Train Loss: 0.016424 | Val Loss: 0.012680
+Epoch 130/1000 | Train Loss: 0.016700 | Val Loss: 0.013618
+Epoch 140/1000 | Train Loss: 0.015952 | Val Loss: 0.014519
+Epoch 150/1000 | Train Loss: 0.015430 | Val Loss: 0.013930
+Epoch 160/1000 | Train Loss: 0.014602 | Val Loss: 0.013356
+Epoch 170/1000 | Train Loss: 0.014595 | Val Loss: 0.014205
+Epoch 180/1000 | Train Loss: 0.014254 | Val Loss: 0.014785
+Epoch 190/1000 | Train Loss: 0.014282 | Val Loss: 0.015453
+Early stopping at epoch 198 due to no improvement in validation loss for 150 epochs.
+Epoch 10/48 | Combined Train Loss: 0.022479
+Epoch 20/48 | Combined Train Loss: 0.021712
+Epoch 30/48 | Combined Train Loss: 0.021284
+Epoch 40/48 | Combined Train Loss: 0.020817
+Epoch 48/48 | Combined Train Loss: 0.020402
+\n--- Strategy: expanding_window, Seed: 26008, Item: 606214, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 68 epochs | mean val loss = 0.018077
+  [refit] Epoch 10/68 | Train Loss: 0.022115
+  [refit] Epoch 20/68 | Train Loss: 0.021408
+  [refit] Epoch 30/68 | Train Loss: 0.020496
+  [refit] Epoch 40/68 | Train Loss: 0.019554
+  [refit] Epoch 50/68 | Train Loss: 0.020665
+  [refit] Epoch 60/68 | Train Loss: 0.020166
+  [refit] Epoch 68/68 | Train Loss: 0.018485
+\n--- Strategy: sliding_window, Seed: 26008, Item: 606214, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 55 epochs | mean val loss = 0.017734
+  [refit] Epoch 10/55 | Train Loss: 0.023849
+  [refit] Epoch 20/55 | Train Loss: 0.022334
+  [refit] Epoch 30/55 | Train Loss: 0.021443
+  [refit] Epoch 40/55 | Train Loss: 0.020068
+  [refit] Epoch 50/55 | Train Loss: 0.019455
+  [refit] Epoch 55/55 | Train Loss: 0.020022
+\n--- Strategy: best_val, Seed: 26008, Item: 907970, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.022355 | Val Loss: 0.068300
+Epoch 20/1000 | Train Loss: 0.020391 | Val Loss: 0.065427
+Epoch 30/1000 | Train Loss: 0.018657 | Val Loss: 0.056020
+Epoch 40/1000 | Train Loss: 0.017421 | Val Loss: 0.050589
+Epoch 50/1000 | Train Loss: 0.016778 | Val Loss: 0.050845
+Epoch 60/1000 | Train Loss: 0.016906 | Val Loss: 0.046931
+Epoch 70/1000 | Train Loss: 0.017404 | Val Loss: 0.049153
+Epoch 80/1000 | Train Loss: 0.015967 | Val Loss: 0.049108
+Epoch 90/1000 | Train Loss: 0.015287 | Val Loss: 0.053106
+Epoch 100/1000 | Train Loss: 0.014515 | Val Loss: 0.048697
+Epoch 110/1000 | Train Loss: 0.013944 | Val Loss: 0.052397
+Epoch 120/1000 | Train Loss: 0.012664 | Val Loss: 0.052381
+Epoch 130/1000 | Train Loss: 0.012563 | Val Loss: 0.054932
+Epoch 140/1000 | Train Loss: 0.011098 | Val Loss: 0.058187
+Epoch 150/1000 | Train Loss: 0.010956 | Val Loss: 0.061435
+Epoch 160/1000 | Train Loss: 0.010444 | Val Loss: 0.066120
+Epoch 170/1000 | Train Loss: 0.009441 | Val Loss: 0.069890
+Epoch 180/1000 | Train Loss: 0.012073 | Val Loss: 0.073843
+Epoch 190/1000 | Train Loss: 0.009450 | Val Loss: 0.075681
+Epoch 200/1000 | Train Loss: 0.009206 | Val Loss: 0.077468
+Epoch 210/1000 | Train Loss: 0.009010 | Val Loss: 0.079060
+Early stopping at epoch 212 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 907970, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.023824 | Val Loss: 0.073500
+Epoch 20/1000 | Train Loss: 0.021763 | Val Loss: 0.068340
+Epoch 30/1000 | Train Loss: 0.020571 | Val Loss: 0.063218
+Epoch 40/1000 | Train Loss: 0.019237 | Val Loss: 0.055315
+Epoch 50/1000 | Train Loss: 0.018100 | Val Loss: 0.048976
+Epoch 60/1000 | Train Loss: 0.017176 | Val Loss: 0.044998
+Epoch 70/1000 | Train Loss: 0.016290 | Val Loss: 0.043868
+Epoch 80/1000 | Train Loss: 0.016688 | Val Loss: 0.043930
+Epoch 90/1000 | Train Loss: 0.015435 | Val Loss: 0.046242
+Epoch 100/1000 | Train Loss: 0.015256 | Val Loss: 0.047481
+Epoch 110/1000 | Train Loss: 0.015047 | Val Loss: 0.051531
+Epoch 120/1000 | Train Loss: 0.014599 | Val Loss: 0.050556
+Epoch 130/1000 | Train Loss: 0.014759 | Val Loss: 0.050504
+Epoch 140/1000 | Train Loss: 0.013802 | Val Loss: 0.053764
+Epoch 150/1000 | Train Loss: 0.014351 | Val Loss: 0.055314
+Epoch 160/1000 | Train Loss: 0.013804 | Val Loss: 0.057312
+Epoch 170/1000 | Train Loss: 0.012712 | Val Loss: 0.062913
+Epoch 180/1000 | Train Loss: 0.012374 | Val Loss: 0.066046
+Epoch 190/1000 | Train Loss: 0.011854 | Val Loss: 0.066993
+Epoch 200/1000 | Train Loss: 0.011731 | Val Loss: 0.070350
+Epoch 210/1000 | Train Loss: 0.011579 | Val Loss: 0.069115
+Epoch 220/1000 | Train Loss: 0.010973 | Val Loss: 0.069694
+Early stopping at epoch 228 due to no improvement in validation loss for 150 epochs.
+Epoch 10/78 | Combined Train Loss: 0.028269
+Epoch 20/78 | Combined Train Loss: 0.024623
+Epoch 30/78 | Combined Train Loss: 0.020230
+Epoch 40/78 | Combined Train Loss: 0.019010
+Epoch 50/78 | Combined Train Loss: 0.020567
+Epoch 60/78 | Combined Train Loss: 0.018404
+Epoch 70/78 | Combined Train Loss: 0.018261
+Epoch 78/78 | Combined Train Loss: 0.017563
+\n--- Strategy: expanding_window, Seed: 26008, Item: 907970, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 60 epochs | mean val loss = 0.035822
+  [refit] Epoch 10/60 | Train Loss: 0.026563
+  [refit] Epoch 20/60 | Train Loss: 0.022195
+  [refit] Epoch 30/60 | Train Loss: 0.019569
+  [refit] Epoch 40/60 | Train Loss: 0.018917
+  [refit] Epoch 50/60 | Train Loss: 0.018263
+  [refit] Epoch 60/60 | Train Loss: 0.017853
+\n--- Strategy: sliding_window, Seed: 26008, Item: 907970, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 102 epochs | mean val loss = 0.035112
+  [refit] Epoch 10/102 | Train Loss: 0.038107
+  [refit] Epoch 20/102 | Train Loss: 0.033819
+  [refit] Epoch 30/102 | Train Loss: 0.031299
+  [refit] Epoch 40/102 | Train Loss: 0.029029
+  [refit] Epoch 50/102 | Train Loss: 0.027434
+  [refit] Epoch 60/102 | Train Loss: 0.026237
+  [refit] Epoch 70/102 | Train Loss: 0.025213
+  [refit] Epoch 80/102 | Train Loss: 0.027848
+  [refit] Epoch 90/102 | Train Loss: 0.023689
+  [refit] Epoch 100/102 | Train Loss: 0.023717
+  [refit] Epoch 102/102 | Train Loss: 0.024110
+\n--- Strategy: best_val, Seed: 26008, Item: 918537, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015600 | Val Loss: 0.010364
+Epoch 20/1000 | Train Loss: 0.014492 | Val Loss: 0.011121
+Epoch 30/1000 | Train Loss: 0.013392 | Val Loss: 0.011313
+Epoch 40/1000 | Train Loss: 0.012402 | Val Loss: 0.011299
+Epoch 50/1000 | Train Loss: 0.011797 | Val Loss: 0.011363
+Epoch 60/1000 | Train Loss: 0.011392 | Val Loss: 0.011427
+Epoch 70/1000 | Train Loss: 0.011279 | Val Loss: 0.011439
+Epoch 80/1000 | Train Loss: 0.011169 | Val Loss: 0.011429
+Epoch 90/1000 | Train Loss: 0.011051 | Val Loss: 0.011426
+Epoch 100/1000 | Train Loss: 0.010913 | Val Loss: 0.011439
+Epoch 110/1000 | Train Loss: 0.010699 | Val Loss: 0.011462
+Epoch 120/1000 | Train Loss: 0.010537 | Val Loss: 0.011423
+Epoch 130/1000 | Train Loss: 0.010276 | Val Loss: 0.011303
+Epoch 140/1000 | Train Loss: 0.010016 | Val Loss: 0.011357
+Epoch 150/1000 | Train Loss: 0.009789 | Val Loss: 0.011535
+Early stopping at epoch 151 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 918537, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015440 | Val Loss: 0.010922
+Epoch 20/1000 | Train Loss: 0.014151 | Val Loss: 0.011252
+Epoch 30/1000 | Train Loss: 0.013153 | Val Loss: 0.011563
+Epoch 40/1000 | Train Loss: 0.012409 | Val Loss: 0.011620
+Epoch 50/1000 | Train Loss: 0.011949 | Val Loss: 0.011362
+Epoch 60/1000 | Train Loss: 0.011667 | Val Loss: 0.011167
+Epoch 70/1000 | Train Loss: 0.011357 | Val Loss: 0.011122
+Epoch 80/1000 | Train Loss: 0.011248 | Val Loss: 0.011063
+Epoch 90/1000 | Train Loss: 0.011125 | Val Loss: 0.011010
+Epoch 100/1000 | Train Loss: 0.010964 | Val Loss: 0.010962
+Epoch 110/1000 | Train Loss: 0.010740 | Val Loss: 0.010923
+Epoch 120/1000 | Train Loss: 0.010797 | Val Loss: 0.010956
+Epoch 130/1000 | Train Loss: 0.010375 | Val Loss: 0.010853
+Epoch 140/1000 | Train Loss: 0.010189 | Val Loss: 0.011000
+Epoch 150/1000 | Train Loss: 0.009897 | Val Loss: 0.011063
+Epoch 160/1000 | Train Loss: 0.009681 | Val Loss: 0.011099
+Epoch 170/1000 | Train Loss: 0.009935 | Val Loss: 0.011125
+Epoch 180/1000 | Train Loss: 0.009612 | Val Loss: 0.011148
+Epoch 190/1000 | Train Loss: 0.008778 | Val Loss: 0.011131
+Epoch 200/1000 | Train Loss: 0.008585 | Val Loss: 0.011153
+Epoch 210/1000 | Train Loss: 0.008432 | Val Loss: 0.011108
+Epoch 220/1000 | Train Loss: 0.008905 | Val Loss: 0.011220
+Epoch 230/1000 | Train Loss: 0.008375 | Val Loss: 0.011167
+Epoch 240/1000 | Train Loss: 0.008218 | Val Loss: 0.011199
+Epoch 250/1000 | Train Loss: 0.008151 | Val Loss: 0.011286
+Epoch 260/1000 | Train Loss: 0.008270 | Val Loss: 0.011558
+Epoch 270/1000 | Train Loss: 0.007466 | Val Loss: 0.011501
+Epoch 280/1000 | Train Loss: 0.007303 | Val Loss: 0.011568
+Epoch 290/1000 | Train Loss: 0.007165 | Val Loss: 0.011654
+Epoch 300/1000 | Train Loss: 0.007068 | Val Loss: 0.011762
+Epoch 310/1000 | Train Loss: 0.006986 | Val Loss: 0.011828
+Epoch 320/1000 | Train Loss: 0.006926 | Val Loss: 0.011965
+Epoch 330/1000 | Train Loss: 0.006851 | Val Loss: 0.011959
+Epoch 340/1000 | Train Loss: 0.006800 | Val Loss: 0.011967
+Epoch 350/1000 | Train Loss: 0.006755 | Val Loss: 0.011986
+Epoch 360/1000 | Train Loss: 0.006710 | Val Loss: 0.012011
+Early stopping at epoch 363 due to no improvement in validation loss for 150 epochs.
+Epoch 10/213 | Combined Train Loss: 0.015273
+Epoch 20/213 | Combined Train Loss: 0.014239
+Epoch 30/213 | Combined Train Loss: 0.013428
+Epoch 40/213 | Combined Train Loss: 0.012838
+Epoch 50/213 | Combined Train Loss: 0.012434
+Epoch 60/213 | Combined Train Loss: 0.012111
+Epoch 70/213 | Combined Train Loss: 0.011811
+Epoch 80/213 | Combined Train Loss: 0.011453
+Epoch 90/213 | Combined Train Loss: 0.010942
+Epoch 100/213 | Combined Train Loss: 0.010445
+Epoch 110/213 | Combined Train Loss: 0.010042
+Epoch 120/213 | Combined Train Loss: 0.009489
+Epoch 130/213 | Combined Train Loss: 0.009130
+Epoch 140/213 | Combined Train Loss: 0.010061
+Epoch 150/213 | Combined Train Loss: 0.009014
+Epoch 160/213 | Combined Train Loss: 0.007618
+Epoch 170/213 | Combined Train Loss: 0.006829
+Epoch 180/213 | Combined Train Loss: 0.006393
+Epoch 190/213 | Combined Train Loss: 0.006590
+Epoch 200/213 | Combined Train Loss: 0.005756
+Epoch 210/213 | Combined Train Loss: 0.005801
+Epoch 213/213 | Combined Train Loss: 0.005873
+\n--- Strategy: expanding_window, Seed: 26008, Item: 918537, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 85 epochs | mean val loss = 0.015220
+  [refit] Epoch 10/85 | Train Loss: 0.015104
+  [refit] Epoch 20/85 | Train Loss: 0.014116
+  [refit] Epoch 30/85 | Train Loss: 0.013321
+  [refit] Epoch 40/85 | Train Loss: 0.012683
+  [refit] Epoch 50/85 | Train Loss: 0.012198
+  [refit] Epoch 60/85 | Train Loss: 0.011792
+  [refit] Epoch 70/85 | Train Loss: 0.011451
+  [refit] Epoch 80/85 | Train Loss: 0.011140
+  [refit] Epoch 85/85 | Train Loss: 0.010999
+\n--- Strategy: sliding_window, Seed: 26008, Item: 918537, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 100 epochs | mean val loss = 0.015209
+  [refit] Epoch 10/100 | Train Loss: 0.015922
+  [refit] Epoch 20/100 | Train Loss: 0.015157
+  [refit] Epoch 30/100 | Train Loss: 0.014653
+  [refit] Epoch 40/100 | Train Loss: 0.014098
+  [refit] Epoch 50/100 | Train Loss: 0.013476
+  [refit] Epoch 60/100 | Train Loss: 0.012820
+  [refit] Epoch 70/100 | Train Loss: 0.012210
+  [refit] Epoch 80/100 | Train Loss: 0.011669
+  [refit] Epoch 90/100 | Train Loss: 0.011249
+  [refit] Epoch 100/100 | Train Loss: 0.010874
+\n--- Strategy: best_val, Seed: 26008, Item: 936693, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018497 | Val Loss: 0.017609
+Epoch 20/1000 | Train Loss: 0.018203 | Val Loss: 0.017759
+Epoch 30/1000 | Train Loss: 0.017909 | Val Loss: 0.017688
+Epoch 40/1000 | Train Loss: 0.017522 | Val Loss: 0.017571
+Epoch 50/1000 | Train Loss: 0.016976 | Val Loss: 0.017438
+Epoch 60/1000 | Train Loss: 0.016426 | Val Loss: 0.017348
+Epoch 70/1000 | Train Loss: 0.015942 | Val Loss: 0.017308
+Epoch 80/1000 | Train Loss: 0.015576 | Val Loss: 0.017432
+Epoch 90/1000 | Train Loss: 0.015270 | Val Loss: 0.017653
+Epoch 100/1000 | Train Loss: 0.014947 | Val Loss: 0.017926
+Epoch 110/1000 | Train Loss: 0.014514 | Val Loss: 0.018331
+Epoch 120/1000 | Train Loss: 0.014795 | Val Loss: 0.019082
+Epoch 130/1000 | Train Loss: 0.013612 | Val Loss: 0.018356
+Epoch 140/1000 | Train Loss: 0.014980 | Val Loss: 0.017948
+Epoch 150/1000 | Train Loss: 0.014302 | Val Loss: 0.018942
+Epoch 160/1000 | Train Loss: 0.013339 | Val Loss: 0.018885
+Epoch 170/1000 | Train Loss: 0.012682 | Val Loss: 0.019484
+Epoch 180/1000 | Train Loss: 0.013000 | Val Loss: 0.020318
+Epoch 190/1000 | Train Loss: 0.012252 | Val Loss: 0.019873
+Epoch 200/1000 | Train Loss: 0.012025 | Val Loss: 0.019823
+Epoch 210/1000 | Train Loss: 0.011900 | Val Loss: 0.020204
+Epoch 220/1000 | Train Loss: 0.011765 | Val Loss: 0.020648
+Epoch 230/1000 | Train Loss: 0.011623 | Val Loss: 0.021012
+Epoch 240/1000 | Train Loss: 0.011983 | Val Loss: 0.022260
+Epoch 250/1000 | Train Loss: 0.011361 | Val Loss: 0.021577
+Epoch 260/1000 | Train Loss: 0.011308 | Val Loss: 0.021238
+Epoch 270/1000 | Train Loss: 0.011239 | Val Loss: 0.021336
+Epoch 280/1000 | Train Loss: 0.011193 | Val Loss: 0.021454
+Early stopping at epoch 289 due to no improvement in validation loss for 150 epochs.
+\n--- Strategy: combined, Seed: 26008, Item: 936693, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.019083 | Val Loss: 0.017400
+Epoch 20/1000 | Train Loss: 0.018418 | Val Loss: 0.017565
+Epoch 30/1000 | Train Loss: 0.018213 | Val Loss: 0.017629
+Epoch 40/1000 | Train Loss: 0.018019 | Val Loss: 0.017603
+Epoch 50/1000 | Train Loss: 0.017795 | Val Loss: 0.017523
+Epoch 60/1000 | Train Loss: 0.017518 | Val Loss: 0.017360
+Epoch 70/1000 | Train Loss: 0.017181 | Val Loss: 0.017149
+Epoch 80/1000 | Train Loss: 0.016786 | Val Loss: 0.016977
+Epoch 90/1000 | Train Loss: 0.016406 | Val Loss: 0.017004
+Epoch 100/1000 | Train Loss: 0.016094 | Val Loss: 0.017201
+Epoch 110/1000 | Train Loss: 0.015814 | Val Loss: 0.017444
+Epoch 120/1000 | Train Loss: 0.015557 | Val Loss: 0.017692
+Epoch 130/1000 | Train Loss: 0.015331 | Val Loss: 0.017936
+Epoch 140/1000 | Train Loss: 0.014865 | Val Loss: 0.018068
+Epoch 150/1000 | Train Loss: 0.014785 | Val Loss: 0.018199
+Epoch 160/1000 | Train Loss: 0.014699 | Val Loss: 0.018338
+Epoch 170/1000 | Train Loss: 0.014612 | Val Loss: 0.018480
+Epoch 180/1000 | Train Loss: 0.014521 | Val Loss: 0.018620
+Epoch 190/1000 | Train Loss: 0.014312 | Val Loss: 0.018724
+Epoch 200/1000 | Train Loss: 0.014258 | Val Loss: 0.018792
+Epoch 210/1000 | Train Loss: 0.014202 | Val Loss: 0.018856
+Epoch 220/1000 | Train Loss: 0.014143 | Val Loss: 0.018912
+Epoch 230/1000 | Train Loss: 0.014080 | Val Loss: 0.018955
+Early stopping at epoch 234 due to no improvement in validation loss for 150 epochs.
+Epoch 10/84 | Combined Train Loss: 0.019473
+Epoch 20/84 | Combined Train Loss: 0.018946
+Epoch 30/84 | Combined Train Loss: 0.018737
+Epoch 40/84 | Combined Train Loss: 0.018516
+Epoch 50/84 | Combined Train Loss: 0.018229
+Epoch 60/84 | Combined Train Loss: 0.017870
+Epoch 70/84 | Combined Train Loss: 0.017476
+Epoch 80/84 | Combined Train Loss: 0.017117
+Epoch 84/84 | Combined Train Loss: 0.016985
+\n--- Strategy: expanding_window, Seed: 26008, Item: 936693, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 41 epochs | mean val loss = 0.019776
+  [refit] Epoch 10/41 | Train Loss: 0.019439
+  [refit] Epoch 20/41 | Train Loss: 0.018905
+  [refit] Epoch 30/41 | Train Loss: 0.018599
+  [refit] Epoch 40/41 | Train Loss: 0.018321
+  [refit] Epoch 41/41 | Train Loss: 0.018293
+\n--- Strategy: sliding_window, Seed: 26008, Item: 936693, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 45 epochs | mean val loss = 0.019975
+  [refit] Epoch 10/45 | Train Loss: 0.020345
+  [refit] Epoch 20/45 | Train Loss: 0.018954
+  [refit] Epoch 30/45 | Train Loss: 0.018432
+  [refit] Epoch 40/45 | Train Loss: 0.018058
+  [refit] Epoch 45/45 | Train Loss: 0.017886
+Experiments completed. Results saved to c:\Users\Andre Silva\Desktop\Dissertation25-26\LSTM\lstm_strategies_results_w5.csv.

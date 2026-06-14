@@ -1,6 +1,12 @@
+import copy
 import sys
 import os
 import time
+import csv
+import glob as _glob_mod
+import subprocess
+import threading
+import itertools
 import pandas as pd
 import numpy as np
 import torch
@@ -16,14 +22,14 @@ from lstm import LSTM
 from dataset import TimeSeriesDataset
 from lstm_train import train_model, train_model_combined, train_model_expanding_window, train_model_sliding_window
 #from train import train_model_selected_epochs
-from LSTM.lstm_inference import recursive_inference
+from lstm_inference import recursive_inference
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # ── Constants (same defaults as LSTM_GCN/main.py) ──────────────────────────
-DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/data_andre_classified.feather'))
-TOP_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../../../dataset/top_12500.feather'))
+DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../dataset/data_andre_classified.feather'))
+TOP_DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, '../dataset/top_12500.feather'))
 DATE_COL = 'date'
 TARGET_COL = 'value'
 
@@ -64,14 +70,180 @@ dropout = 0.0
 EPOCHS = 1000
 LEARNING_RATE = 0.001
 #seeds = [57]
-seeds = [42,1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
- 
+
+#SEEDS = [42, 1000, 26008, 555555,213626, 907969, 5219788, 13451285, 23616558, 618626816]  # Add more seeds as needed
+SEEDS = [42, 1000, 26008]  # Add more seeds as needed
 loss_type = 'MSELoss'
-target_products = None # Set to None to load from TOP_DATA_PATH, or specify a list of item_ids to test, e.g., [26008, 907969, 907967, 213626]
+
+RESULTS_CSV_NAME = 'lstm_strategies_results.csv'
+
+# ── Parallelism config ──────────────────────────────────────────────────
+# PARALLEL_MODE: "product" → one subprocess per product-shard (recommended)
+#                "seed"    → one subprocess per seed (each handles all products)
+# MAX_CONCURRENT caps simultaneous processes (Ryzen 7 5600X: 6 physical cores).
+# N_PRODUCT_WORKERS: how many product shards to create (product mode only).
+# PRODUCTS_END: only distribute products[:PRODUCTS_END]; None = all.
+# NO_MERGE=True skips merging the per-worker CSVs into the canonical CSV.
+PARALLEL = True
+PARALLEL_MODE = "product"   # "seed" or "product"
+MAX_CONCURRENT = 6
+N_PRODUCT_WORKERS = 6       # product mode: products / N_PRODUCT_WORKERS each
+PRODUCTS_END = None         # exclude products[PRODUCTS_END:] from the parallel run
+NO_MERGE = False
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Parallel launchers (one subprocess per product-shard or per seed)
+# ─────────────────────────────────────────────────────────────────────────
+def _merge_worker_csvs():
+    """Merge per-worker ``lstm_strategies_results_w*.csv`` files into the canonical CSV."""
+    partial_files = sorted(_glob_mod.glob(
+        os.path.join(SCRIPT_DIR, RESULTS_CSV_NAME.replace('.csv', '_w*.csv'))
+    ))
+    if not partial_files:
+        return
+    seen = set()
+    rows = []
+    header = None
+    for p in partial_files:
+        try:
+            with open(p, newline="") as f:
+                reader = csv.DictReader(f)
+                header = reader.fieldnames or header
+                for row in reader:
+                    key = (
+                        row.get("item_id", ""), row.get("store_id", ""),
+                        row.get("seed", ""), row.get("strategy", ""),
+                    )
+                    if key not in seen:
+                        seen.add(key)
+                        rows.append(row)
+        except Exception as e:
+            print(f"  Warning: could not read {p}: {e}")
+    if header is None:
+        return
+    out_path = os.path.join(SCRIPT_DIR, RESULTS_CSV_NAME)
+    with open(out_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"Merged {len(rows)} rows from {len(partial_files)} files -> {out_path}")
+
+
+def _spawn_workers(jobs, max_concurrent, no_merge=False):
+    """
+    Launch one subprocess per (worker_id, num_workers, extra_env) job, bounded
+    to ``max_concurrent`` at a time, then optionally merge per-worker CSVs.
+    """
+    semaphore = threading.Semaphore(max_concurrent)
+    results = {}
+    threads = []
+
+    def _run(wid, nw, extra_env, log_name):
+        with semaphore:
+            env = {
+                **os.environ,
+                "LSTM_WORKER_ID": str(wid),
+                "LSTM_NUM_WORKERS": str(nw),
+                # 1 thread each so the processes share cores cleanly instead of
+                # all fighting for every core.
+                "OMP_NUM_THREADS": "1",
+                "MKL_NUM_THREADS": "1",
+                "OPENBLAS_NUM_THREADS": "1",
+                "NUMEXPR_NUM_THREADS": "1",
+                **extra_env,
+            }
+            cmd = [sys.executable, __file__]
+            log_path = os.path.join(SCRIPT_DIR, log_name)
+            print(f"[START] worker={wid}/{nw}  log={log_name}", flush=True)
+            t0 = time.time()
+            with open(log_path, "w") as log_fh:
+                proc = subprocess.Popen(cmd, stdout=log_fh, stderr=subprocess.STDOUT,
+                                        text=True, env=env)
+                pid = proc.pid
+                print(f"[RUN]   worker={wid} pid={pid}", flush=True)
+                try:
+                    rc = proc.wait()
+                except KeyboardInterrupt:
+                    proc.terminate()
+                    proc.wait()
+                    raise
+            elapsed = time.time() - t0
+            status = "OK" if rc == 0 else f"FAILED(rc={rc})"
+            print(f"[DONE]  worker={wid} pid={pid}  {status}  {elapsed/60:.1f} min", flush=True)
+            results[wid] = rc
+
+    print(f"Spawning {len(jobs)} workers  |  max_concurrent={max_concurrent}")
+    for wid, nw, extra_env, log_name in jobs:
+        t = threading.Thread(target=_run, args=(wid, nw, extra_env, log_name), daemon=True)
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()
+
+    failed = [w for w, rc in results.items() if rc != 0]
+    print(f"\nCompleted {len(results)} workers.  Failed: {len(failed)}")
+    for w in failed:
+        print(f"  worker={w}  (check its log file)")
+
+    if not no_merge:
+        print(f"\nMerging partial CSVs -> {RESULTS_CSV_NAME}")
+        _merge_worker_csvs()
+
+
+def _run_parallel_products(num_workers, max_concurrent, no_merge=False):
+    """One subprocess per disjoint product slice; each runs all SEEDS for its shard."""
+    jobs = [
+        (wid, num_workers, {}, f"log_worker{wid}_of{num_workers}.txt")
+        for wid in range(num_workers)
+    ]
+    _spawn_workers(jobs, max_concurrent, no_merge=no_merge)
+
+
+def _run_parallel_seeds(seeds, max_concurrent, no_merge=False):
+    """One subprocess per seed; each handles all products for that single seed."""
+    jobs = [
+        (wid, 1, {"LSTM_SEED": str(seed)}, f"log_seed{seed}.txt")
+        for wid, seed in enumerate(seeds)
+    ]
+    _spawn_workers(jobs, max_concurrent, no_merge=no_merge)
+
+
 # -----------------------------------------------------------------------------
 # Main Loop
 # -----------------------------------------------------------------------------
 def main():
+    worker_id   = int(os.environ.get("LSTM_WORKER_ID", "0"))
+    num_workers = int(os.environ.get("LSTM_NUM_WORKERS", "1"))
+
+    # Limit PyTorch's intra-op thread pool to 1 when running as a product-shard
+    # worker so the processes share the cores instead of all claiming them.
+    if num_workers > 1:
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+
+    # ── Parallel launcher (coordinator only) ────────────────────────────
+    # Workers are identified by LSTM_NUM_WORKERS > 1 (product mode) or by
+    # LSTM_SEED being set (seed mode).  The bare coordinator has neither.
+    is_worker = num_workers > 1 or "LSTM_SEED" in os.environ
+    if PARALLEL and not is_worker:
+        if PARALLEL_MODE == "seed":
+            _run_parallel_seeds(
+                seeds=SEEDS, max_concurrent=MAX_CONCURRENT, no_merge=NO_MERGE,
+            )
+        else:  # "product"
+            _run_parallel_products(
+                num_workers=N_PRODUCT_WORKERS, max_concurrent=MAX_CONCURRENT,
+                no_merge=NO_MERGE,
+            )
+        return
+
+    # Seed-mode workers run a single seed; product-mode workers run all SEEDS.
+    seeds_to_run = ([int(os.environ["LSTM_SEED"])] if "LSTM_SEED" in os.environ
+                    else list(SEEDS))
+
+    target_products = [(911753,6269)]
     print(f"Loading data from {DATA_PATH}...")
     df = pd.read_feather(DATA_PATH)
     
@@ -95,10 +267,33 @@ def main():
             .tolist()
         )
     products = df[df[['item_id', 'store_id']].apply(tuple, axis=1).isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
+
+    # Apply PRODUCTS_END so the last product(s) can be excluded from the
+    # parallel run and handled sequentially later.
+    if PRODUCTS_END is not None:
+        products = products[:PRODUCTS_END]
+
+    # ── Product sharding (parallelism across workers) ────────────────────
+    # Each worker processes a disjoint slice so multiple processes run
+    # simultaneously without duplicating work.  In seed mode (num_workers==1)
+    # this is a no-op and every worker handles all products for its seed.
+    n_products_total = len(products)
+    products = products[worker_id::num_workers]
+    print(f"Worker {worker_id}/{num_workers}: processing "
+          f"{len(products)} / {n_products_total} products  |  seeds={seeds_to_run}")
+
     #strategies= ['selected_epochs']
-    strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
+    strategies = ['best_val', 'combined', 'expanding_window', 'sliding_window']
     results = []
-    
+
+    # ── Per-worker CSV suffix (avoids concurrent-write races) ────────────
+    # Each worker writes to its own *_w{id}.csv; the coordinator merges them
+    # into the canonical CSV after all workers finish.
+    worker_csv_suffix = f"_w{worker_id}" if num_workers > 1 else ""
+    RESULTS_CSV = os.path.join(
+        SCRIPT_DIR, RESULTS_CSV_NAME.replace('.csv', f'{worker_csv_suffix}.csv')
+    )
+
     os.makedirs('best_models', exist_ok=True)
     os.makedirs('grid_search_plots', exist_ok=True)
     
@@ -106,7 +301,7 @@ def main():
     criterion = nn.MSELoss()
     criterion2 = nn.MSELoss()
 
-    for seed in seeds:
+    for seed in seeds_to_run:
         for item_id, store_id in products:
             df_product = df[(df['item_id'] == item_id) & (df['store_id'] == store_id)].copy()
             df_product[DATE_COL] = pd.to_datetime(df_product[DATE_COL])
@@ -176,33 +371,24 @@ def main():
                     model, t_losses, v_losses, best_epoch, train_time = train_model(
                         seed, EPOCHS, model, train_loader, val_loader, EXOG_COLS, 
                         criterion, criterion2, optimizer, device, model_path, scheduler, 150)
-                elif strategy == 'best_train_early_val':
-                    model, t_losses, v_losses, best_epoch, train_time = train_model_best_train_loss(
-                        seed, EPOCHS, model, train_loader, val_loader, EXOG_COLS, 
-                        criterion, criterion2, optimizer, device, model_path, scheduler, 150)
                 elif strategy == 'combined':
-                    # First run standard train to find optimal epochs and best model via validation loss
+                    # Save pristine state before train_model modifies model/optimizer
+                    initial_model_state = copy.deepcopy(model.state_dict())
+
+                    # Find optimal epoch count via val loss early stopping
                     model, t_init, v_losses, optimal_epoch, _ = train_model(
-                        seed, EPOCHS, model, train_loader, val_loader, EXOG_COLS, 
+                        seed, EPOCHS, model, train_loader, val_loader, EXOG_COLS,
                         criterion, criterion2, optimizer, device, model_path + "_temp.pth", scheduler, 150)
-                    
-                    # Load the best model weights
-                    if os.path.exists(model_path + "_temp.pth"):
-                        model.load_state_dict(torch.load(model_path + "_temp.pth"))
-                    
-                    # Retrain the same model on combined data for the same number of epochs
+
+                    # Reset to pristine weights and a fresh optimizer before refit
+                    model.load_state_dict(initial_model_state)
+                    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+                    # Refit from scratch on combined data for optimal_epoch epochs
                     model, t_losses, train_time = train_model_combined(
                         seed, optimal_epoch, model, combined_loader, criterion, optimizer, device, model_path)
                     best_epoch = optimal_epoch
                 
-            #    elif strategy == 'selected_epochs':
-                    # Ask or define a selected number of epochs, e.g., 200 (could be dynamically assigned)
-            #        selected_num_epochs = 200 
-            #        model, t_losses, best_train_loss, best_model_epoch, train_time = train_model_selected_epochs(
-            #            seed, selected_num_epochs, model, combined_loader, criterion, optimizer, device, model_path)
-            #        best_epoch = best_model_epoch
-            #        print(f"Best Train Loss: {best_train_loss}, at epoch: {best_model_epoch}")
-            #        v_losses = [] # No validation loss since it's train+val combined
 
                 elif strategy == 'expanding_window':
                     model, t_losses, v_losses, best_epoch, train_time = train_model_expanding_window(
@@ -259,7 +445,7 @@ def main():
                 strategy_scores[strategy] = score
                 strategy_pocids[strategy] = pocid
                 
-                results.append({
+                row = {
                     'seed': seed,
                     'strategy': strategy,
                     'item_id': item_id,
@@ -269,7 +455,14 @@ def main():
                     'train_time': train_time,
                     'inference_time': infer_time,
                     'best_epoch': best_epoch
-                })
+                }
+                results.append(row)
+                pd.DataFrame([row]).to_csv(
+                    RESULTS_CSV,
+                    mode='a',
+                    header=not os.path.exists(RESULTS_CSV),
+                    index=False,
+                )
 
             # --- Plot Forecast Comparisons ---
             plot_dir = os.path.join(SCRIPT_DIR, f'grid_search_plots/seed_{seed}/{loss_type}')
@@ -287,9 +480,7 @@ def main():
                          rmse=strategy_rmses, mae=strategy_maes, bias=strategy_biases,
                          score=strategy_scores, pocid=strategy_pocids, df_full=df_product)
 
-    results_df = pd.DataFrame(results)
-    results_df.to_csv('lstm_strategies_results.csv', index=False)
-    print("Experiments completed. Results saved to lstm_strategies_results.csv.")
+    print(f"Experiments completed. Results saved to {RESULTS_CSV}.")
 
 if __name__ == "__main__":
     main()

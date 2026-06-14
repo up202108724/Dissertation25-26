@@ -1,3 +1,4 @@
+import copy
 import sys
 import os
 import time
@@ -79,7 +80,7 @@ def main():
     target_products = df
     products = df[df['item_id'].isin(target_products)][['item_id', 'store_id']].drop_duplicates().values[:5]
     #strategies= ['selected_epochs']
-    strategies = ['best_val', 'best_train_early_val', 'combined', 'expanding_window', 'sliding_window']
+    strategies = ['best_val', 'combined', 'expanding_window', 'sliding_window']
     results = []
     
     os.makedirs('best_models', exist_ok=True)
@@ -159,21 +160,20 @@ def main():
                     model, t_losses, v_losses, best_epoch, train_time = train_model(
                         seed, EPOCHS, model, train_loader, val_loader, EXOG_COLS, 
                         criterion, criterion2, optimizer, device, model_path, scheduler, 150)
-                elif strategy == 'best_train_early_val':
-                    model, t_losses, v_losses, best_epoch, train_time = train_model_best_train_loss(
-                        seed, EPOCHS, model, train_loader, val_loader, EXOG_COLS, 
-                        criterion, criterion2, optimizer, device, model_path, scheduler, 150)
                 elif strategy == 'combined':
-                    # First run standard train to find optimal epochs and best model via validation loss
+                    # Save pristine state before train_model modifies model/optimizer
+                    initial_model_state = copy.deepcopy(model.state_dict())
+
+                    # Find optimal epoch count via val loss early stopping
                     model, t_init, v_losses, optimal_epoch, _ = train_model(
-                        seed, EPOCHS, model, train_loader, val_loader, EXOG_COLS, 
+                        seed, EPOCHS, model, train_loader, val_loader, EXOG_COLS,
                         criterion, criterion2, optimizer, device, model_path + "_temp.pth", scheduler, 150)
-                    
-                    # Load the best model weights
-                    if os.path.exists(model_path + "_temp.pth"):
-                        model.load_state_dict(torch.load(model_path + "_temp.pth"))
-                    
-                    # Retrain the same model on combined data for the same number of epochs
+
+                    # Reset to pristine weights and a fresh optimizer before refit
+                    model.load_state_dict(initial_model_state)
+                    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+                    # Refit from scratch on combined data for optimal_epoch epochs
                     model, t_losses, train_time = train_model_combined(
                         seed, optimal_epoch, model, combined_loader, criterion, optimizer, device, model_path)
                     best_epoch = optimal_epoch

@@ -275,9 +275,12 @@ def report_distribution(all_weights, per_item_threshold, per_item_counts,
     plt.legend()
     plt.tight_layout()
     hist_path = os.path.join(out_dir, f"hist_{tag}.png")
+    hist_pdf_path = os.path.join(out_dir, f"hist_{tag}.pdf")
     plt.savefig(hist_path, dpi=140)
+    plt.savefig(hist_pdf_path)          # vector PDF for publication
     plt.close()
     print(f"\nSaved histogram -> {hist_path}")
+    print(f"Saved histogram -> {hist_pdf_path}")
 
     # --- Boxplot ---
     plt.figure(figsize=(10, 3))
@@ -287,9 +290,12 @@ def report_distribution(all_weights, per_item_threshold, per_item_counts,
     plt.xlabel(f"{metric_type.capitalize()}")
     plt.tight_layout()
     box_path = os.path.join(out_dir, f"box_{tag}.png")
+    box_pdf_path = os.path.join(out_dir, f"box_{tag}.pdf")
     plt.savefig(box_path, dpi=140)
+    plt.savefig(box_pdf_path)           # vector PDF for publication
     plt.close()
     print(f"Saved boxplot   -> {box_path}")
+    print(f"Saved boxplot   -> {box_pdf_path}")
 
     return summary
 
@@ -321,9 +327,12 @@ def plot_per_item_comparison(per_item, metric, metric_type, window_size,
     plt.legend(title="item_id", fontsize=8)
     plt.tight_layout()
     p = os.path.join(out_dir, f"per_item_kde_{tag}.png")
+    p_pdf = os.path.join(out_dir, f"per_item_kde_{tag}.pdf")
     plt.savefig(p, dpi=140)
+    plt.savefig(p_pdf)                  # vector PDF for publication
     plt.close()
     print(f"Saved per-item KDE -> {p}")
+    print(f"Saved per-item KDE -> {p_pdf}")
 
 
 # =============================================================================
@@ -337,9 +346,9 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))  # DynamicSimilarities/ (plots, utils)
 
     MODE = "percentile"             # 'none' | 'threshold' | 'percentile'
-    METRIC = "spearman"               # 'pearson' | 'spearman' | 'kendall' |
+    METRIC = "cid"               # 'pearson' | 'spearman' | 'kendall' |
                                  # 'cid' | 'dtw' | 'manhattan' | ...
-    METRIC_TYPE = "similarity"     # 'similarity' or 'distance'
+    METRIC_TYPE = "distance"     # 'similarity' or 'distance'
     WINDOW_SIZE = 30
     STEP_SIZE = 1
 
@@ -348,7 +357,7 @@ if __name__ == "__main__":
     ENABLE_EDGES_WITHIN_STAR = True   # ignored when MODE == 'none'
     TOTAL_TIME_STEPS = 761
     FORECAST_HORIZON = 153
-    VAL_SIZE = 31
+    VAL_SIZE = 61
     TRAIN_SIZE = TOTAL_TIME_STEPS - VAL_SIZE - FORECAST_HORIZON
     USE_TRAIN_VAL_ONLY = True
     # For distance metrics on raw counts (CID/DTW/Euclidean/...) values are

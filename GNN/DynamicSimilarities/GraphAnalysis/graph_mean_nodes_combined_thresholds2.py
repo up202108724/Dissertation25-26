@@ -10,8 +10,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import compute_similarities_1vsAll, compute_distances_1vsAll, neighbourhood_graph
 
 # ── Configuration ─────────────────────────────────────────────────────────
-metric     = "spearman"
-THRESHOLDS = [0.634]  # chosen to yield ~10, ~20, ~30 mean nodes in the first window
+metric     = "cid"
+THRESHOLDS = [4.158]  # chosen to yield ~10, ~20, ~30 mean nodes in the first window
 COLORS     = ['#1f77b4']   # blue for the single threshold; add more if you expand THRESHOLDS
 #COLORS     = ['#1f77b4', '#ff7f0e', '#2ca02c']   # blue, orange, green
 window_size = 30
@@ -19,7 +19,7 @@ step        = 1
 ENABLE_Z_NORMALIZATION = True
 
 # ── Split constants ────────────────────────────────────────────────────────
-val_size_global        = 30
+val_size_global        = 60
 forecast_horizon_global = 153
 train_size_global       = 761 - val_size_global - forecast_horizon_global  # 455
 
