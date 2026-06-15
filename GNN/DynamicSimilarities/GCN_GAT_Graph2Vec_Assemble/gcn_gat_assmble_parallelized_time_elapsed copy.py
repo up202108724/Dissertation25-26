@@ -56,8 +56,16 @@ from gat_tdmlp_dataset import (
 from gcn_models import (
     SimpleGCNLSTMForecaster, SimpleGCNMLPForecaster,
     SimpleGATLSTMForecaster, SimpleGATMLPForecaster,
+    SimpleGraph2VecLSTMForecaster, SimpleGraph2VecMLPForecaster,
 )
 from inference_strategies import _recursive_forecast_gcn_mlp_perstep, _recursive_forecast_gcn_lstm_perstep
+# Graph2Vec variants: frozen-embedding forecasters that ride the per-step
+# pipeline by carrying each day's embedding as a 1-node graph feature.
+from generate_graph2vecwithadaptativethreshold import load_or_generate_embeddings
+from graph2vec_assemble import (
+    recursive_forecast_graph2vec_perstep,
+    embedding_to_single_node_data,
+)
 from ablationlstm import AblationLSTMForecaster
 from ablationmlp import AblationMLPForecaster
 from train_methods import train_gcn_lstm_model , train_gcn_mlpmodel
@@ -161,10 +169,14 @@ USE_RESIDUALS  = False
 MODEL_TYPE     = 'ridge'
 EPOCHS         = 1000
 PATIENCE       = 100
-LEARNING_RATE  = 0.001
+# Head-specific learning rates / dropout — the LSTM and MLP heads (and their
+# matching baselines) overfit at different rates, so they are tuned separately.
+LEARNING_RATE_LSTM = 0.001   # gcn_lstm / gat_lstm / lstm ablation + LSTM baseline
+LEARNING_RATE_MLP  = 0.0001   # gcn_mlp  / gat_mlp  / mlp  ablation + MLP  baseline
 HIDDEN_SIZE    = 32
 NUM_LAYERS     = 1
-DROPOUT        = 0.0
+DROPOUT_LSTM   = 0.0          # LSTM-head variants + LSTM baseline
+DROPOUT_MLP    = 0.2          # MLP-head variants + MLP baseline
 D_G            = 16          # per-step graph embedding dim
 SAVE_MODELS         = False
 SAVE_PLOTS          = True
@@ -202,9 +214,9 @@ def _node_feature_width(mode, window_size, extra_stats=True):
 # the class constructed by build_forecaster().  Ablation (z=0) removes the
 # graph branch entirely, collapsing GCN==GAT, so it is run once per head
 # (lstm/mlp) via the dedicated graph-free models — see the dedup in the grid.
-MODEL_VARIANTS   = ['gcn_lstm', 'gcn_mlp', 'gat_lstm', 'gat_mlp']
+MODEL_VARIANTS   = ['graph2vec_lstm', 'graph2vec_mlp', 'gcn_lstm', 'gcn_mlp', 'gat_lstm', 'gat_mlp']
 ATTENTION_HEADS  = 4            # GAT attention heads (encoder layer 1)
-MLP_HIDDEN_SIZES = (128, 64)     # TimeDistributed-MLP head widths
+MLP_HIDDEN_SIZES = (64,32)     # TimeDistributed-MLP head widths
 
 
 def _variant_head(variant):
@@ -222,41 +234,55 @@ def build_forecaster(variant, ablate_z, in_channels, ts_input_size):
     accept the same forward signature, so the caller is variant-agnostic.
     """
     head = _variant_head(variant)
+    # LSTM and MLP heads are regularised separately (see globals).
+    dropout = DROPOUT_LSTM if head == 'lstm' else DROPOUT_MLP
     if ablate_z:
         if head == 'lstm':
             return AblationLSTMForecaster(
                 lstm_input_size=ts_input_size, lstm_hidden=HIDDEN_SIZE,
-                lstm_layers=NUM_LAYERS, horizon=1, dropout=DROPOUT,
+                lstm_layers=NUM_LAYERS, horizon=1, dropout=dropout,
             )
         return AblationMLPForecaster(
             ts_input_size=ts_input_size, hidden_sizes=MLP_HIDDEN_SIZES,
-            dropout=DROPOUT,
+            dropout=dropout,
+        )
+    if variant == 'graph2vec_lstm':
+        return SimpleGraph2VecLSTMForecaster(
+            in_channels=in_channels, graph2vec_hidden=HIDDEN_SIZE, d_g=D_G,
+            lstm_input_size=ts_input_size, lstm_hidden=HIDDEN_SIZE,
+            lstm_layers=NUM_LAYERS, horizon=1, dropout=dropout,
+        )
+    if variant == 'graph2vec_mlp':
+        return SimpleGraph2VecMLPForecaster(
+            in_channels=in_channels, graph2vec_hidden=HIDDEN_SIZE, d_g=D_G,
+            ts_input_size=ts_input_size, lookback_window=lookback_window,
+            hidden_sizes=MLP_HIDDEN_SIZES, horizon=1, dropout=dropout,
         )
     if variant == 'gcn_lstm':
         return SimpleGCNLSTMForecaster(
             in_channels=in_channels, gcn_hidden=HIDDEN_SIZE, d_g=D_G,
             lstm_input_size=ts_input_size, lstm_hidden=HIDDEN_SIZE,
-            lstm_layers=NUM_LAYERS, horizon=1, dropout=DROPOUT,
+            lstm_layers=NUM_LAYERS, horizon=1, dropout=dropout,
         )
     if variant == 'gat_lstm':
         return SimpleGATLSTMForecaster(
             in_channels=in_channels, gat_hidden=HIDDEN_SIZE, d_g=D_G,
             lstm_input_size=ts_input_size, lstm_hidden=HIDDEN_SIZE,
-            lstm_layers=NUM_LAYERS, horizon=1, dropout=DROPOUT,
+            lstm_layers=NUM_LAYERS, horizon=1, dropout=dropout,
             attention_heads=ATTENTION_HEADS,
         )
     if variant == 'gcn_mlp':
         return SimpleGCNMLPForecaster(
             in_channels=in_channels, gcn_hidden=HIDDEN_SIZE, d_g=D_G,
             ts_input_size=ts_input_size, lookback_window=lookback_window,
-            hidden_sizes=MLP_HIDDEN_SIZES, horizon=1, dropout=DROPOUT,
+            hidden_sizes=MLP_HIDDEN_SIZES, horizon=1, dropout=dropout,
         )
     if variant == 'gat_mlp':
         return SimpleGATMLPForecaster(
             in_channels=in_channels, gat_hidden=HIDDEN_SIZE,
             gat_heads=ATTENTION_HEADS, d_g=D_G,
             ts_input_size=ts_input_size, lookback_window=lookback_window,
-            hidden_sizes=MLP_HIDDEN_SIZES, horizon=1, dropout=DROPOUT,
+            hidden_sizes=MLP_HIDDEN_SIZES, horizon=1, dropout=dropout,
         )
     raise ValueError(f"Unknown model variant: {variant!r}")
 
@@ -675,17 +701,24 @@ def main():
             print("Running LSTM Baseline...")
             print(f"{'='*60}")
             lstm_input_bl = 1 + (len(EXOG_COLS_LSTM) if EXOG_COLS_LSTM else 0)
+            # Re-seed so this model's init is independent of anything that drew
+            # from the shared RNG stream earlier in this product/seed iteration.
+            torch.manual_seed(seed)
+            np.random.seed(seed % (2**32))
+            random.seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
             bl_model = LSTMBaseline(
                 input_size=lstm_input_bl,
                 hidden_size=HIDDEN_SIZE,
                 num_layers=NUM_LAYERS,
-                dropout=DROPOUT,
+                dropout=DROPOUT_LSTM,
             ).to(device)
             bl_train_ds = LSTMBaselineDataset(train_scaled, exog_train_scaled if EXOG_COLS_LSTM else None, lookback_window)
             bl_val_ds   = LSTMBaselineDataset(val_scaled,   exog_val_scaled   if EXOG_COLS_LSTM else None, lookback_window)
             bl_train_loader = DataLoader(bl_train_ds, batch_size=BATCH_SIZE, shuffle=False)
             bl_val_loader   = DataLoader(bl_val_ds,   batch_size=BATCH_SIZE, shuffle=False)
-            bl_optimizer = torch.optim.AdamW(bl_model.parameters(), lr=LEARNING_RATE)
+            bl_optimizer = torch.optim.AdamW(bl_model.parameters(), lr=LEARNING_RATE_LSTM)
             bl_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 bl_optimizer, mode='min', factor=0.5, patience=PATIENCE // 3,
             )
@@ -758,14 +791,22 @@ def main():
             mlp_exog_scaler = ExogenousScaler(continuous_strategy='minmax')
             mlp_exog_scaler.fit(df_p[EXOG_COLS_MLP].iloc[train_slice], EXOG_COLS_MLP)
 
+            # Re-seed so the MLP baseline's init is independent of the LSTM
+            # baseline (which drew from the same RNG stream just above).
+            torch.manual_seed(seed)
+            np.random.seed(seed % (2**32))
+            random.seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+
             mlp_cfg = TrainConfig(
                 lookback=lookback_window,
                 horizon=1,
                 batch_size=BATCH_SIZE,
                 train_size=train_size,
                 val_size=val_size,
-                lr=LEARNING_RATE,
-                dropout=DROPOUT,
+                lr=LEARNING_RATE_MLP,
+                dropout=DROPOUT_MLP,
                 epochs=EPOCHS,
                 patience=PATIENCE,
                 hidden_sizes=MLP_HIDDEN_SIZES,
@@ -825,7 +866,38 @@ def main():
             
             grid_search_plots_dir = os.path.join(SCRIPT_DIR, 'grid_search_plots', f'seed_{seed}', f'product_{product_id}_store_{store_id}')
             os.makedirs(grid_search_plots_dir, exist_ok=True)
-            
+
+            # ── Persist baseline results to the per-metric CSV ───────────
+            # Baselines are graph-free, so all graph/threshold columns are left
+            # blank.  Written once per (product, seed, metric), same schema as
+            # the variant rows below, so everything lives in one CSV.
+            _baseline_rows = []
+            if _bl_forecast is not None:
+                _baseline_rows.append(
+                    ("lstm_baseline", _bl_rmse, _bl_mae, _bl_bias, _bl_score, _bl_pocid))
+            if _mlp_forecast is not None:
+                _baseline_rows.append(
+                    ("mlp_baseline", _mlp_rmse, _mlp_mae, _mlp_bias, _mlp_score, _mlp_pocid))
+            if _baseline_rows:
+                baseline_csv_path = os.path.join(SCRIPT_DIR, f"{metric}{worker_csv_suffix}.csv")
+                _bl_file_exists = os.path.exists(baseline_csv_path)
+                with open(baseline_csv_path, 'a', newline='') as _bl_csvfile:
+                    _bl_writer = csv.writer(_bl_csvfile)
+                    if not _bl_file_exists:
+                        _bl_writer.writerow([
+                            "product_id", "store_id", "seed", "metric", "model_variant",
+                            "window_size", "step_size", "threshold", "percentile",
+                            "enable_edges", "enable_second_degree", "ablate_z",
+                            "node_feature_mode",
+                            "rmse", "mae", "bias", "r2_score", "pocid",
+                        ])
+                    for _mv, _r, _m, _b, _s, _p in _baseline_rows:
+                        _bl_writer.writerow([
+                            product_id, store_id, seed, metric, _mv,
+                            "", "", "", "", "", "", "", "",
+                            _r, _m, _b, _s, _p,
+                        ])
+
             iterator = itertools.product(
                 MODEL_VARIANTS, ABLATE_Z_VALUES, params, window_sizes, step_sizes,
                 enable_edges_opts, enable_second_degree_opts, node_feature_modes,
@@ -1020,13 +1092,22 @@ def main():
                 # ── 4. Model + optimiser ─────────────────────────────────
                 in_channels     = pyg_train[0].x.shape[1]    # depends on node_feature_mode (e.g. 24 for catch24)
                 lstm_input_size = 1 + (len(exog_cols) if exog_cols else 0)
+                # Re-seed so each variant's init is independent of the models
+                # built before it in this iteration (decouples LSTM/MLP variants
+                # so changing one head never perturbs the other's results).
+                torch.manual_seed(seed)
+                np.random.seed(seed % (2**32))
+                random.seed(seed)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed_all(seed)
                 model = build_forecaster(
                     model_variant, ablate_z, in_channels, lstm_input_size,
                 ).to(device)
                 model.ablate_z = ablate_z
                 criterion  = nn.MSELoss()
                 criterion2 = nn.MSELoss()
-                optimizer  = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+                lr_for_head = LEARNING_RATE_LSTM if _head == 'lstm' else LEARNING_RATE_MLP
+                optimizer  = torch.optim.AdamW(model.parameters(), lr=lr_for_head)
                 scheduler  = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer, mode='min', factor=0.5, patience=PATIENCE // 3,
                 )

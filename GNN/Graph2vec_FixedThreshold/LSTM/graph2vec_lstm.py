@@ -85,7 +85,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # N_PRODUCT_WORKERS: how many product shards to create (product mode only).
 # PRODUCTS_END: only distribute PRODUCTS_TO_TEST[:PRODUCTS_END]; None = all.
 # NO_MERGE=True skips merging the per-worker CSVs into the canonical {metric}.csv.
-PARALLEL           = Truefr
+PARALLEL           = True
 PARALLEL_MODE      = "product"  # "seed" or "product"
 MAX_CONCURRENT     = 6
 N_PRODUCT_WORKERS  = 6

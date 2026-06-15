@@ -327,7 +327,8 @@ def main():
                         df=df_product, cfg=cfg, seed=seed, loss_type=LOSS_TYPE,
                         product_id=f"{product_id}_{store_id}", scaler=scaler, target_channel=0,
                         target_col=TARGET_COL, exog_cols=EXOG_COLS,
-                        graph_embeddings=graph_embeddings, test_size=forecast_horizon
+                        graph_embeddings=graph_embeddings, test_size=forecast_horizon,
+                        graph_window_size=window_sz
                     )
                     train_time = time.time() - start_train
 
@@ -348,6 +349,8 @@ def main():
                         future_exog=exog_test_scaled,
                         target_channel=0,
                         device=str(DEVICE),
+                        exog_cols=EXOG_COLS,
+                        exog_scaler=exog_scaler,
                         graph2vec_model=graph2vec_model,
                         graph_window_size=window_sz,
                         recent_embeddings=recent_embeddings,

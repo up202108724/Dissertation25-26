@@ -40,6 +40,7 @@ def train_mlp_forecaster(
     exog_cols=None,
     graph_embeddings=None,
     test_size=None,
+    graph_window_size=None,
 ):
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -86,12 +87,23 @@ def train_mlp_forecaster(
         emb_train = None
         emb_val = None
 
-    # Create windows with targets, exogenous features, and embeddings
+    # Create windows with targets, exogenous features, and embeddings.
+    # graph_window_size MUST equal the sliding window W used to build the
+    # graphs: make_windows front-pads the embedding stream by `graph_window_size`
+    # zeros so that padded[t] = embedding of the graph ending at day t-1
+    # (strictly before the label day). Any value < W leaks future days into the
+    # training rows; e.g. W=30 with a hardcoded 15 attaches a graph spanning
+    # days t-15 .. t+14 to day t (14-day look-ahead leak).
+    if graph_embeddings is not None and graph_window_size is None:
+        raise ValueError(
+            "graph_window_size must be passed (= the graph sliding window W) "
+            "when graph_embeddings are provided, to keep embeddings leak-safe."
+        )
     X_train, y_train_full = make_windows(
-        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_train, graph_window_size=15
+        train_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_train, graph_window_size=graph_window_size
     )
     X_val, y_val_full = make_windows(
-        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_val, graph_window_size=15
+        val_scaled, cfg.lookback, cfg.horizon, target_channel=target_channel, embeddings=emb_val, graph_window_size=graph_window_size
     )
 
     y_train = y_train_full[:, :, target_channel : target_channel + 1]

@@ -109,9 +109,12 @@ def recursive_inference(
     model: torch.nn.Module,
     scaler,
     recent_history: np.ndarray,  
-    future_exog: np.ndarray,     
+    future_exog: np.ndarray,
     target_channel: int = 0,
     device: Optional[str] = None,
+    # --- Leakage-safe exog recompute (concern #5) ---
+    exog_cols: list = None,
+    exog_scaler=None,
     # --- Graph2Vec Parameters ---
     graph2vec_model=None,
     graph_window_size: int = 15,
@@ -143,17 +146,56 @@ def recursive_inference(
     C_in = recent_history.shape[1]
     exog_indices = [idx for idx in range(C_in) if idx != target_channel]
 
+    # --- Leakage-safe exog recompute (concern #5) ---------------------------
+    # Exog columns derived from the target itself (rolling_mean_excl_W, lag_k)
+    # are NOT known in advance during a multi-step forecast: their "future"
+    # values depend on the unobserved target. Feeding the actual-derived values
+    # leaks ground truth from step >= 1. We therefore recompute these columns
+    # from the model's own running forecast at each step.
+    #   exog_cols[k]  ↔  input_window column exog_indices[k]
+    #   exog_scaler   is the (MinMax) scaler fitted on df[EXOG_COLS]; a single
+    #                 column is scaled as raw*scale_[k] + min_[k].
+    rolling_specs = []  # (k_in_exog, W)
+    lag_specs = []      # (k_in_exog, lag)
+    if exog_cols is not None and exog_scaler is not None:
+        for k, name in enumerate(exog_cols):
+            if name.startswith('rolling_mean_excl_'):
+                try:
+                    rolling_specs.append((k, int(name.rsplit('_', 1)[-1])))
+                except ValueError:
+                    pass
+            elif name.startswith('lag_'):
+                try:
+                    lag_specs.append((k, int(name.rsplit('_', 1)[-1])))
+                except ValueError:
+                    pass
+
+    def _recompute_target_derived_exog(history_unscaled):
+        """Overwrite leaky exog columns of the LAST window step for the day
+        being predicted, using only `history_unscaled` (targets strictly before
+        that day)."""
+        for k, W in rolling_specs:
+            window_hist = history_unscaled[-W:]
+            raw = float(np.mean(window_hist)) if len(window_hist) > 0 else 0.0
+            input_window[-1, exog_indices[k]] = raw * exog_scaler.scale_[k] + exog_scaler.min_[k]
+        for k, lag in lag_specs:
+            raw = float(history_unscaled[-lag]) if len(history_unscaled) >= lag else 0.0
+            input_window[-1, exog_indices[k]] = raw * exog_scaler.scale_[k] + exog_scaler.min_[k]
+
     # Escalar o histórico recente (apenas o target, assumindo exogs já escaladas)
     current_x_scaled = recent_history.copy()
     current_x_scaled[:, target_channel:target_channel+1] = scaler.transform(
         recent_history[:, target_channel:target_channel+1]
     )
-    
+
+    # Running unscaled target history (val tail + own predictions); maintained
+    # unconditionally so the exog recompute works for the no-embedding case too.
+    all_unscaled_targets = list(recent_history[:, target_channel])
+
     if graph2vec_model is not None and recent_embeddings is not None:
         input_window = np.column_stack([current_x_scaled, recent_embeddings])
         num_base_features = C_in
         all_dates = list(past_dates) + list(future_dates)
-        all_unscaled_targets = list(recent_history[:, target_channel])
     else:
         input_window = current_x_scaled.copy()
         
@@ -174,28 +216,34 @@ def recursive_inference(
     with torch.no_grad(): # BOA PRÁTICA: Desligar gradientes na inferência
         for i in range(horizon):
 
+            # Recompute target-derived exog for the day being predicted using
+            # ONLY the running history (ends at day t-1) — leakage-safe.
+            _recompute_target_derived_exog(all_unscaled_targets)
+
             x_tensor = torch.from_numpy(input_window).float().unsqueeze(0).to(device) # (1, L, C_in)
-            
+
             y_pred = model(x_tensor)
             val_pred = y_pred.item()
             preds_scaled.append(val_pred)
-            
+
             unscaled_val = scaler.inverse_transform([[val_pred]])[0, 0]
             preds_unscaled.append(unscaled_val)
 
+            # Append the just-predicted day so subsequent steps' exog/graph use it.
+            all_unscaled_targets.append(unscaled_val)
+
             # --- Shift da Janela ---
             input_window = np.roll(input_window, -1, axis=0)
-            
+
             # 1. O novo target no último step é a previsão que acabámos de fazer
             input_window[-1, target_channel] = val_pred
-            
+
             # 2. Inserir as exógenas do PRÓXIMO dia no último step
             if len(exog_indices) > 0 and (i + 1) < horizon:
                 input_window[-1, exog_indices] = future_exog[i + 1]
-                
+
             # 3. Inferir embedding para o dia que acabámos de prever (se graph2vec ativo)
             if graph2vec_model is not None:
-                all_unscaled_targets.append(unscaled_val)
                 # O índice do dia t (o dia que acabámos de prever) em all_dates é:
                 current_t_idx = len(past_dates) + i
                 

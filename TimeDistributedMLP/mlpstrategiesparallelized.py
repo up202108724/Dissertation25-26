@@ -59,7 +59,7 @@ hidden_sizes = (128, 64)
 dropout = 0.2
 EPOCHS = 1000
 LEARNING_RATE = 0.001
-seeds = [42]
+seeds = [42,1000,26008]
 #seeds = [42, 1000, 26008, 907969, 1268319, 2185791, 56918379, 1369308036]  # Add more seeds as needed
 
 loss_type = 'MSELoss'

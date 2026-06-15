@@ -529,3 +529,158 @@ class SimpleGCNMLPForecaster(nn.Module):
 
         pred = self.head(combined)                                 # (B, horizon)
         return pred.unsqueeze(-1)                                  # (B, horizon, 1)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Graph2Vec variants
+# ════════════════════════════════════════════════════════════════════════════
+# These reuse the EXACT same per-step contract as the GCN/GAT forecasters
+# (forward(pyg_batch, target_node_indices, ts_seq) -> (B, horizon, 1)), so they
+# slot into the same dataset / collate / train / inference machinery.
+#
+# The only difference is the "graph encoder": instead of running a GCN/GAT over
+# an ego-graph, each day's graph is a SINGLE node whose feature vector *is* the
+# precomputed (frozen) Graph2Vec embedding of that day's similarity graph.  z is
+# then a small learned projection of that embedding, mirroring the GCN's
+# (encoder -> LayerNorm) z so the temporal head sees a comparable d_g vector.
+#
+# Why a 1-node graph rather than a dedicated tensor branch?  It lets the
+# Graph2Vec variant ride on the existing PyG dataset/collate/deque unchanged:
+# ``pyg_batch.x[target_node_indices]`` returns exactly the per-step embeddings.
+
+
+class SimpleGraph2VecLSTMForecaster(nn.Module):
+    """Frozen Graph2Vec embedding (carried as the single node feature of a
+    1-node graph) → linear projection → z → concat with ts_seq → LSTM → linear.
+
+    Sibling of :class:`SimpleGCNLSTMForecaster` with the GCN encoder replaced by
+    ``z = LayerNorm(proj(embedding))``.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        d_g: int = 16,
+        lstm_input_size: int = 1,
+        lstm_hidden: int = 32,
+        lstm_layers: int = 1,
+        horizon: int = 1,
+        dropout: float = 0.2,
+    ):
+        super().__init__()
+
+        # ── Graph2Vec "encoder": project the frozen embedding to d_g ──────────
+        self.proj       = nn.Linear(in_channels, d_g)
+        self.activation = nn.ReLU()
+        self.gnn_drop   = nn.Dropout(p=dropout)
+        self.z_norm     = nn.LayerNorm(d_g)
+
+        # ── LSTM over augmented sequence ──────────────────────────────────
+        self.lstm = nn.LSTM(
+            input_size=lstm_input_size + d_g,
+            hidden_size=lstm_hidden,
+            num_layers=lstm_layers,
+            batch_first=True,
+            dropout=dropout if lstm_layers > 1 else 0.0,
+        )
+        self.lstm_drop = nn.Dropout(p=dropout)
+        self.head      = nn.Linear(lstm_hidden, horizon)
+
+        self.d_g     = d_g
+        self.horizon = horizon
+        self.ablate_z = False
+
+    def forward(self, pyg_batch, target_node_indices, ts_seq):
+        B, L, _ = ts_seq.shape
+
+        if self.ablate_z:
+            z_seq = torch.zeros(B, L, self.d_g, device=ts_seq.device, dtype=ts_seq.dtype)
+        else:
+            emb = pyg_batch.x[target_node_indices]                  # (B*L, emb_dim)
+            z_flat = self.z_norm(self.gnn_drop(self.activation(self.proj(emb))))
+
+            if z_flat.shape[0] != B * L:
+                raise RuntimeError(
+                    f"Expected {B*L} target indices for per-step model, got {z_flat.shape[0]}. "
+                    "Make sure you are using the per-step collate that returns "
+                    "(pyg_batch, ts_batch, y_batch, target_idx, L)."
+                )
+            z_seq = z_flat.view(B, L, self.d_g)
+
+        x = torch.cat([ts_seq, z_seq], dim=-1)                     # (B, L, in+d_g)
+        out, _ = self.lstm(x)
+        last   = self.lstm_drop(out[:, -1, :])
+        pred   = self.head(last)
+        return pred.unsqueeze(-1)                                  # (B, horizon, 1)
+
+
+class SimpleGraph2VecMLPForecaster(nn.Module):
+    """Frozen Graph2Vec embedding → linear projection → z → concat with ts_seq
+    → time-distributed MLP → linear head.
+
+    Sibling of :class:`SimpleGCNMLPForecaster` with the GCN encoder replaced by
+    ``z = LayerNorm(proj(embedding))``.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        d_g: int = 16,
+        ts_input_size: int = 1,
+        lookback_window: int = 30,
+        hidden_sizes: tuple = (64, 32),
+        horizon: int = 1,
+        dropout: float = 0.2,
+    ):
+        super().__init__()
+
+        # ── Graph2Vec "encoder": project the frozen embedding to d_g ──────────
+        self.proj       = nn.Linear(in_channels, d_g)
+        self.activation = nn.ReLU()
+        self.gnn_drop   = nn.Dropout(p=dropout)
+        self.z_norm     = nn.LayerNorm(d_g)
+
+        # ── Time-distributed MLP (shared weights across timesteps) ──────────
+        per_step_in = ts_input_size + d_g
+        layers = []
+        prev = per_step_in
+        for hs in hidden_sizes:
+            layers += [nn.Linear(prev, hs), nn.ReLU(), nn.Dropout(p=dropout)]
+            prev = hs
+        self.timestep_net = nn.Sequential(*layers)
+        self.head = nn.Linear(prev * 2, horizon)  # cat[last, mean] → output
+
+        self.d_g             = d_g
+        self.lookback_window = lookback_window
+        self.ts_input_size   = ts_input_size
+        self.horizon         = horizon
+        self.ablate_z = False
+
+    def forward(self, pyg_batch, target_node_indices, ts_seq):
+        B, L, _ = ts_seq.shape
+
+        if self.ablate_z:
+            z_seq = torch.zeros(B, L, self.d_g, device=ts_seq.device, dtype=ts_seq.dtype)
+        else:
+            emb = pyg_batch.x[target_node_indices]                  # (B*L, emb_dim)
+            z_flat = self.z_norm(self.gnn_drop(self.activation(self.proj(emb))))
+
+            if z_flat.shape[0] != B * L:
+                raise RuntimeError(
+                    f"Expected {B*L} target indices for per-step model, got {z_flat.shape[0]}. "
+                    "Make sure you are using the per-step collate that returns "
+                    "(pyg_batch, ts_batch, y_batch, target_idx, L)."
+                )
+            z_seq = z_flat.view(B, L, self.d_g)
+
+        x = torch.cat([ts_seq, z_seq], dim=-1)                     # (B, L, ts_in+d_g)
+
+        B2, L2, C = x.shape
+        h = self.timestep_net(x.reshape(B2 * L2, C))               # (B*L, H)
+        h = h.reshape(B2, L2, -1)                                  # (B, L, H)
+        last = h[:, -1, :]
+        mean = h.mean(dim=1)
+        combined = torch.cat([last, mean], dim=-1)                 # (B, 2H)
+
+        pred = self.head(combined)                                 # (B, horizon)
+        return pred.unsqueeze(-1)                                  # (B, horizon, 1)
