@@ -24,3 +24,5 @@ gcn_mlp_results.csv
 spearman_w*.csv
 node_features/
 DynamicGraphPlots/
+DemoData/
+log_worker*.txt

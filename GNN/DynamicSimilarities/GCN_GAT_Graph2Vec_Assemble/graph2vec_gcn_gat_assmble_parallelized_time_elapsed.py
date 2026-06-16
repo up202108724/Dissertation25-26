@@ -216,7 +216,7 @@ def _node_feature_width(mode, window_size, extra_stats=True):
 # (lstm/mlp) via the dedicated graph-free models — see the dedup in the grid.
 MODEL_VARIANTS   = ['graph2vec_lstm', 'graph2vec_mlp', 'gcn_lstm', 'gcn_mlp', 'gat_lstm', 'gat_mlp']
 ATTENTION_HEADS  = 4            # GAT attention heads (encoder layer 1)
-MLP_HIDDEN_SIZES = (64,32)     # TimeDistributed-MLP head widths
+MLP_HIDDEN_SIZES = (128,64)     # TimeDistributed-MLP head widths
 
 
 def _variant_head(variant):
@@ -248,15 +248,15 @@ def build_forecaster(variant, ablate_z, in_channels, ts_input_size):
         )
     if variant == 'graph2vec_lstm':
         return SimpleGraph2VecLSTMForecaster(
-            in_channels=in_channels, graph2vec_hidden=HIDDEN_SIZE, d_g=D_G,
+            in_channels=in_channels, d_g=D_G,
             lstm_input_size=ts_input_size, lstm_hidden=HIDDEN_SIZE,
             lstm_layers=NUM_LAYERS, horizon=1, dropout=dropout,
         )
     if variant == 'graph2vec_mlp':
         return SimpleGraph2VecMLPForecaster(
-            in_channels=in_channels, graph2vec_hidden=HIDDEN_SIZE, d_g=D_G,
-            ts_input_size=ts_input_size, lookback_window=lookback_window,
-            hidden_sizes=MLP_HIDDEN_SIZES, horizon=1, dropout=dropout,
+            in_channels=in_channels, d_g=D_G,
+            ts_input_size=ts_input_size, hidden_sizes=MLP_HIDDEN_SIZES, lookback_window=lookback_window,
+             horizon=1, dropout=dropout,
         )
     if variant == 'gcn_lstm':
         return SimpleGCNLSTMForecaster(
@@ -611,6 +611,10 @@ def main():
     # all seeds and all four variants.  Seeds for a product are processed
     # consecutively, so resetting on product change keeps memory bounded.
     _graph_cache = {}
+    # Graph2Vec embeddings are seed-dependent, so this cache is keyed including
+    # the seed (graph2vec_lstm/_mlp of one seed share); reset per product to
+    # bound memory, mirroring _graph_cache.
+    _graph2vec_cache = {}
     _graph_cache_product = None
 
     # ── Progress tracking (this worker's shard only) ─────────────────────
@@ -624,6 +628,7 @@ def main():
     for (product_id, store_id), seed in itertools.product(PRODUCTS_TO_TEST, seeds_to_run):
         if (product_id, store_id) != _graph_cache_product:
             _graph_cache = {}
+            _graph2vec_cache = {}
             _graph_cache_product = (product_id, store_id)
         torch.manual_seed(seed)
         np.random.seed(seed % (2**32))
@@ -905,10 +910,12 @@ def main():
 
             for (model_variant, ablate_z, param_val, window_size, step_size,
                  enable_edges, enable_second_degree, node_feature_mode) in iterator:
-                # Ablation drops the graph branch, so GCN and GAT collapse to the
-                # same graph-free model.  Run ablation once per head (via the
-                # gcn_* variants) and skip the redundant gat_* ablations.
-                if ablate_z and model_variant.startswith('gat'):
+                # Ablation drops the graph branch, so GCN/GAT/Graph2Vec all
+                # collapse to the same graph-free model.  Run ablation once per
+                # head (via the gcn_* variants) and skip the redundant gat_* and
+                # graph2vec_* ablations.
+                if ablate_z and (model_variant.startswith('gat')
+                                 or model_variant.startswith('graph2vec')):
                     continue
                 # When ablating, z is zeroed so the threshold has no effect on
                 # the trained weights.  Skip all but the first threshold value.
@@ -919,6 +926,7 @@ def main():
 
                 # Per-variant exog columns and pre-scaled data.
                 _head         = _variant_head(model_variant)
+                is_graph2vec  = model_variant.startswith('graph2vec')
                 exog_cols     = EXOG_COLS_LSTM if _head == 'lstm' else EXOG_COLS_MLP
                 exog_train_scaled = exog_train_by_head[_head]
                 exog_val_scaled   = exog_val_by_head[_head]
@@ -959,6 +967,10 @@ def main():
 
                 # ── 1 & 2. Graph pipeline (skipped for ablation) ─────────
                 metric_type = infer_metric_type(metric)
+                # Graph2Vec inference needs the fitted embedding model; GCN/GAT
+                # leave it None.  current_df_wide / product_offset are also set
+                # by the graph2vec branch for the dynamic re-inference step.
+                graph2vec_model = None
                 if ablate_z:
                     # GCN output is zeroed in forward(); building hundreds of
                     # sliding-window graphs would be pure waste.  Pass dummy
@@ -976,6 +988,89 @@ def main():
                     pyg_val           = [_dummy] * (test_start_idx - val_start_idx)
                     pyg_seed_graphs   = [_dummy] * lookback_window
                     pyg_future_graphs = [_dummy] * forecast_horizon
+                elif is_graph2vec:
+                    # ── Graph2Vec branch ─────────────────────────────────────
+                    # One frozen embedding per sliding window, carried as a
+                    # 1-node graph so the per-step GCN dataset/collate/deque are
+                    # reused verbatim.  Embeddings are seed-dependent (Doc2Vec
+                    # seed) so the cache key includes the seed; graph2vec_lstm and
+                    # graph2vec_mlp of the same seed share the embeddings.
+                    distance_metrics = ['euclidean', 'manhattan', 'hamming', 'amplitude_offset',
+                                        'slope_consistency', 'phase_invariance', 'dtw', 'cid',
+                                        'lorentzian', 'sbd', 'msm', 'edr', 'lcss']
+                    current_df_wide = df_wide_scaled if metric in distance_metrics else df_wide_global
+                    T_global       = current_df_wide.shape[1]
+                    product_offset = T_global - len(df_p)
+
+                    g2v_key = (metric, param_val, window_size, step_size,
+                               enable_edges, enable_second_degree, seed)
+                    cached = _graph2vec_cache.get(g2v_key)
+                    if cached is None:
+                        (graph_embeddings, graph2vec_model, _g2v_csv,
+                         _g2v_bt, _g2v_et, fixed_threshold) = load_or_generate_embeddings(
+                            product_id=product_id,
+                            metric=metric,
+                            metric_type=metric_type,
+                            window_size=window_size,
+                            step_size=step_size,
+                            threshold=current_threshold if is_threshold_mode else None,
+                            percentile=current_percentile if not is_threshold_mode else None,
+                            dimensions=D_G,
+                            enable_edges_within_star=enable_edges,
+                            enable_second_degree=enable_second_degree,
+                            use_residuals=USE_RESIDUALS,
+                            model_type=MODEL_TYPE,
+                            seed=seed,
+                            df=current_df_wide,
+                            cat_labels=cat_labels_dict,
+                            train_end_idx=global_val_start_idx,
+                            save_embeddings=False,
+                        )
+                        print(f"Resolved graph2vec threshold={current_threshold}: {fixed_threshold}")
+
+                        # one 1-node graph per sliding window (embedding = node feature)
+                        pyg_windows = [
+                            embedding_to_single_node_data(graph_embeddings[i], target_label=product_id)
+                            for i in range(len(graph_embeddings))
+                        ]
+                        pyg_aligned_global = _align_pyg_windows_to_timeline(
+                            pyg_windows, window_size=window_size,
+                            step_size=step_size, T=T_global,
+                        )
+                        pyg_train = pyg_aligned_global[product_offset + train_start_idx:
+                                                       product_offset + val_start_idx]
+                        pyg_val   = pyg_aligned_global[product_offset + val_start_idx:
+                                                       product_offset + test_start_idx]
+                        seed_start = product_offset + test_start_idx - lookback_window
+                        seed_end   = product_offset + test_start_idx
+                        pyg_seed_graphs = pyg_aligned_global[seed_start:seed_end]
+                        # Future graphs are recomputed dynamically at inference
+                        # (from the model's own predictions); kept only for API
+                        # symmetry with the GCN path — the graph2vec inference
+                        # ignores them.
+                        fut_start = product_offset + test_start_idx
+                        fut_end   = fut_start + forecast_horizon
+                        pyg_future_graphs = pyg_aligned_global[fut_start:fut_end]
+
+                        _graph2vec_cache[g2v_key] = {
+                            'fixed_threshold':   fixed_threshold,
+                            'graph2vec_model':   graph2vec_model,
+                            'pyg_train':         pyg_train,
+                            'pyg_val':           pyg_val,
+                            'pyg_seed_graphs':   pyg_seed_graphs,
+                            'pyg_future_graphs': pyg_future_graphs,
+                        }
+                        cached = _graph2vec_cache[g2v_key]
+                    else:
+                        print(f"Reusing cached graph2vec embeddings for {g2v_key}")
+
+                    fixed_threshold   = cached['fixed_threshold']
+                    graph2vec_model   = cached['graph2vec_model']
+                    pyg_train         = cached['pyg_train']
+                    pyg_val           = cached['pyg_val']
+                    pyg_seed_graphs   = cached['pyg_seed_graphs']
+                    pyg_future_graphs = cached['pyg_future_graphs']
+                    results_by_w_s[key]['threshold'] = fixed_threshold
                 else:
                     # ── 1. Resolve wide matrix / compute func (cheap, per-iter) ──
                     distance_metrics = ['euclidean', 'manhattan', 'hamming', 'amplitude_offset',
@@ -1254,7 +1349,38 @@ def main():
                         # to match df_wide_scaled space used for distance metrics.
                         target_z_scaler = product_scalers[product_id]
 
-                if _variant_head(model_variant) == 'lstm':
+                if is_graph2vec:
+                    # Graph2Vec inference rebuilds the dynamic graph from the
+                    # model's own rolling prediction each step and re-infers the
+                    # embedding (the frozen pre-built future graphs would leak the
+                    # target's actual future values).  Head-agnostic: the LSTM and
+                    # MLP graph2vec models share the forward contract.
+                    forecast = recursive_forecast_graph2vec_perstep(
+                        model=model,
+                        ts_seed=ts_seed,
+                        initial_graphs=pyg_seed_graphs,
+                        exog_test_scaled=exog_test_scaled if exog_cols else None,
+                        scaler=scaler,
+                        horizon=forecast_horizon,
+                        device=device,
+                        graph2vec_model=graph2vec_model,
+                        df_wide=current_df_wide,
+                        cat_labels=cat_labels_dict,
+                        target_id=product_id,
+                        metric=metric,
+                        fixed_threshold=fixed_threshold,
+                        graph_window_size=window_size,
+                        first_forecast_col=product_offset + test_start_idx,
+                        target_seed_window_dfscale=initial_target_window,
+                        enable_edges_within_star=enable_edges,
+                        enable_second_degree=enable_second_degree,
+                        target_df_scaler=target_z_scaler,
+                        target_history_unscaled=target_history_unscaled if exog_cols else None,
+                        lag_col_indices=lag_col_indices if exog_cols else None,
+                        rolling_mean_excl_col_indices=rolling_mean_excl_col_indices if exog_cols else None,
+                        exog_scaler=exog_scaler if exog_cols else None,
+                    )
+                elif _variant_head(model_variant) == 'lstm':
                     forecast = _recursive_forecast_gcn_lstm_perstep(
                         model=model,
                         ts_seed=ts_seed,

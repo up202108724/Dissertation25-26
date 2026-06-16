@@ -1,0 +1,1704 @@
+Loading data from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\data_andre_classified.feather...
+Loading top products from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\top_12500.feather...
+Running all 61 (item_id, store_id) pairs from dataset.
+Worker 1/6: processing 10 / 61 products  |  seeds=[42, 1000, 26008]
+\n--- Strategy: best_val, Seed: 42, Item: 457, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.061476, Val Loss = 0.018227 (New Best)
+Epoch 2: Train Loss = 0.036496, Val Loss = 0.015361 (New Best)
+Epoch 10: Train Loss = 0.029076, Val Loss = 0.014212 (New Best)
+Epoch 46: Train Loss = 0.021674, Val Loss = 0.013831 (New Best)
+Early stopping at epoch 196 (no val improvement for 150 epochs).
+Best Val MSE: 0.013831 (Epoch 46)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 457, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.030009 | Val Loss: 0.018315
+Early stopping at epoch 12
+\n--- Strategy: combined, Seed: 42, Item: 457, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.061476, Val Loss = 0.018227 (New Best)
+Epoch 2: Train Loss = 0.036496, Val Loss = 0.015361 (New Best)
+Epoch 10: Train Loss = 0.029076, Val Loss = 0.014212 (New Best)
+Epoch 46: Train Loss = 0.021674, Val Loss = 0.013831 (New Best)
+Early stopping at epoch 196 (no val improvement for 150 epochs).
+Best Val MSE: 0.013831 (Epoch 46)
+Epoch 10/46 | Combined Train Loss: 0.029824
+Epoch 20/46 | Combined Train Loss: 0.026446
+Epoch 30/46 | Combined Train Loss: 0.024011
+Epoch 40/46 | Combined Train Loss: 0.020545
+Epoch 46/46 | Combined Train Loss: 0.020064
+\n--- Strategy: expanding_window, Seed: 42, Item: 457, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 39 epochs | mean val loss = 0.021558
+  [refit] Epoch 10/39 | Train Loss: 0.029451
+  [refit] Epoch 20/39 | Train Loss: 0.025421
+  [refit] Epoch 30/39 | Train Loss: 0.025151
+  [refit] Epoch 39/39 | Train Loss: 0.021913
+\n--- Strategy: sliding_window, Seed: 42, Item: 457, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 17 epochs | mean val loss = 0.022142
+  [refit] Epoch 10/17 | Train Loss: 0.028001
+  [refit] Epoch 17/17 | Train Loss: 0.025054
+\n--- Strategy: best_val, Seed: 42, Item: 25032, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.042772, Val Loss = 0.037726 (New Best)
+Epoch 2: Train Loss = 0.032012, Val Loss = 0.037308 (New Best)
+Epoch 3: Train Loss = 0.030519, Val Loss = 0.036450 (New Best)
+Epoch 5: Train Loss = 0.030332, Val Loss = 0.034995 (New Best)
+Epoch 6: Train Loss = 0.028733, Val Loss = 0.034855 (New Best)
+Epoch 8: Train Loss = 0.027831, Val Loss = 0.034495 (New Best)
+Epoch 10: Train Loss = 0.027754, Val Loss = 0.034414 (New Best)
+Early stopping at epoch 160 (no val improvement for 150 epochs).
+Best Val MSE: 0.034414 (Epoch 10)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 25032, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.028165 | Val Loss: 0.037051
+Early stopping at epoch 15
+\n--- Strategy: combined, Seed: 42, Item: 25032, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.042772, Val Loss = 0.037726 (New Best)
+Epoch 2: Train Loss = 0.032012, Val Loss = 0.037308 (New Best)
+Epoch 3: Train Loss = 0.030519, Val Loss = 0.036450 (New Best)
+Epoch 5: Train Loss = 0.030332, Val Loss = 0.034995 (New Best)
+Epoch 6: Train Loss = 0.028733, Val Loss = 0.034855 (New Best)
+Epoch 8: Train Loss = 0.027831, Val Loss = 0.034495 (New Best)
+Epoch 10: Train Loss = 0.027754, Val Loss = 0.034414 (New Best)
+Early stopping at epoch 160 (no val improvement for 150 epochs).
+Best Val MSE: 0.034414 (Epoch 10)
+Epoch 10/10 | Combined Train Loss: 0.028989
+\n--- Strategy: expanding_window, Seed: 42, Item: 25032, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 30 epochs | mean val loss = 0.036147
+  [refit] Epoch 10/30 | Train Loss: 0.029433
+  [refit] Epoch 20/30 | Train Loss: 0.027733
+  [refit] Epoch 30/30 | Train Loss: 0.025860
+\n--- Strategy: sliding_window, Seed: 42, Item: 25032, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 30 epochs | mean val loss = 0.039227
+  [refit] Epoch 10/30 | Train Loss: 0.041087
+  [refit] Epoch 20/30 | Train Loss: 0.038248
+  [refit] Epoch 30/30 | Train Loss: 0.036144
+\n--- Strategy: best_val, Seed: 42, Item: 26768, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.021463, Val Loss = 0.001754 (New Best)
+Epoch 7: Train Loss = 0.011422, Val Loss = 0.001751 (New Best)
+Epoch 8: Train Loss = 0.010390, Val Loss = 0.001347 (New Best)
+Epoch 9: Train Loss = 0.010473, Val Loss = 0.001294 (New Best)
+Epoch 12: Train Loss = 0.009088, Val Loss = 0.001259 (New Best)
+Epoch 15: Train Loss = 0.008387, Val Loss = 0.001255 (New Best)
+Epoch 16: Train Loss = 0.008050, Val Loss = 0.001220 (New Best)
+Early stopping at epoch 166 (no val improvement for 150 epochs).
+Best Val MSE: 0.001220 (Epoch 16)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 26768, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010885 | Val Loss: 0.001338
+Epoch 20/1000 | Train Loss: 0.008367 | Val Loss: 0.002850
+Early stopping at epoch 29
+\n--- Strategy: combined, Seed: 42, Item: 26768, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.021463, Val Loss = 0.001754 (New Best)
+Epoch 7: Train Loss = 0.011422, Val Loss = 0.001751 (New Best)
+Epoch 8: Train Loss = 0.010390, Val Loss = 0.001347 (New Best)
+Epoch 9: Train Loss = 0.010473, Val Loss = 0.001294 (New Best)
+Epoch 12: Train Loss = 0.009088, Val Loss = 0.001259 (New Best)
+Epoch 15: Train Loss = 0.008387, Val Loss = 0.001255 (New Best)
+Epoch 16: Train Loss = 0.008050, Val Loss = 0.001220 (New Best)
+Early stopping at epoch 166 (no val improvement for 150 epochs).
+Best Val MSE: 0.001220 (Epoch 16)
+Epoch 10/16 | Combined Train Loss: 0.009113
+Epoch 16/16 | Combined Train Loss: 0.006959
+\n--- Strategy: expanding_window, Seed: 42, Item: 26768, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 9 epochs | mean val loss = 0.006568
+  [refit] Epoch 9/9 | Train Loss: 0.009701
+\n--- Strategy: sliding_window, Seed: 42, Item: 26768, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 24 epochs | mean val loss = 0.006502
+  [refit] Epoch 10/24 | Train Loss: 0.014745
+  [refit] Epoch 20/24 | Train Loss: 0.010195
+  [refit] Epoch 24/24 | Train Loss: 0.009005
+\n--- Strategy: best_val, Seed: 42, Item: 151815, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.032799, Val Loss = 0.017160 (New Best)
+Epoch 2: Train Loss = 0.019426, Val Loss = 0.013662 (New Best)
+Epoch 3: Train Loss = 0.016608, Val Loss = 0.012928 (New Best)
+Epoch 4: Train Loss = 0.017057, Val Loss = 0.011893 (New Best)
+Epoch 90: Train Loss = 0.008358, Val Loss = 0.011796 (New Best)
+Early stopping at epoch 240 (no val improvement for 150 epochs).
+Best Val MSE: 0.011796 (Epoch 90)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 151815, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015784 | Val Loss: 0.012404
+Early stopping at epoch 14
+\n--- Strategy: combined, Seed: 42, Item: 151815, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.032799, Val Loss = 0.017160 (New Best)
+Epoch 2: Train Loss = 0.019426, Val Loss = 0.013662 (New Best)
+Epoch 3: Train Loss = 0.016608, Val Loss = 0.012928 (New Best)
+Epoch 4: Train Loss = 0.017057, Val Loss = 0.011893 (New Best)
+Epoch 90: Train Loss = 0.008358, Val Loss = 0.011796 (New Best)
+Early stopping at epoch 240 (no val improvement for 150 epochs).
+Best Val MSE: 0.011796 (Epoch 90)
+Epoch 10/90 | Combined Train Loss: 0.015103
+Epoch 20/90 | Combined Train Loss: 0.013391
+Epoch 30/90 | Combined Train Loss: 0.012466
+Epoch 40/90 | Combined Train Loss: 0.011156
+Epoch 50/90 | Combined Train Loss: 0.010415
+Epoch 60/90 | Combined Train Loss: 0.009870
+Epoch 70/90 | Combined Train Loss: 0.009519
+Epoch 80/90 | Combined Train Loss: 0.009517
+Epoch 90/90 | Combined Train Loss: 0.009022
+\n--- Strategy: expanding_window, Seed: 42, Item: 151815, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 27 epochs | mean val loss = 0.015295
+  [refit] Epoch 10/27 | Train Loss: 0.015376
+  [refit] Epoch 20/27 | Train Loss: 0.012917
+  [refit] Epoch 27/27 | Train Loss: 0.012380
+\n--- Strategy: sliding_window, Seed: 42, Item: 151815, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 27 epochs | mean val loss = 0.015717
+  [refit] Epoch 10/27 | Train Loss: 0.017800
+  [refit] Epoch 20/27 | Train Loss: 0.015892
+  [refit] Epoch 27/27 | Train Loss: 0.014341
+\n--- Strategy: best_val, Seed: 42, Item: 213627, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.068932, Val Loss = 0.013254 (New Best)
+Epoch 4: Train Loss = 0.013520, Val Loss = 0.010161 (New Best)
+Epoch 5: Train Loss = 0.013700, Val Loss = 0.009836 (New Best)
+Epoch 9: Train Loss = 0.011271, Val Loss = 0.009376 (New Best)
+Epoch 22: Train Loss = 0.010762, Val Loss = 0.009375 (New Best)
+Early stopping at epoch 172 (no val improvement for 150 epochs).
+Best Val MSE: 0.009375 (Epoch 22)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 213627, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.011504 | Val Loss: 0.009567
+Early stopping at epoch 19
+\n--- Strategy: combined, Seed: 42, Item: 213627, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.068932, Val Loss = 0.013254 (New Best)
+Epoch 4: Train Loss = 0.013520, Val Loss = 0.010161 (New Best)
+Epoch 5: Train Loss = 0.013700, Val Loss = 0.009836 (New Best)
+Epoch 9: Train Loss = 0.011271, Val Loss = 0.009376 (New Best)
+Epoch 22: Train Loss = 0.010762, Val Loss = 0.009375 (New Best)
+Early stopping at epoch 172 (no val improvement for 150 epochs).
+Best Val MSE: 0.009375 (Epoch 22)
+Epoch 10/22 | Combined Train Loss: 0.011844
+Epoch 20/22 | Combined Train Loss: 0.011037
+Epoch 22/22 | Combined Train Loss: 0.010026
+\n--- Strategy: expanding_window, Seed: 42, Item: 213627, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 20 epochs | mean val loss = 0.008411
+  [refit] Epoch 10/20 | Train Loss: 0.011735
+  [refit] Epoch 20/20 | Train Loss: 0.010424
+\n--- Strategy: sliding_window, Seed: 42, Item: 213627, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 19 epochs | mean val loss = 0.008964
+  [refit] Epoch 10/19 | Train Loss: 0.014162
+  [refit] Epoch 19/19 | Train Loss: 0.012624
+\n--- Strategy: best_val, Seed: 42, Item: 213636, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.044045, Val Loss = 0.007205 (New Best)
+Early stopping at epoch 151 (no val improvement for 150 epochs).
+Best Val MSE: 0.007205 (Epoch 1)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 213636, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.030754 | Val Loss: 0.010167
+Early stopping at epoch 12
+\n--- Strategy: combined, Seed: 42, Item: 213636, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.044045, Val Loss = 0.007205 (New Best)
+Early stopping at epoch 151 (no val improvement for 150 epochs).
+Best Val MSE: 0.007205 (Epoch 1)
+Epoch 1/1 | Combined Train Loss: 0.046364
+\n--- Strategy: expanding_window, Seed: 42, Item: 213636, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 2 epochs | mean val loss = 0.026617
+  [refit] Epoch 2/2 | Train Loss: 0.037187
+\n--- Strategy: sliding_window, Seed: 42, Item: 213636, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 5 epochs | mean val loss = 0.027110
+  [refit] Epoch 5/5 | Train Loss: 0.027879
+\n--- Strategy: best_val, Seed: 42, Item: 545598, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.030119, Val Loss = 0.017002 (New Best)
+Epoch 3: Train Loss = 0.020437, Val Loss = 0.016361 (New Best)
+Epoch 5: Train Loss = 0.019764, Val Loss = 0.016060 (New Best)
+Early stopping at epoch 155 (no val improvement for 150 epochs).
+Best Val MSE: 0.016060 (Epoch 5)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 545598, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.019242 | Val Loss: 0.016280
+Early stopping at epoch 15
+\n--- Strategy: combined, Seed: 42, Item: 545598, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.030119, Val Loss = 0.017002 (New Best)
+Epoch 3: Train Loss = 0.020437, Val Loss = 0.016361 (New Best)
+Epoch 5: Train Loss = 0.019764, Val Loss = 0.016060 (New Best)
+Early stopping at epoch 155 (no val improvement for 150 epochs).
+Best Val MSE: 0.016060 (Epoch 5)
+Epoch 5/5 | Combined Train Loss: 0.019633
+\n--- Strategy: expanding_window, Seed: 42, Item: 545598, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 25 epochs | mean val loss = 0.023959
+  [refit] Epoch 10/25 | Train Loss: 0.018946
+  [refit] Epoch 20/25 | Train Loss: 0.017961
+  [refit] Epoch 25/25 | Train Loss: 0.017471
+\n--- Strategy: sliding_window, Seed: 42, Item: 545598, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 15 epochs | mean val loss = 0.024143
+  [refit] Epoch 10/15 | Train Loss: 0.017936
+  [refit] Epoch 15/15 | Train Loss: 0.017595
+\n--- Strategy: best_val, Seed: 42, Item: 680152, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.026342, Val Loss = 0.015316 (New Best)
+Epoch 2: Train Loss = 0.020643, Val Loss = 0.015225 (New Best)
+Epoch 3: Train Loss = 0.019510, Val Loss = 0.014537 (New Best)
+Early stopping at epoch 153 (no val improvement for 150 epochs).
+Best Val MSE: 0.014537 (Epoch 3)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 680152, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.019474 | Val Loss: 0.015325
+Early stopping at epoch 13
+\n--- Strategy: combined, Seed: 42, Item: 680152, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.026342, Val Loss = 0.015316 (New Best)
+Epoch 2: Train Loss = 0.020643, Val Loss = 0.015225 (New Best)
+Epoch 3: Train Loss = 0.019510, Val Loss = 0.014537 (New Best)
+Early stopping at epoch 153 (no val improvement for 150 epochs).
+Best Val MSE: 0.014537 (Epoch 3)
+Epoch 3/3 | Combined Train Loss: 0.021086
+\n--- Strategy: expanding_window, Seed: 42, Item: 680152, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 1 epochs | mean val loss = 0.033446
+  [refit] Epoch 1/1 | Train Loss: 0.025226
+\n--- Strategy: sliding_window, Seed: 42, Item: 680152, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 30 epochs | mean val loss = 0.033173
+  [refit] Epoch 10/30 | Train Loss: 0.019179
+  [refit] Epoch 20/30 | Train Loss: 0.017656
+  [refit] Epoch 30/30 | Train Loss: 0.018167
+\n--- Strategy: best_val, Seed: 42, Item: 911753, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.038161, Val Loss = 0.011394 (New Best)
+Epoch 2: Train Loss = 0.015656, Val Loss = 0.010050 (New Best)
+Epoch 3: Train Loss = 0.013385, Val Loss = 0.009003 (New Best)
+Epoch 7: Train Loss = 0.010001, Val Loss = 0.008282 (New Best)
+Epoch 12: Train Loss = 0.009585, Val Loss = 0.008072 (New Best)
+Epoch 13: Train Loss = 0.009307, Val Loss = 0.007925 (New Best)
+Epoch 70: Train Loss = 0.005920, Val Loss = 0.007890 (New Best)
+Epoch 113: Train Loss = 0.004640, Val Loss = 0.007883 (New Best)
+Epoch 168: Train Loss = 0.004216, Val Loss = 0.007852 (New Best)
+Epoch 190: Train Loss = 0.003052, Val Loss = 0.007786 (New Best)
+Epoch 273: Train Loss = 0.003077, Val Loss = 0.007638 (New Best)
+Early stopping at epoch 423 (no val improvement for 150 epochs).
+Best Val MSE: 0.007638 (Epoch 273)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 911753, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010767 | Val Loss: 0.008093
+Early stopping at epoch 18
+\n--- Strategy: combined, Seed: 42, Item: 911753, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.038161, Val Loss = 0.011394 (New Best)
+Epoch 2: Train Loss = 0.015656, Val Loss = 0.010050 (New Best)
+Epoch 3: Train Loss = 0.013385, Val Loss = 0.009003 (New Best)
+Epoch 7: Train Loss = 0.010001, Val Loss = 0.008282 (New Best)
+Epoch 12: Train Loss = 0.009585, Val Loss = 0.008072 (New Best)
+Epoch 13: Train Loss = 0.009307, Val Loss = 0.007925 (New Best)
+Epoch 70: Train Loss = 0.005920, Val Loss = 0.007890 (New Best)
+Epoch 113: Train Loss = 0.004640, Val Loss = 0.007883 (New Best)
+Epoch 168: Train Loss = 0.004216, Val Loss = 0.007852 (New Best)
+Epoch 190: Train Loss = 0.003052, Val Loss = 0.007786 (New Best)
+Epoch 273: Train Loss = 0.003077, Val Loss = 0.007638 (New Best)
+Early stopping at epoch 423 (no val improvement for 150 epochs).
+Best Val MSE: 0.007638 (Epoch 273)
+Epoch 10/273 | Combined Train Loss: 0.010114
+Epoch 20/273 | Combined Train Loss: 0.009413
+Epoch 30/273 | Combined Train Loss: 0.008562
+Epoch 40/273 | Combined Train Loss: 0.008287
+Epoch 50/273 | Combined Train Loss: 0.006846
+Epoch 60/273 | Combined Train Loss: 0.006758
+Epoch 70/273 | Combined Train Loss: 0.005494
+Epoch 80/273 | Combined Train Loss: 0.005568
+Epoch 90/273 | Combined Train Loss: 0.005510
+Epoch 100/273 | Combined Train Loss: 0.006042
+Epoch 110/273 | Combined Train Loss: 0.004813
+Epoch 120/273 | Combined Train Loss: 0.004410
+Epoch 130/273 | Combined Train Loss: 0.004614
+Epoch 140/273 | Combined Train Loss: 0.004752
+Epoch 150/273 | Combined Train Loss: 0.004180
+Epoch 160/273 | Combined Train Loss: 0.004180
+Epoch 170/273 | Combined Train Loss: 0.004252
+Epoch 180/273 | Combined Train Loss: 0.003923
+Epoch 190/273 | Combined Train Loss: 0.003575
+Epoch 200/273 | Combined Train Loss: 0.004733
+Epoch 210/273 | Combined Train Loss: 0.003878
+Epoch 220/273 | Combined Train Loss: 0.003588
+Epoch 230/273 | Combined Train Loss: 0.003464
+Epoch 240/273 | Combined Train Loss: 0.003685
+Epoch 250/273 | Combined Train Loss: 0.003123
+Epoch 260/273 | Combined Train Loss: 0.003399
+Epoch 270/273 | Combined Train Loss: 0.003190
+Epoch 273/273 | Combined Train Loss: 0.003207
+\n--- Strategy: expanding_window, Seed: 42, Item: 911753, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 41 epochs | mean val loss = 0.007747
+  [refit] Epoch 10/41 | Train Loss: 0.009937
+  [refit] Epoch 20/41 | Train Loss: 0.009314
+  [refit] Epoch 30/41 | Train Loss: 0.008862
+  [refit] Epoch 40/41 | Train Loss: 0.007927
+  [refit] Epoch 41/41 | Train Loss: 0.008147
+\n--- Strategy: sliding_window, Seed: 42, Item: 911753, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 24 epochs | mean val loss = 0.012984
+  [refit] Epoch 10/24 | Train Loss: 0.020887
+  [refit] Epoch 20/24 | Train Loss: 0.016897
+  [refit] Epoch 24/24 | Train Loss: 0.019841
+\n--- Strategy: best_val, Seed: 42, Item: 921558, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.071087, Val Loss = 0.022143 (New Best)
+Epoch 3: Train Loss = 0.026131, Val Loss = 0.021932 (New Best)
+Epoch 4: Train Loss = 0.025703, Val Loss = 0.021256 (New Best)
+Epoch 5: Train Loss = 0.024815, Val Loss = 0.020417 (New Best)
+Epoch 6: Train Loss = 0.024304, Val Loss = 0.019870 (New Best)
+Epoch 7: Train Loss = 0.023571, Val Loss = 0.019597 (New Best)
+Epoch 8: Train Loss = 0.023006, Val Loss = 0.019276 (New Best)
+Epoch 11: Train Loss = 0.023452, Val Loss = 0.018936 (New Best)
+Epoch 14: Train Loss = 0.022633, Val Loss = 0.018689 (New Best)
+Epoch 17: Train Loss = 0.023095, Val Loss = 0.018296 (New Best)
+Epoch 19: Train Loss = 0.022674, Val Loss = 0.017954 (New Best)
+Epoch 23: Train Loss = 0.021935, Val Loss = 0.017668 (New Best)
+Epoch 24: Train Loss = 0.021420, Val Loss = 0.017641 (New Best)
+Epoch 25: Train Loss = 0.021132, Val Loss = 0.017443 (New Best)
+Epoch 27: Train Loss = 0.022190, Val Loss = 0.016666 (New Best)
+Epoch 67: Train Loss = 0.019348, Val Loss = 0.016532 (New Best)
+Early stopping at epoch 217 (no val improvement for 150 epochs).
+Best Val MSE: 0.016532 (Epoch 67)
+\n--- Strategy: best_train_early_val, Seed: 42, Item: 921558, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.025340 | Val Loss: 0.018871
+Epoch 20/1000 | Train Loss: 0.023589 | Val Loss: 0.018031
+Epoch 30/1000 | Train Loss: 0.027820 | Val Loss: 0.020737
+Epoch 40/1000 | Train Loss: 0.021979 | Val Loss: 0.017287
+Early stopping at epoch 48
+\n--- Strategy: combined, Seed: 42, Item: 921558, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.071087, Val Loss = 0.022143 (New Best)
+Epoch 3: Train Loss = 0.026131, Val Loss = 0.021932 (New Best)
+Epoch 4: Train Loss = 0.025703, Val Loss = 0.021256 (New Best)
+Epoch 5: Train Loss = 0.024815, Val Loss = 0.020417 (New Best)
+Epoch 6: Train Loss = 0.024304, Val Loss = 0.019870 (New Best)
+Epoch 7: Train Loss = 0.023571, Val Loss = 0.019597 (New Best)
+Epoch 8: Train Loss = 0.023006, Val Loss = 0.019276 (New Best)
+Epoch 11: Train Loss = 0.023452, Val Loss = 0.018936 (New Best)
+Epoch 14: Train Loss = 0.022633, Val Loss = 0.018689 (New Best)
+Epoch 17: Train Loss = 0.023095, Val Loss = 0.018296 (New Best)
+Epoch 19: Train Loss = 0.022674, Val Loss = 0.017954 (New Best)
+Epoch 23: Train Loss = 0.021935, Val Loss = 0.017668 (New Best)
+Epoch 24: Train Loss = 0.021420, Val Loss = 0.017641 (New Best)
+Epoch 25: Train Loss = 0.021132, Val Loss = 0.017443 (New Best)
+Epoch 27: Train Loss = 0.022190, Val Loss = 0.016666 (New Best)
+Epoch 67: Train Loss = 0.019348, Val Loss = 0.016532 (New Best)
+Early stopping at epoch 217 (no val improvement for 150 epochs).
+Best Val MSE: 0.016532 (Epoch 67)
+Epoch 10/67 | Combined Train Loss: 0.024991
+Epoch 20/67 | Combined Train Loss: 0.022883
+Epoch 30/67 | Combined Train Loss: 0.021853
+Epoch 40/67 | Combined Train Loss: 0.019893
+Epoch 50/67 | Combined Train Loss: 0.020185
+Epoch 60/67 | Combined Train Loss: 0.018554
+Epoch 67/67 | Combined Train Loss: 0.017123
+\n--- Strategy: expanding_window, Seed: 42, Item: 921558, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 37 epochs | mean val loss = 0.026832
+  [refit] Epoch 10/37 | Train Loss: 0.025614
+  [refit] Epoch 20/37 | Train Loss: 0.023430
+  [refit] Epoch 30/37 | Train Loss: 0.022368
+  [refit] Epoch 37/37 | Train Loss: 0.020746
+\n--- Strategy: sliding_window, Seed: 42, Item: 921558, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 4 epochs | mean val loss = 0.026971
+  [refit] Epoch 4/4 | Train Loss: 0.030957
+\n--- Strategy: best_val, Seed: 1000, Item: 457, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.063043, Val Loss = 0.021297 (New Best)
+Epoch 2: Train Loss = 0.039234, Val Loss = 0.017255 (New Best)
+Epoch 10: Train Loss = 0.027581, Val Loss = 0.013756 (New Best)
+Epoch 35: Train Loss = 0.023302, Val Loss = 0.013063 (New Best)
+Early stopping at epoch 185 (no val improvement for 150 epochs).
+Best Val MSE: 0.013063 (Epoch 35)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 457, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.028774 | Val Loss: 0.020890
+Epoch 20/1000 | Train Loss: 0.027910 | Val Loss: 0.015247
+Epoch 30/1000 | Train Loss: 0.023435 | Val Loss: 0.015381
+Early stopping at epoch 37
+\n--- Strategy: combined, Seed: 1000, Item: 457, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.063043, Val Loss = 0.021297 (New Best)
+Epoch 2: Train Loss = 0.039234, Val Loss = 0.017255 (New Best)
+Epoch 10: Train Loss = 0.027581, Val Loss = 0.013756 (New Best)
+Epoch 35: Train Loss = 0.023302, Val Loss = 0.013063 (New Best)
+Early stopping at epoch 185 (no val improvement for 150 epochs).
+Best Val MSE: 0.013063 (Epoch 35)
+Epoch 10/35 | Combined Train Loss: 0.030423
+Epoch 20/35 | Combined Train Loss: 0.027599
+Epoch 30/35 | Combined Train Loss: 0.023940
+Epoch 35/35 | Combined Train Loss: 0.025270
+\n--- Strategy: expanding_window, Seed: 1000, Item: 457, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 33 epochs | mean val loss = 0.021542
+  [refit] Epoch 10/33 | Train Loss: 0.031195
+  [refit] Epoch 20/33 | Train Loss: 0.026836
+  [refit] Epoch 30/33 | Train Loss: 0.024453
+  [refit] Epoch 33/33 | Train Loss: 0.024950
+\n--- Strategy: sliding_window, Seed: 1000, Item: 457, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 27 epochs | mean val loss = 0.021352
+  [refit] Epoch 10/27 | Train Loss: 0.028457
+  [refit] Epoch 20/27 | Train Loss: 0.023590
+  [refit] Epoch 27/27 | Train Loss: 0.021588
+\n--- Strategy: best_val, Seed: 1000, Item: 25032, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.048818, Val Loss = 0.040261 (New Best)
+Epoch 2: Train Loss = 0.034466, Val Loss = 0.039900 (New Best)
+Epoch 3: Train Loss = 0.031218, Val Loss = 0.037437 (New Best)
+Epoch 4: Train Loss = 0.031026, Val Loss = 0.036493 (New Best)
+Epoch 6: Train Loss = 0.028484, Val Loss = 0.035553 (New Best)
+Epoch 7: Train Loss = 0.030150, Val Loss = 0.035214 (New Best)
+Early stopping at epoch 157 (no val improvement for 150 epochs).
+Best Val MSE: 0.035214 (Epoch 7)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 25032, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.029161 | Val Loss: 0.037676
+Epoch 20/1000 | Train Loss: 0.025946 | Val Loss: 0.038421
+Epoch 30/1000 | Train Loss: 0.025189 | Val Loss: 0.039985
+Early stopping at epoch 36
+\n--- Strategy: combined, Seed: 1000, Item: 25032, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.048818, Val Loss = 0.040261 (New Best)
+Epoch 2: Train Loss = 0.034466, Val Loss = 0.039900 (New Best)
+Epoch 3: Train Loss = 0.031218, Val Loss = 0.037437 (New Best)
+Epoch 4: Train Loss = 0.031026, Val Loss = 0.036493 (New Best)
+Epoch 6: Train Loss = 0.028484, Val Loss = 0.035553 (New Best)
+Epoch 7: Train Loss = 0.030150, Val Loss = 0.035214 (New Best)
+Early stopping at epoch 157 (no val improvement for 150 epochs).
+Best Val MSE: 0.035214 (Epoch 7)
+Epoch 7/7 | Combined Train Loss: 0.030613
+\n--- Strategy: expanding_window, Seed: 1000, Item: 25032, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 30 epochs | mean val loss = 0.037334
+  [refit] Epoch 10/30 | Train Loss: 0.030181
+  [refit] Epoch 20/30 | Train Loss: 0.028314
+  [refit] Epoch 30/30 | Train Loss: 0.025938
+\n--- Strategy: sliding_window, Seed: 1000, Item: 25032, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 53 epochs | mean val loss = 0.039635
+  [refit] Epoch 10/53 | Train Loss: 0.039920
+  [refit] Epoch 20/53 | Train Loss: 0.037551
+  [refit] Epoch 30/53 | Train Loss: 0.034452
+  [refit] Epoch 40/53 | Train Loss: 0.040895
+  [refit] Epoch 50/53 | Train Loss: 0.032952
+  [refit] Epoch 53/53 | Train Loss: 0.027583
+\n--- Strategy: best_val, Seed: 1000, Item: 26768, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.020457, Val Loss = 0.002201 (New Best)
+Epoch 4: Train Loss = 0.013709, Val Loss = 0.001887 (New Best)
+Epoch 8: Train Loss = 0.010266, Val Loss = 0.001624 (New Best)
+Epoch 12: Train Loss = 0.008484, Val Loss = 0.001499 (New Best)
+Epoch 65: Train Loss = 0.005059, Val Loss = 0.001484 (New Best)
+Epoch 67: Train Loss = 0.004916, Val Loss = 0.001415 (New Best)
+Epoch 79: Train Loss = 0.004559, Val Loss = 0.001371 (New Best)
+Epoch 115: Train Loss = 0.004173, Val Loss = 0.001314 (New Best)
+Early stopping at epoch 265 (no val improvement for 150 epochs).
+Best Val MSE: 0.001314 (Epoch 115)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 26768, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010833 | Val Loss: 0.002513
+Epoch 20/1000 | Train Loss: 0.007232 | Val Loss: 0.001647
+Early stopping at epoch 21
+\n--- Strategy: combined, Seed: 1000, Item: 26768, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.020457, Val Loss = 0.002201 (New Best)
+Epoch 4: Train Loss = 0.013709, Val Loss = 0.001887 (New Best)
+Epoch 8: Train Loss = 0.010266, Val Loss = 0.001624 (New Best)
+Epoch 12: Train Loss = 0.008484, Val Loss = 0.001499 (New Best)
+Epoch 65: Train Loss = 0.005059, Val Loss = 0.001484 (New Best)
+Epoch 67: Train Loss = 0.004916, Val Loss = 0.001415 (New Best)
+Epoch 79: Train Loss = 0.004559, Val Loss = 0.001371 (New Best)
+Epoch 115: Train Loss = 0.004173, Val Loss = 0.001314 (New Best)
+Early stopping at epoch 265 (no val improvement for 150 epochs).
+Best Val MSE: 0.001314 (Epoch 115)
+Epoch 10/115 | Combined Train Loss: 0.009185
+Epoch 20/115 | Combined Train Loss: 0.008203
+Epoch 30/115 | Combined Train Loss: 0.005628
+Epoch 40/115 | Combined Train Loss: 0.005160
+Epoch 50/115 | Combined Train Loss: 0.006210
+Epoch 60/115 | Combined Train Loss: 0.005906
+Epoch 70/115 | Combined Train Loss: 0.004430
+Epoch 80/115 | Combined Train Loss: 0.005666
+Epoch 90/115 | Combined Train Loss: 0.004798
+Epoch 100/115 | Combined Train Loss: 0.003718
+Epoch 110/115 | Combined Train Loss: 0.003451
+Epoch 115/115 | Combined Train Loss: 0.003286
+\n--- Strategy: expanding_window, Seed: 1000, Item: 26768, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 10 epochs | mean val loss = 0.006437
+  [refit] Epoch 10/10 | Train Loss: 0.008563
+\n--- Strategy: sliding_window, Seed: 1000, Item: 26768, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 34 epochs | mean val loss = 0.006628
+  [refit] Epoch 10/34 | Train Loss: 0.013917
+  [refit] Epoch 20/34 | Train Loss: 0.012806
+  [refit] Epoch 30/34 | Train Loss: 0.007658
+  [refit] Epoch 34/34 | Train Loss: 0.007675
+\n--- Strategy: best_val, Seed: 1000, Item: 151815, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.031633, Val Loss = 0.017582 (New Best)
+Epoch 2: Train Loss = 0.019777, Val Loss = 0.012944 (New Best)
+Epoch 3: Train Loss = 0.017997, Val Loss = 0.012904 (New Best)
+Epoch 4: Train Loss = 0.017526, Val Loss = 0.012122 (New Best)
+Epoch 6: Train Loss = 0.016457, Val Loss = 0.010970 (New Best)
+Early stopping at epoch 156 (no val improvement for 150 epochs).
+Best Val MSE: 0.010970 (Epoch 6)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 151815, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015388 | Val Loss: 0.011950
+Early stopping at epoch 14
+\n--- Strategy: combined, Seed: 1000, Item: 151815, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.031633, Val Loss = 0.017582 (New Best)
+Epoch 2: Train Loss = 0.019777, Val Loss = 0.012944 (New Best)
+Epoch 3: Train Loss = 0.017997, Val Loss = 0.012904 (New Best)
+Epoch 4: Train Loss = 0.017526, Val Loss = 0.012122 (New Best)
+Epoch 6: Train Loss = 0.016457, Val Loss = 0.010970 (New Best)
+Early stopping at epoch 156 (no val improvement for 150 epochs).
+Best Val MSE: 0.010970 (Epoch 6)
+Epoch 6/6 | Combined Train Loss: 0.016297
+\n--- Strategy: expanding_window, Seed: 1000, Item: 151815, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 36 epochs | mean val loss = 0.015711
+  [refit] Epoch 10/36 | Train Loss: 0.014977
+  [refit] Epoch 20/36 | Train Loss: 0.014033
+  [refit] Epoch 30/36 | Train Loss: 0.012108
+  [refit] Epoch 36/36 | Train Loss: 0.012074
+\n--- Strategy: sliding_window, Seed: 1000, Item: 151815, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 25 epochs | mean val loss = 0.015745
+  [refit] Epoch 10/25 | Train Loss: 0.018597
+  [refit] Epoch 20/25 | Train Loss: 0.016263
+  [refit] Epoch 25/25 | Train Loss: 0.015071
+\n--- Strategy: best_val, Seed: 1000, Item: 213627, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.072612, Val Loss = 0.016359 (New Best)
+Epoch 3: Train Loss = 0.016503, Val Loss = 0.014716 (New Best)
+Epoch 4: Train Loss = 0.014729, Val Loss = 0.011777 (New Best)
+Epoch 5: Train Loss = 0.013044, Val Loss = 0.010847 (New Best)
+Epoch 6: Train Loss = 0.012096, Val Loss = 0.009654 (New Best)
+Epoch 8: Train Loss = 0.011442, Val Loss = 0.009462 (New Best)
+Epoch 11: Train Loss = 0.011083, Val Loss = 0.009386 (New Best)
+Epoch 25: Train Loss = 0.009082, Val Loss = 0.009297 (New Best)
+Early stopping at epoch 175 (no val improvement for 150 epochs).
+Best Val MSE: 0.009297 (Epoch 25)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 213627, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.011500 | Val Loss: 0.011141
+Early stopping at epoch 19
+\n--- Strategy: combined, Seed: 1000, Item: 213627, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.072612, Val Loss = 0.016359 (New Best)
+Epoch 3: Train Loss = 0.016503, Val Loss = 0.014716 (New Best)
+Epoch 4: Train Loss = 0.014729, Val Loss = 0.011777 (New Best)
+Epoch 5: Train Loss = 0.013044, Val Loss = 0.010847 (New Best)
+Epoch 6: Train Loss = 0.012096, Val Loss = 0.009654 (New Best)
+Epoch 8: Train Loss = 0.011442, Val Loss = 0.009462 (New Best)
+Epoch 11: Train Loss = 0.011083, Val Loss = 0.009386 (New Best)
+Epoch 25: Train Loss = 0.009082, Val Loss = 0.009297 (New Best)
+Early stopping at epoch 175 (no val improvement for 150 epochs).
+Best Val MSE: 0.009297 (Epoch 25)
+Epoch 10/25 | Combined Train Loss: 0.012308
+Epoch 20/25 | Combined Train Loss: 0.011908
+Epoch 25/25 | Combined Train Loss: 0.010124
+\n--- Strategy: expanding_window, Seed: 1000, Item: 213627, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 17 epochs | mean val loss = 0.008315
+  [refit] Epoch 10/17 | Train Loss: 0.012400
+  [refit] Epoch 17/17 | Train Loss: 0.012491
+\n--- Strategy: sliding_window, Seed: 1000, Item: 213627, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 53 epochs | mean val loss = 0.008882
+  [refit] Epoch 10/53 | Train Loss: 0.015013
+  [refit] Epoch 20/53 | Train Loss: 0.014035
+  [refit] Epoch 30/53 | Train Loss: 0.011852
+  [refit] Epoch 40/53 | Train Loss: 0.012005
+  [refit] Epoch 50/53 | Train Loss: 0.010781
+  [refit] Epoch 53/53 | Train Loss: 0.012696
+\n--- Strategy: best_val, Seed: 1000, Item: 213636, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.041097, Val Loss = 0.008422 (New Best)
+Epoch 3: Train Loss = 0.034928, Val Loss = 0.007540 (New Best)
+Early stopping at epoch 153 (no val improvement for 150 epochs).
+Best Val MSE: 0.007540 (Epoch 3)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 213636, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.031477 | Val Loss: 0.012296
+Early stopping at epoch 11
+\n--- Strategy: combined, Seed: 1000, Item: 213636, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.041097, Val Loss = 0.008422 (New Best)
+Epoch 3: Train Loss = 0.034928, Val Loss = 0.007540 (New Best)
+Early stopping at epoch 153 (no val improvement for 150 epochs).
+Best Val MSE: 0.007540 (Epoch 3)
+Epoch 3/3 | Combined Train Loss: 0.033086
+\n--- Strategy: expanding_window, Seed: 1000, Item: 213636, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 2 epochs | mean val loss = 0.026376
+  [refit] Epoch 2/2 | Train Loss: 0.035547
+\n--- Strategy: sliding_window, Seed: 1000, Item: 213636, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 6 epochs | mean val loss = 0.026145
+  [refit] Epoch 6/6 | Train Loss: 0.027602
+\n--- Strategy: best_val, Seed: 1000, Item: 545598, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.035382, Val Loss = 0.018592 (New Best)
+Epoch 2: Train Loss = 0.023696, Val Loss = 0.018089 (New Best)
+Epoch 3: Train Loss = 0.020832, Val Loss = 0.016519 (New Best)
+Epoch 10: Train Loss = 0.019681, Val Loss = 0.016224 (New Best)
+Epoch 14: Train Loss = 0.018692, Val Loss = 0.016060 (New Best)
+Epoch 18: Train Loss = 0.018051, Val Loss = 0.015520 (New Best)
+Early stopping at epoch 168 (no val improvement for 150 epochs).
+Best Val MSE: 0.015520 (Epoch 18)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 545598, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.018703 | Val Loss: 0.017806
+Early stopping at epoch 18
+\n--- Strategy: combined, Seed: 1000, Item: 545598, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.035382, Val Loss = 0.018592 (New Best)
+Epoch 2: Train Loss = 0.023696, Val Loss = 0.018089 (New Best)
+Epoch 3: Train Loss = 0.020832, Val Loss = 0.016519 (New Best)
+Epoch 10: Train Loss = 0.019681, Val Loss = 0.016224 (New Best)
+Epoch 14: Train Loss = 0.018692, Val Loss = 0.016060 (New Best)
+Epoch 18: Train Loss = 0.018051, Val Loss = 0.015520 (New Best)
+Early stopping at epoch 168 (no val improvement for 150 epochs).
+Best Val MSE: 0.015520 (Epoch 18)
+Epoch 10/18 | Combined Train Loss: 0.018859
+Epoch 18/18 | Combined Train Loss: 0.017645
+\n--- Strategy: expanding_window, Seed: 1000, Item: 545598, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 14 epochs | mean val loss = 0.023873
+  [refit] Epoch 10/14 | Train Loss: 0.018521
+  [refit] Epoch 14/14 | Train Loss: 0.018205
+\n--- Strategy: sliding_window, Seed: 1000, Item: 545598, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 21 epochs | mean val loss = 0.023717
+  [refit] Epoch 10/21 | Train Loss: 0.019507
+  [refit] Epoch 20/21 | Train Loss: 0.016662
+  [refit] Epoch 21/21 | Train Loss: 0.017262
+\n--- Strategy: best_val, Seed: 1000, Item: 680152, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.027963, Val Loss = 0.014444 (New Best)
+Epoch 3: Train Loss = 0.019988, Val Loss = 0.014428 (New Best)
+Early stopping at epoch 153 (no val improvement for 150 epochs).
+Best Val MSE: 0.014428 (Epoch 3)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 680152, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.019669 | Val Loss: 0.015973
+Early stopping at epoch 12
+\n--- Strategy: combined, Seed: 1000, Item: 680152, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.027963, Val Loss = 0.014444 (New Best)
+Epoch 3: Train Loss = 0.019988, Val Loss = 0.014428 (New Best)
+Early stopping at epoch 153 (no val improvement for 150 epochs).
+Best Val MSE: 0.014428 (Epoch 3)
+Epoch 3/3 | Combined Train Loss: 0.021245
+\n--- Strategy: expanding_window, Seed: 1000, Item: 680152, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 36 epochs | mean val loss = 0.033861
+  [refit] Epoch 10/36 | Train Loss: 0.018427
+  [refit] Epoch 20/36 | Train Loss: 0.018116
+  [refit] Epoch 30/36 | Train Loss: 0.016935
+  [refit] Epoch 36/36 | Train Loss: 0.016661
+\n--- Strategy: sliding_window, Seed: 1000, Item: 680152, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 36 epochs | mean val loss = 0.033060
+  [refit] Epoch 10/36 | Train Loss: 0.018652
+  [refit] Epoch 20/36 | Train Loss: 0.017490
+  [refit] Epoch 30/36 | Train Loss: 0.016336
+  [refit] Epoch 36/36 | Train Loss: 0.015972
+\n--- Strategy: best_val, Seed: 1000, Item: 911753, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.038165, Val Loss = 0.012812 (New Best)
+Epoch 2: Train Loss = 0.016348, Val Loss = 0.010963 (New Best)
+Epoch 3: Train Loss = 0.013764, Val Loss = 0.009583 (New Best)
+Epoch 4: Train Loss = 0.013260, Val Loss = 0.008838 (New Best)
+Epoch 18: Train Loss = 0.008575, Val Loss = 0.008298 (New Best)
+Epoch 20: Train Loss = 0.007765, Val Loss = 0.007718 (New Best)
+Epoch 60: Train Loss = 0.005980, Val Loss = 0.007686 (New Best)
+Epoch 76: Train Loss = 0.005435, Val Loss = 0.007497 (New Best)
+Epoch 88: Train Loss = 0.005639, Val Loss = 0.007385 (New Best)
+Epoch 101: Train Loss = 0.005328, Val Loss = 0.007034 (New Best)
+Early stopping at epoch 251 (no val improvement for 150 epochs).
+Best Val MSE: 0.007034 (Epoch 101)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 911753, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010620 | Val Loss: 0.007955
+Epoch 20/1000 | Train Loss: 0.009222 | Val Loss: 0.007997
+Early stopping at epoch 24
+\n--- Strategy: combined, Seed: 1000, Item: 911753, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.038165, Val Loss = 0.012812 (New Best)
+Epoch 2: Train Loss = 0.016348, Val Loss = 0.010963 (New Best)
+Epoch 3: Train Loss = 0.013764, Val Loss = 0.009583 (New Best)
+Epoch 4: Train Loss = 0.013260, Val Loss = 0.008838 (New Best)
+Epoch 18: Train Loss = 0.008575, Val Loss = 0.008298 (New Best)
+Epoch 20: Train Loss = 0.007765, Val Loss = 0.007718 (New Best)
+Epoch 60: Train Loss = 0.005980, Val Loss = 0.007686 (New Best)
+Epoch 76: Train Loss = 0.005435, Val Loss = 0.007497 (New Best)
+Epoch 88: Train Loss = 0.005639, Val Loss = 0.007385 (New Best)
+Epoch 101: Train Loss = 0.005328, Val Loss = 0.007034 (New Best)
+Early stopping at epoch 251 (no val improvement for 150 epochs).
+Best Val MSE: 0.007034 (Epoch 101)
+Epoch 10/101 | Combined Train Loss: 0.010503
+Epoch 20/101 | Combined Train Loss: 0.010077
+Epoch 30/101 | Combined Train Loss: 0.008569
+Epoch 40/101 | Combined Train Loss: 0.007339
+Epoch 50/101 | Combined Train Loss: 0.008283
+Epoch 60/101 | Combined Train Loss: 0.007322
+Epoch 70/101 | Combined Train Loss: 0.006303
+Epoch 80/101 | Combined Train Loss: 0.005867
+Epoch 90/101 | Combined Train Loss: 0.006313
+Epoch 100/101 | Combined Train Loss: 0.005528
+Epoch 101/101 | Combined Train Loss: 0.005136
+\n--- Strategy: expanding_window, Seed: 1000, Item: 911753, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 47 epochs | mean val loss = 0.007727
+  [refit] Epoch 10/47 | Train Loss: 0.010340
+  [refit] Epoch 20/47 | Train Loss: 0.009993
+  [refit] Epoch 30/47 | Train Loss: 0.008904
+  [refit] Epoch 40/47 | Train Loss: 0.007225
+  [refit] Epoch 47/47 | Train Loss: 0.006881
+\n--- Strategy: sliding_window, Seed: 1000, Item: 911753, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 85 epochs | mean val loss = 0.011849
+  [refit] Epoch 10/85 | Train Loss: 0.020766
+  [refit] Epoch 20/85 | Train Loss: 0.020064
+  [refit] Epoch 30/85 | Train Loss: 0.015336
+  [refit] Epoch 40/85 | Train Loss: 0.016273
+  [refit] Epoch 50/85 | Train Loss: 0.014307
+  [refit] Epoch 60/85 | Train Loss: 0.012767
+  [refit] Epoch 70/85 | Train Loss: 0.014386
+  [refit] Epoch 80/85 | Train Loss: 0.010992
+  [refit] Epoch 85/85 | Train Loss: 0.010176
+\n--- Strategy: best_val, Seed: 1000, Item: 921558, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.069011, Val Loss = 0.024969 (New Best)
+Epoch 3: Train Loss = 0.028400, Val Loss = 0.022380 (New Best)
+Epoch 4: Train Loss = 0.026114, Val Loss = 0.020770 (New Best)
+Epoch 8: Train Loss = 0.024042, Val Loss = 0.019327 (New Best)
+Epoch 9: Train Loss = 0.024304, Val Loss = 0.019031 (New Best)
+Epoch 11: Train Loss = 0.026082, Val Loss = 0.018713 (New Best)
+Epoch 14: Train Loss = 0.022667, Val Loss = 0.018558 (New Best)
+Epoch 15: Train Loss = 0.023358, Val Loss = 0.018506 (New Best)
+Epoch 18: Train Loss = 0.022279, Val Loss = 0.018380 (New Best)
+Epoch 22: Train Loss = 0.021413, Val Loss = 0.018360 (New Best)
+Epoch 23: Train Loss = 0.022350, Val Loss = 0.017952 (New Best)
+Epoch 24: Train Loss = 0.020374, Val Loss = 0.017806 (New Best)
+Epoch 25: Train Loss = 0.021548, Val Loss = 0.017755 (New Best)
+Early stopping at epoch 175 (no val improvement for 150 epochs).
+Best Val MSE: 0.017755 (Epoch 25)
+\n--- Strategy: best_train_early_val, Seed: 1000, Item: 921558, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.026399 | Val Loss: 0.019338
+Epoch 20/1000 | Train Loss: 0.022370 | Val Loss: 0.017987
+Early stopping at epoch 30
+\n--- Strategy: combined, Seed: 1000, Item: 921558, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.069011, Val Loss = 0.024969 (New Best)
+Epoch 3: Train Loss = 0.028400, Val Loss = 0.022380 (New Best)
+Epoch 4: Train Loss = 0.026114, Val Loss = 0.020770 (New Best)
+Epoch 8: Train Loss = 0.024042, Val Loss = 0.019327 (New Best)
+Epoch 9: Train Loss = 0.024304, Val Loss = 0.019031 (New Best)
+Epoch 11: Train Loss = 0.026082, Val Loss = 0.018713 (New Best)
+Epoch 14: Train Loss = 0.022667, Val Loss = 0.018558 (New Best)
+Epoch 15: Train Loss = 0.023358, Val Loss = 0.018506 (New Best)
+Epoch 18: Train Loss = 0.022279, Val Loss = 0.018380 (New Best)
+Epoch 22: Train Loss = 0.021413, Val Loss = 0.018360 (New Best)
+Epoch 23: Train Loss = 0.022350, Val Loss = 0.017952 (New Best)
+Epoch 24: Train Loss = 0.020374, Val Loss = 0.017806 (New Best)
+Epoch 25: Train Loss = 0.021548, Val Loss = 0.017755 (New Best)
+Early stopping at epoch 175 (no val improvement for 150 epochs).
+Best Val MSE: 0.017755 (Epoch 25)
+Epoch 10/25 | Combined Train Loss: 0.025698
+Epoch 20/25 | Combined Train Loss: 0.024307
+Epoch 25/25 | Combined Train Loss: 0.022651
+\n--- Strategy: expanding_window, Seed: 1000, Item: 921558, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 20 epochs | mean val loss = 0.027254
+  [refit] Epoch 10/20 | Train Loss: 0.025658
+  [refit] Epoch 20/20 | Train Loss: 0.023819
+\n--- Strategy: sliding_window, Seed: 1000, Item: 921558, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 20 epochs | mean val loss = 0.027952
+  [refit] Epoch 10/20 | Train Loss: 0.025518
+  [refit] Epoch 20/20 | Train Loss: 0.024830
+\n--- Strategy: best_val, Seed: 26008, Item: 457, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.083162, Val Loss = 0.017488 (New Best)
+Epoch 2: Train Loss = 0.037306, Val Loss = 0.015986 (New Best)
+Epoch 8: Train Loss = 0.030909, Val Loss = 0.015150 (New Best)
+Epoch 9: Train Loss = 0.028961, Val Loss = 0.015081 (New Best)
+Epoch 11: Train Loss = 0.029218, Val Loss = 0.014953 (New Best)
+Epoch 22: Train Loss = 0.026362, Val Loss = 0.014630 (New Best)
+Epoch 62: Train Loss = 0.020136, Val Loss = 0.013899 (New Best)
+Early stopping at epoch 212 (no val improvement for 150 epochs).
+Best Val MSE: 0.013899 (Epoch 62)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 457, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.030886 | Val Loss: 0.017278
+Early stopping at epoch 12
+\n--- Strategy: combined, Seed: 26008, Item: 457, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.083162, Val Loss = 0.017488 (New Best)
+Epoch 2: Train Loss = 0.037306, Val Loss = 0.015986 (New Best)
+Epoch 8: Train Loss = 0.030909, Val Loss = 0.015150 (New Best)
+Epoch 9: Train Loss = 0.028961, Val Loss = 0.015081 (New Best)
+Epoch 11: Train Loss = 0.029218, Val Loss = 0.014953 (New Best)
+Epoch 22: Train Loss = 0.026362, Val Loss = 0.014630 (New Best)
+Epoch 62: Train Loss = 0.020136, Val Loss = 0.013899 (New Best)
+Early stopping at epoch 212 (no val improvement for 150 epochs).
+Best Val MSE: 0.013899 (Epoch 62)
+Epoch 10/62 | Combined Train Loss: 0.030465
+Epoch 20/62 | Combined Train Loss: 0.028520
+Epoch 30/62 | Combined Train Loss: 0.024748
+Epoch 40/62 | Combined Train Loss: 0.023456
+Epoch 50/62 | Combined Train Loss: 0.020851
+Epoch 60/62 | Combined Train Loss: 0.019748
+Epoch 62/62 | Combined Train Loss: 0.020178
+\n--- Strategy: expanding_window, Seed: 26008, Item: 457, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 18 epochs | mean val loss = 0.020600
+  [refit] Epoch 10/18 | Train Loss: 0.029619
+  [refit] Epoch 18/18 | Train Loss: 0.027368
+\n--- Strategy: sliding_window, Seed: 26008, Item: 457, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 21 epochs | mean val loss = 0.021531
+  [refit] Epoch 10/21 | Train Loss: 0.028722
+  [refit] Epoch 20/21 | Train Loss: 0.025717
+  [refit] Epoch 21/21 | Train Loss: 0.024901
+\n--- Strategy: best_val, Seed: 26008, Item: 25032, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.059318, Val Loss = 0.039384 (New Best)
+Epoch 2: Train Loss = 0.034810, Val Loss = 0.038233 (New Best)
+Epoch 3: Train Loss = 0.032422, Val Loss = 0.037721 (New Best)
+Epoch 4: Train Loss = 0.031055, Val Loss = 0.037137 (New Best)
+Epoch 5: Train Loss = 0.029186, Val Loss = 0.036755 (New Best)
+Epoch 6: Train Loss = 0.029762, Val Loss = 0.036134 (New Best)
+Epoch 7: Train Loss = 0.028900, Val Loss = 0.036111 (New Best)
+Epoch 8: Train Loss = 0.028001, Val Loss = 0.035561 (New Best)
+Epoch 10: Train Loss = 0.028113, Val Loss = 0.035028 (New Best)
+Early stopping at epoch 160 (no val improvement for 150 epochs).
+Best Val MSE: 0.035028 (Epoch 10)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 25032, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.029354 | Val Loss: 0.038205
+Epoch 20/1000 | Train Loss: 0.026751 | Val Loss: 0.037698
+Early stopping at epoch 29
+\n--- Strategy: combined, Seed: 26008, Item: 25032, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.059318, Val Loss = 0.039384 (New Best)
+Epoch 2: Train Loss = 0.034810, Val Loss = 0.038233 (New Best)
+Epoch 3: Train Loss = 0.032422, Val Loss = 0.037721 (New Best)
+Epoch 4: Train Loss = 0.031055, Val Loss = 0.037137 (New Best)
+Epoch 5: Train Loss = 0.029186, Val Loss = 0.036755 (New Best)
+Epoch 6: Train Loss = 0.029762, Val Loss = 0.036134 (New Best)
+Epoch 7: Train Loss = 0.028900, Val Loss = 0.036111 (New Best)
+Epoch 8: Train Loss = 0.028001, Val Loss = 0.035561 (New Best)
+Epoch 10: Train Loss = 0.028113, Val Loss = 0.035028 (New Best)
+Early stopping at epoch 160 (no val improvement for 150 epochs).
+Best Val MSE: 0.035028 (Epoch 10)
+Epoch 10/10 | Combined Train Loss: 0.029972
+\n--- Strategy: expanding_window, Seed: 26008, Item: 25032, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 32 epochs | mean val loss = 0.038777
+  [refit] Epoch 10/32 | Train Loss: 0.030769
+  [refit] Epoch 20/32 | Train Loss: 0.027995
+  [refit] Epoch 30/32 | Train Loss: 0.026219
+  [refit] Epoch 32/32 | Train Loss: 0.024983
+\n--- Strategy: sliding_window, Seed: 26008, Item: 25032, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 25 epochs | mean val loss = 0.039882
+  [refit] Epoch 10/25 | Train Loss: 0.041086
+  [refit] Epoch 20/25 | Train Loss: 0.037081
+  [refit] Epoch 25/25 | Train Loss: 0.034003
+\n--- Strategy: best_val, Seed: 26008, Item: 26768, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.030869, Val Loss = 0.001617 (New Best)
+Epoch 7: Train Loss = 0.011349, Val Loss = 0.001556 (New Best)
+Epoch 8: Train Loss = 0.011190, Val Loss = 0.001555 (New Best)
+Epoch 11: Train Loss = 0.009442, Val Loss = 0.001295 (New Best)
+Early stopping at epoch 161 (no val improvement for 150 epochs).
+Best Val MSE: 0.001295 (Epoch 11)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 26768, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010937 | Val Loss: 0.001903
+Epoch 20/1000 | Train Loss: 0.008114 | Val Loss: 0.003735
+Epoch 30/1000 | Train Loss: 0.006995 | Val Loss: 0.001535
+Early stopping at epoch 32
+\n--- Strategy: combined, Seed: 26008, Item: 26768, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.030869, Val Loss = 0.001617 (New Best)
+Epoch 7: Train Loss = 0.011349, Val Loss = 0.001556 (New Best)
+Epoch 8: Train Loss = 0.011190, Val Loss = 0.001555 (New Best)
+Epoch 11: Train Loss = 0.009442, Val Loss = 0.001295 (New Best)
+Early stopping at epoch 161 (no val improvement for 150 epochs).
+Best Val MSE: 0.001295 (Epoch 11)
+Epoch 10/11 | Combined Train Loss: 0.009735
+Epoch 11/11 | Combined Train Loss: 0.009109
+\n--- Strategy: expanding_window, Seed: 26008, Item: 26768, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 13 epochs | mean val loss = 0.006756
+  [refit] Epoch 10/13 | Train Loss: 0.009493
+  [refit] Epoch 13/13 | Train Loss: 0.008256
+\n--- Strategy: sliding_window, Seed: 26008, Item: 26768, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 31 epochs | mean val loss = 0.006784
+  [refit] Epoch 10/31 | Train Loss: 0.014819
+  [refit] Epoch 20/31 | Train Loss: 0.010189
+  [refit] Epoch 30/31 | Train Loss: 0.007910
+  [refit] Epoch 31/31 | Train Loss: 0.007186
+\n--- Strategy: best_val, Seed: 26008, Item: 151815, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.047165, Val Loss = 0.019191 (New Best)
+Epoch 2: Train Loss = 0.020412, Val Loss = 0.016630 (New Best)
+Epoch 3: Train Loss = 0.018913, Val Loss = 0.014683 (New Best)
+Epoch 4: Train Loss = 0.017720, Val Loss = 0.011714 (New Best)
+Epoch 5: Train Loss = 0.017726, Val Loss = 0.011339 (New Best)
+Early stopping at epoch 155 (no val improvement for 150 epochs).
+Best Val MSE: 0.011339 (Epoch 5)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 151815, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.015538 | Val Loss: 0.011231
+Early stopping at epoch 16
+\n--- Strategy: combined, Seed: 26008, Item: 151815, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.047165, Val Loss = 0.019191 (New Best)
+Epoch 2: Train Loss = 0.020412, Val Loss = 0.016630 (New Best)
+Epoch 3: Train Loss = 0.018913, Val Loss = 0.014683 (New Best)
+Epoch 4: Train Loss = 0.017720, Val Loss = 0.011714 (New Best)
+Epoch 5: Train Loss = 0.017726, Val Loss = 0.011339 (New Best)
+Early stopping at epoch 155 (no val improvement for 150 epochs).
+Best Val MSE: 0.011339 (Epoch 5)
+Epoch 5/5 | Combined Train Loss: 0.017899
+\n--- Strategy: expanding_window, Seed: 26008, Item: 151815, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 13 epochs | mean val loss = 0.015339
+  [refit] Epoch 10/13 | Train Loss: 0.015757
+  [refit] Epoch 13/13 | Train Loss: 0.015685
+\n--- Strategy: sliding_window, Seed: 26008, Item: 151815, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 23 epochs | mean val loss = 0.016127
+  [refit] Epoch 10/23 | Train Loss: 0.017514
+  [refit] Epoch 20/23 | Train Loss: 0.015134
+  [refit] Epoch 23/23 | Train Loss: 0.015280
+\n--- Strategy: best_val, Seed: 26008, Item: 213627, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.100945, Val Loss = 0.015252 (New Best)
+Epoch 4: Train Loss = 0.014066, Val Loss = 0.011188 (New Best)
+Epoch 5: Train Loss = 0.012636, Val Loss = 0.010391 (New Best)
+Epoch 6: Train Loss = 0.012733, Val Loss = 0.009872 (New Best)
+Epoch 9: Train Loss = 0.011996, Val Loss = 0.009464 (New Best)
+Epoch 14: Train Loss = 0.010579, Val Loss = 0.008931 (New Best)
+Epoch 20: Train Loss = 0.010121, Val Loss = 0.008842 (New Best)
+Epoch 24: Train Loss = 0.009453, Val Loss = 0.008840 (New Best)
+Epoch 33: Train Loss = 0.008888, Val Loss = 0.008810 (New Best)
+Epoch 39: Train Loss = 0.008472, Val Loss = 0.008697 (New Best)
+Early stopping at epoch 189 (no val improvement for 150 epochs).
+Best Val MSE: 0.008697 (Epoch 39)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 213627, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.013800 | Val Loss: 0.012105
+Epoch 20/1000 | Train Loss: 0.011687 | Val Loss: 0.009085
+Epoch 30/1000 | Train Loss: 0.011644 | Val Loss: 0.013064
+Early stopping at epoch 39
+\n--- Strategy: combined, Seed: 26008, Item: 213627, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.100945, Val Loss = 0.015252 (New Best)
+Epoch 4: Train Loss = 0.014066, Val Loss = 0.011188 (New Best)
+Epoch 5: Train Loss = 0.012636, Val Loss = 0.010391 (New Best)
+Epoch 6: Train Loss = 0.012733, Val Loss = 0.009872 (New Best)
+Epoch 9: Train Loss = 0.011996, Val Loss = 0.009464 (New Best)
+Epoch 14: Train Loss = 0.010579, Val Loss = 0.008931 (New Best)
+Epoch 20: Train Loss = 0.010121, Val Loss = 0.008842 (New Best)
+Epoch 24: Train Loss = 0.009453, Val Loss = 0.008840 (New Best)
+Epoch 33: Train Loss = 0.008888, Val Loss = 0.008810 (New Best)
+Epoch 39: Train Loss = 0.008472, Val Loss = 0.008697 (New Best)
+Early stopping at epoch 189 (no val improvement for 150 epochs).
+Best Val MSE: 0.008697 (Epoch 39)
+Epoch 10/39 | Combined Train Loss: 0.012248
+Epoch 20/39 | Combined Train Loss: 0.011695
+Epoch 30/39 | Combined Train Loss: 0.010822
+Epoch 39/39 | Combined Train Loss: 0.008990
+\n--- Strategy: expanding_window, Seed: 26008, Item: 213627, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 17 epochs | mean val loss = 0.008184
+  [refit] Epoch 10/17 | Train Loss: 0.011769
+  [refit] Epoch 17/17 | Train Loss: 0.010984
+\n--- Strategy: sliding_window, Seed: 26008, Item: 213627, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 29 epochs | mean val loss = 0.008997
+  [refit] Epoch 10/29 | Train Loss: 0.014703
+  [refit] Epoch 20/29 | Train Loss: 0.013585
+  [refit] Epoch 29/29 | Train Loss: 0.011810
+\n--- Strategy: best_val, Seed: 26008, Item: 213636, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.053652, Val Loss = 0.007453 (New Best)
+Early stopping at epoch 151 (no val improvement for 150 epochs).
+Best Val MSE: 0.007453 (Epoch 1)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 213636, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.031070 | Val Loss: 0.009781
+Early stopping at epoch 12
+\n--- Strategy: combined, Seed: 26008, Item: 213636, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.053652, Val Loss = 0.007453 (New Best)
+Early stopping at epoch 151 (no val improvement for 150 epochs).
+Best Val MSE: 0.007453 (Epoch 1)
+Epoch 1/1 | Combined Train Loss: 0.060633
+\n--- Strategy: expanding_window, Seed: 26008, Item: 213636, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 2 epochs | mean val loss = 0.026681
+  [refit] Epoch 2/2 | Train Loss: 0.038918
+\n--- Strategy: sliding_window, Seed: 26008, Item: 213636, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 5 epochs | mean val loss = 0.026339
+  [refit] Epoch 5/5 | Train Loss: 0.028566
+\n--- Strategy: best_val, Seed: 26008, Item: 545598, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.046011, Val Loss = 0.017132 (New Best)
+Epoch 2: Train Loss = 0.021454, Val Loss = 0.016642 (New Best)
+Epoch 3: Train Loss = 0.020617, Val Loss = 0.016321 (New Best)
+Epoch 6: Train Loss = 0.020209, Val Loss = 0.016101 (New Best)
+Epoch 11: Train Loss = 0.019579, Val Loss = 0.015900 (New Best)
+Early stopping at epoch 161 (no val improvement for 150 epochs).
+Best Val MSE: 0.015900 (Epoch 11)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 545598, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.019434 | Val Loss: 0.018107
+Early stopping at epoch 13
+\n--- Strategy: combined, Seed: 26008, Item: 545598, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.046011, Val Loss = 0.017132 (New Best)
+Epoch 2: Train Loss = 0.021454, Val Loss = 0.016642 (New Best)
+Epoch 3: Train Loss = 0.020617, Val Loss = 0.016321 (New Best)
+Epoch 6: Train Loss = 0.020209, Val Loss = 0.016101 (New Best)
+Epoch 11: Train Loss = 0.019579, Val Loss = 0.015900 (New Best)
+Early stopping at epoch 161 (no val improvement for 150 epochs).
+Best Val MSE: 0.015900 (Epoch 11)
+Epoch 10/11 | Combined Train Loss: 0.019286
+Epoch 11/11 | Combined Train Loss: 0.019115
+\n--- Strategy: expanding_window, Seed: 26008, Item: 545598, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 10 epochs | mean val loss = 0.024394
+  [refit] Epoch 10/10 | Train Loss: 0.018865
+\n--- Strategy: sliding_window, Seed: 26008, Item: 545598, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 15 epochs | mean val loss = 0.024440
+  [refit] Epoch 10/15 | Train Loss: 0.019105
+  [refit] Epoch 15/15 | Train Loss: 0.017865
+\n--- Strategy: best_val, Seed: 26008, Item: 680152, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.036876, Val Loss = 0.014940 (New Best)
+Epoch 2: Train Loss = 0.022048, Val Loss = 0.014313 (New Best)
+Epoch 3: Train Loss = 0.020587, Val Loss = 0.014262 (New Best)
+Early stopping at epoch 153 (no val improvement for 150 epochs).
+Best Val MSE: 0.014262 (Epoch 3)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 680152, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.019643 | Val Loss: 0.015471
+Early stopping at epoch 12
+\n--- Strategy: combined, Seed: 26008, Item: 680152, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.036876, Val Loss = 0.014940 (New Best)
+Epoch 2: Train Loss = 0.022048, Val Loss = 0.014313 (New Best)
+Epoch 3: Train Loss = 0.020587, Val Loss = 0.014262 (New Best)
+Early stopping at epoch 153 (no val improvement for 150 epochs).
+Best Val MSE: 0.014262 (Epoch 3)
+Epoch 3/3 | Combined Train Loss: 0.022514
+\n--- Strategy: expanding_window, Seed: 26008, Item: 680152, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 4 epochs | mean val loss = 0.034249
+  [refit] Epoch 4/4 | Train Loss: 0.019750
+\n--- Strategy: sliding_window, Seed: 26008, Item: 680152, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 4 epochs | mean val loss = 0.033253
+  [refit] Epoch 4/4 | Train Loss: 0.021796
+\n--- Strategy: best_val, Seed: 26008, Item: 911753, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.059144, Val Loss = 0.010999 (New Best)
+Epoch 2: Train Loss = 0.016058, Val Loss = 0.010414 (New Best)
+Epoch 3: Train Loss = 0.014354, Val Loss = 0.009680 (New Best)
+Epoch 7: Train Loss = 0.011048, Val Loss = 0.008090 (New Best)
+Epoch 10: Train Loss = 0.009901, Val Loss = 0.008077 (New Best)
+Epoch 11: Train Loss = 0.010140, Val Loss = 0.007634 (New Best)
+Epoch 78: Train Loss = 0.005431, Val Loss = 0.007621 (New Best)
+Epoch 121: Train Loss = 0.005442, Val Loss = 0.007530 (New Best)
+Early stopping at epoch 271 (no val improvement for 150 epochs).
+Best Val MSE: 0.007530 (Epoch 121)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 911753, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.010808 | Val Loss: 0.007949
+Epoch 20/1000 | Train Loss: 0.008991 | Val Loss: 0.008747
+Early stopping at epoch 23
+\n--- Strategy: combined, Seed: 26008, Item: 911753, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.059144, Val Loss = 0.010999 (New Best)
+Epoch 2: Train Loss = 0.016058, Val Loss = 0.010414 (New Best)
+Epoch 3: Train Loss = 0.014354, Val Loss = 0.009680 (New Best)
+Epoch 7: Train Loss = 0.011048, Val Loss = 0.008090 (New Best)
+Epoch 10: Train Loss = 0.009901, Val Loss = 0.008077 (New Best)
+Epoch 11: Train Loss = 0.010140, Val Loss = 0.007634 (New Best)
+Epoch 78: Train Loss = 0.005431, Val Loss = 0.007621 (New Best)
+Epoch 121: Train Loss = 0.005442, Val Loss = 0.007530 (New Best)
+Early stopping at epoch 271 (no val improvement for 150 epochs).
+Best Val MSE: 0.007530 (Epoch 121)
+Epoch 10/121 | Combined Train Loss: 0.010855
+Epoch 20/121 | Combined Train Loss: 0.009223
+Epoch 30/121 | Combined Train Loss: 0.008607
+Epoch 40/121 | Combined Train Loss: 0.008268
+Epoch 50/121 | Combined Train Loss: 0.007900
+Epoch 60/121 | Combined Train Loss: 0.006657
+Epoch 70/121 | Combined Train Loss: 0.006469
+Epoch 80/121 | Combined Train Loss: 0.006069
+Epoch 90/121 | Combined Train Loss: 0.005416
+Epoch 100/121 | Combined Train Loss: 0.005747
+Epoch 110/121 | Combined Train Loss: 0.005474
+Epoch 120/121 | Combined Train Loss: 0.005754
+Epoch 121/121 | Combined Train Loss: 0.005814
+\n--- Strategy: expanding_window, Seed: 26008, Item: 911753, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 87 epochs | mean val loss = 0.007416
+  [refit] Epoch 10/87 | Train Loss: 0.010675
+  [refit] Epoch 20/87 | Train Loss: 0.009806
+  [refit] Epoch 30/87 | Train Loss: 0.007804
+  [refit] Epoch 40/87 | Train Loss: 0.008029
+  [refit] Epoch 50/87 | Train Loss: 0.008225
+  [refit] Epoch 60/87 | Train Loss: 0.006582
+  [refit] Epoch 70/87 | Train Loss: 0.006283
+  [refit] Epoch 80/87 | Train Loss: 0.007347
+  [refit] Epoch 87/87 | Train Loss: 0.005795
+\n--- Strategy: sliding_window, Seed: 26008, Item: 911753, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 53 epochs | mean val loss = 0.012421
+  [refit] Epoch 10/53 | Train Loss: 0.020342
+  [refit] Epoch 20/53 | Train Loss: 0.019546
+  [refit] Epoch 30/53 | Train Loss: 0.014882
+  [refit] Epoch 40/53 | Train Loss: 0.015148
+  [refit] Epoch 50/53 | Train Loss: 0.012514
+  [refit] Epoch 53/53 | Train Loss: 0.012515
+\n--- Strategy: best_val, Seed: 26008, Item: 921558, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.099817, Val Loss = 0.025092 (New Best)
+Epoch 2: Train Loss = 0.032801, Val Loss = 0.022779 (New Best)
+Epoch 3: Train Loss = 0.026178, Val Loss = 0.020895 (New Best)
+Epoch 4: Train Loss = 0.024440, Val Loss = 0.019966 (New Best)
+Epoch 9: Train Loss = 0.025248, Val Loss = 0.019203 (New Best)
+Epoch 12: Train Loss = 0.022910, Val Loss = 0.019111 (New Best)
+Epoch 13: Train Loss = 0.022683, Val Loss = 0.018474 (New Best)
+Epoch 23: Train Loss = 0.021326, Val Loss = 0.018415 (New Best)
+Epoch 26: Train Loss = 0.021816, Val Loss = 0.017985 (New Best)
+Epoch 33: Train Loss = 0.019850, Val Loss = 0.017893 (New Best)
+Epoch 40: Train Loss = 0.020390, Val Loss = 0.017827 (New Best)
+Epoch 42: Train Loss = 0.019761, Val Loss = 0.017656 (New Best)
+Epoch 48: Train Loss = 0.018898, Val Loss = 0.017603 (New Best)
+Early stopping at epoch 198 (no val improvement for 150 epochs).
+Best Val MSE: 0.017603 (Epoch 48)
+\n--- Strategy: best_train_early_val, Seed: 26008, Item: 921558, Store: 6269 ---
+Epoch 10/1000 | Train Loss: 0.025492 | Val Loss: 0.018814
+Epoch 20/1000 | Train Loss: 0.022113 | Val Loss: 0.018392
+Early stopping at epoch 25
+\n--- Strategy: combined, Seed: 26008, Item: 921558, Store: 6269 ---
+Train/Val Split Indices:
+  Train End: -214
+  Val Range:     -214 to -153
+  Test Range:    -153 to End
+  Val Targets:   61 windows created
+Input Shape:  (Batch, 30, 27)
+Output Shape: (Batch, 1)
+Epoch 1: Train Loss = 0.099817, Val Loss = 0.025092 (New Best)
+Epoch 2: Train Loss = 0.032801, Val Loss = 0.022779 (New Best)
+Epoch 3: Train Loss = 0.026178, Val Loss = 0.020895 (New Best)
+Epoch 4: Train Loss = 0.024440, Val Loss = 0.019966 (New Best)
+Epoch 9: Train Loss = 0.025248, Val Loss = 0.019203 (New Best)
+Epoch 12: Train Loss = 0.022910, Val Loss = 0.019111 (New Best)
+Epoch 13: Train Loss = 0.022683, Val Loss = 0.018474 (New Best)
+Epoch 23: Train Loss = 0.021326, Val Loss = 0.018415 (New Best)
+Epoch 26: Train Loss = 0.021816, Val Loss = 0.017985 (New Best)
+Epoch 33: Train Loss = 0.019850, Val Loss = 0.017893 (New Best)
+Epoch 40: Train Loss = 0.020390, Val Loss = 0.017827 (New Best)
+Epoch 42: Train Loss = 0.019761, Val Loss = 0.017656 (New Best)
+Epoch 48: Train Loss = 0.018898, Val Loss = 0.017603 (New Best)
+Early stopping at epoch 198 (no val improvement for 150 epochs).
+Best Val MSE: 0.017603 (Epoch 48)
+Epoch 10/48 | Combined Train Loss: 0.026144
+Epoch 20/48 | Combined Train Loss: 0.023891
+Epoch 30/48 | Combined Train Loss: 0.021493
+Epoch 40/48 | Combined Train Loss: 0.022160
+Epoch 48/48 | Combined Train Loss: 0.019142
+\n--- Strategy: expanding_window, Seed: 26008, Item: 921558, Store: 6269 ---
+\n--- Expanding Window 0: Train 0->365, Val 365->446 ---
+\n--- Expanding Window 1: Train 0->446, Val 446->527 ---
+\n--- Expanding Window 2: Train 0->527, Val 527->608 ---
+\n[Expanding CV] 3 folds | E* = 20 epochs | mean val loss = 0.025342
+  [refit] Epoch 10/20 | Train Loss: 0.026318
+  [refit] Epoch 20/20 | Train Loss: 0.023299
+\n--- Strategy: sliding_window, Seed: 26008, Item: 921558, Store: 6269 ---
+\n--- Sliding Window 0: Train 0->365, Val 365->446 ---
+\n--- Sliding Window 1: Train 81->446, Val 446->527 ---
+\n--- Sliding Window 2: Train 162->527, Val 527->608 ---
+\n[Sliding CV] 3 folds | E* = 38 epochs | mean val loss = 0.026165
+  [refit] Epoch 10/38 | Train Loss: 0.026409
+  [refit] Epoch 20/38 | Train Loss: 0.024063
+  [refit] Epoch 30/38 | Train Loss: 0.022193
+  [refit] Epoch 38/38 | Train Loss: 0.024066
+Worker 1/6: experiments completed. Wrote 150 rows to c:\Users\Andre Silva\Desktop\Dissertation25-26\TimeDistributedMLP\mlp_strategies_results_w1.csv.
