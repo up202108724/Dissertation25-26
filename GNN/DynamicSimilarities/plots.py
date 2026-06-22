@@ -15,7 +15,8 @@ def plot_results(train, val, test, forecast,
                 target_col='value', title='Forecast vs Actual', save_path=None,
                 rmse=None, mae=None, bias=None, score=None, pocid=None, df_full=None,
                 inference_step_dates=None, neighbour_series=None,
-                inference_step_neighbours=None, all_step_neighbours=None):
+                inference_step_neighbours=None, all_step_neighbours=None,
+                neighbour_counts=None):
     
     # Check if forecast is a dictionary; if not, wrap it in a dictionary for uniformity
     if not isinstance(forecast, dict):
@@ -77,11 +78,27 @@ def plot_results(train, val, test, forecast,
         label = list(forecast.keys())[0]
         pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
         full_title += f"RMSE: {rmse[label]:.4f} | MAE: {mae[label]:.4f} | Bias: {bias[label]:.4f} | Score: {score[label]:.4f} | POCID: {pocid_str}"
-        
-    fig = make_subplots(rows=2, cols=1,
-                        subplot_titles=(full_title, 'Training and Validation Loss'),
-                        vertical_spacing=0.10,
-                        row_heights=[0.70, 0.30])
+
+    # ── Optional 3rd panel: graph-neighbourhood size per forecast step ────────
+    # Only rendered when the caller supplies per-label neighbour counts (the
+    # GCN/GAT/Graph2Vec runner).  Baselines / ablations contribute no counts, so
+    # the panel stays focused on the graph variants.
+    show_nbr_panel = bool(neighbour_counts) and any(
+        v is not None and len(v) > 0 for v in neighbour_counts.values()
+    )
+    if show_nbr_panel:
+        fig = make_subplots(
+            rows=3, cols=1,
+            subplot_titles=(full_title, 'Training and Validation Loss',
+                            'Graph neighbourhood size per forecast step'),
+            vertical_spacing=0.08,
+            row_heights=[0.58, 0.24, 0.18],
+        )
+    else:
+        fig = make_subplots(rows=2, cols=1,
+                            subplot_titles=(full_title, 'Training and Validation Loss'),
+                            vertical_spacing=0.10,
+                            row_heights=[0.70, 0.30])
     
     # Define a common hovertemplate to include date and value
     hover_temp = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
@@ -125,11 +142,16 @@ def plot_results(train, val, test, forecast,
     import plotly.express as px
     colors = px.colors.qualitative.Plotly
 
+    # Shared label→colour map so the neighbour panel (row 3) and the loss panel
+    # (row 2) reuse exactly the colour each forecast line gets in row 1.
+    label_color = {
+        label: ('red' if not is_multi else colors[idx % len(colors)])
+        for idx, label in enumerate(forecast.keys())
+    }
+
     for idx, (label, fcast) in enumerate(forecast.items()):
         if fcast is None: continue
-        color = colors[idx % len(colors)]
-        if not is_multi:
-            color = 'red'
+        color = label_color[label]
 
         legend_name = label
         if is_multi:
@@ -267,19 +289,47 @@ def plot_results(train, val, test, forecast,
         if t_loss is None:
             continue
         v_loss = val_losses.get(label, [])
-        color = colors[idx % len(colors)]
+        color = label_color.get(label, colors[idx % len(colors)])
         epochs = list(range(1, len(t_loss) + 1))
-        
+
         name_t = 'Train Loss' if not is_multi else f'Train Loss ({label})'
         name_v = 'Validation Loss' if not is_multi else f'Val Loss ({label})'
-        
+
         fig.add_trace(go.Scatter(x=epochs, y=t_loss, name=name_t, legendgroup=label, mode='lines', line=dict(color=color, dash='solid')), row=2, col=1)
         fig.add_trace(go.Scatter(x=epochs, y=v_loss, name=name_v, legendgroup=label, mode='lines', line=dict(color=color, dash='dot')), row=2, col=1)
 
     fig.update_yaxes(title_text='Loss', row=2, col=1)
     fig.update_xaxes(title_text='Epoch', row=2, col=1)
-    
-    fig.update_layout(height=1400, width=1800,
+
+    # ── Row 3: graph-neighbourhood size per forecast step ─────────────────────
+    # One line per graph variant, coloured to match its forecast line.  The x
+    # axis is the forecast (test) date so spikes line up with the demand series
+    # in row 1 — e.g. a neighbourhood that grows around a retail event.
+    if show_nbr_panel:
+        n_steps = len(test_index)
+        for label, counts in neighbour_counts.items():
+            if counts is None or len(counts) == 0:
+                continue
+            counts = list(counts)
+            # Align to the forecast horizon (truncate / NaN-pad) so x and y match.
+            if len(counts) < n_steps:
+                counts = counts + [np.nan] * (n_steps - len(counts))
+            else:
+                counts = counts[:n_steps]
+            color = label_color.get(label, '#1f77b4')
+            fig.add_trace(
+                go.Scatter(
+                    x=test_index, y=counts, name=f'Neighbours ({label})',
+                    legendgroup=label, showlegend=False, mode='lines+markers',
+                    line=dict(color=color, width=1.5), marker=dict(size=4),
+                    hovertemplate='Date: %{x|%Y-%m-%d}<br>Neighbours: %{y}<extra></extra>',
+                ),
+                row=3, col=1,
+            )
+        fig.update_yaxes(title_text='# neighbours', rangemode='tozero', row=3, col=1)
+        fig.update_xaxes(title_text='Date', dtick="M3", tickformat="%b\n%Y", row=3, col=1)
+
+    fig.update_layout(height=1750 if show_nbr_panel else 1400, width=1800,
                       hovermode="x unified",
                       template="plotly_white",
                       margin=dict(l=60, r=40, t=120, b=60),

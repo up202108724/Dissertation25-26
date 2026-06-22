@@ -160,8 +160,8 @@ EXOG_COLS_MLP = [
 # feature is computed once; each variant subsets to its own list at runtime.
 EXOG_COLS = list(dict.fromkeys(EXOG_COLS_LSTM + EXOG_COLS_MLP))
 grid_configs = [
-    {'metric': 'spearman', 'thresholds': [0.634]},
-    #{'metric': 'cid', 'thresholds': [4.17]},
+    #{'metric': 'spearman', 'thresholds': [0.634]},
+    {'metric': 'cid', 'thresholds': [4.17]},
 ]
 
 window_sizes              = [30]
@@ -626,28 +626,38 @@ def main():
     worker_csv_suffix = f"_w{worker_id}" if num_workers > 1 else ""
 
     # ── Load already-completed rows for resumption ────────────────────────
-    # Rows already present in this worker's CSV are skipped (training +
-    # inference + CSV write) so an interrupted run can be restarted cheaply.
+    # A (product, store, seed, model_variant, …config…) already evaluated in
+    # ANY shard is skipped (training + inference + CSV write).  We scan every
+    # per-worker shard ``{metric}_w*.csv`` (e.g. cid_w0..cid_w4) AND the merged
+    # ``{metric}.csv`` — not just this worker's own file — so a result written
+    # by a different worker / earlier run is honoured here too.
     _done_keys: set = set()
+    _resume_csvs: set = set()
     for _cfg in grid_configs:
-        _resume_csv = os.path.join(SCRIPT_DIR, f"{_cfg['metric']}{worker_csv_suffix}.csv")
-        if os.path.exists(_resume_csv):
-            try:
-                with open(_resume_csv, newline='') as _rf:
-                    for _row in csv.DictReader(_rf):
-                        _done_keys.add((
-                            _row.get("product_id", ""), _row.get("store_id", ""),
-                            _row.get("seed", ""), _row.get("metric", ""),
-                            _row.get("model_variant", ""),
-                            _row.get("window_size", ""), _row.get("step_size", ""),
-                            _row.get("threshold", ""), _row.get("percentile", ""),
-                            _row.get("enable_edges", ""), _row.get("enable_second_degree", ""),
-                            _row.get("ablate_z", ""), _row.get("node_feature_mode", ""),
-                        ))
-            except Exception as _re:
-                print(f"[RESUME] Warning: could not read {_resume_csv}: {_re}")
+        _m = _cfg['metric']
+        _resume_csvs.add(os.path.join(SCRIPT_DIR, f"{_m}.csv"))           # merged
+        _resume_csvs.update(_glob_mod.glob(os.path.join(SCRIPT_DIR, f"{_m}_w*.csv")))  # all shards
+    for _resume_csv in sorted(_resume_csvs):
+        if not os.path.exists(_resume_csv):
+            continue
+        try:
+            with open(_resume_csv, newline='') as _rf:
+                for _row in csv.DictReader(_rf):
+                    _done_keys.add((
+                        _row.get("product_id", ""), _row.get("store_id", ""),
+                        _row.get("seed", ""), _row.get("metric", ""),
+                        _row.get("model_variant", ""),
+                        _row.get("window_size", ""), _row.get("step_size", ""),
+                        _row.get("threshold", ""), _row.get("percentile", ""),
+                        _row.get("enable_edges", ""), _row.get("enable_second_degree", ""),
+                        _row.get("ablate_z", ""), _row.get("node_feature_mode", ""),
+                    ))
+        except Exception as _re:
+            print(f"[RESUME] Warning: could not read {_resume_csv}: {_re}")
     if _done_keys:
-        print(f"[RESUME] Loaded {len(_done_keys)} completed entries; matching runs will be skipped.")
+        print(f"[RESUME] Loaded {len(_done_keys)} completed entries from "
+              f"{len([p for p in _resume_csvs if os.path.exists(p)])} CSV(s); "
+              f"matching runs will be skipped.")
 
     # ── Timing bookkeeping ───────────────────────────────────────────────
     timings_csv_path = os.path.join(SCRIPT_DIR, f"timings{worker_csv_suffix}.csv")

@@ -74,7 +74,14 @@ NUM_LAYERS    = 3           # TC→GC blocks
 GCN_DEPTH     = 2           # mix-hop propagation depth
 SEED          = 42
 
-PLOTS_DIR     = os.path.join(SCRIPT_DIR, "plots_mtgnn")
+# Graph-attribution control. Run once with False (full MTGNN) and once with
+# True (identical model, graph disabled -> identity adjacency). Comparing the
+# two isolates the contribution of the learned graph, holding the global model,
+# capacity, temporal convs and training fixed.
+ABLATE_GRAPH  = False
+_TAG          = "_ablate" if ABLATE_GRAPH else ""
+
+PLOTS_DIR     = os.path.join(SCRIPT_DIR, f"plots_mtgnn{_TAG}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -266,7 +273,7 @@ def evaluate_and_plot(preds, data, train_losses, val_losses):
             train_index=train_idx, val_index=val_idx, test_index=test_idx,
             train_losses=train_losses, val_losses=val_losses,
             target_col=TARGET_COL,
-            title=f"MTGNN — item {iid}",
+            title=f"MTGNN{' (no-graph ablation)' if ABLATE_GRAPH else ''} — item {iid}",
             save_path=os.path.join(PLOTS_DIR, f"mtgnn_item_{iid}.png"),
             rmse=rmse, mae=mae, bias=bias, score=score, pocid=pocid * 100.0,
         )
@@ -288,8 +295,10 @@ def main():
 
     model = MTGNN(num_nodes=data["N"], in_dim=X.shape[-1], out_dim=1,
                   seq_length=lookback_window, subgraph_size=SUBGRAPH_SIZE,
-                  node_dim=NODE_DIM, layers=NUM_LAYERS, gcn_depth=GCN_DEPTH).to(device)
-    print(f"  MTGNN params: {sum(p.numel() for p in model.parameters()):,}")
+                  node_dim=NODE_DIM, layers=NUM_LAYERS, gcn_depth=GCN_DEPTH,
+                  ablate_graph=ABLATE_GRAPH).to(device)
+    print(f"  MTGNN params: {sum(p.numel() for p in model.parameters()):,}"
+          f"  | ablate_graph={ABLATE_GRAPH}")
 
     model, train_losses, val_losses = train(model, Xtr, ytr, Xva, yva)
 
@@ -301,9 +310,9 @@ def main():
     print(f"\nMean RMSE={res.rmse.mean():.4f}  MAE={res.mae.mean():.4f}  "
           f"Bias={res.bias.mean():.4f}  POCID={res.pocid.mean():.2f}")
 
-    out_csv = os.path.join(SCRIPT_DIR, "mtgnn_results.csv")
+    out_csv = os.path.join(SCRIPT_DIR, f"mtgnn{_TAG}_results.csv")
     res.to_csv(out_csv, index=False)
-    np.save(os.path.join(SCRIPT_DIR, "mtgnn_learned_adjacency.npy"),
+    np.save(os.path.join(SCRIPT_DIR, f"mtgnn{_TAG}_learned_adjacency.npy"),
             model.learned_adjacency().cpu().numpy())
     print(f"\nSaved {out_csv}, per-product plots in {PLOTS_DIR}/, and learned adjacency.")
 

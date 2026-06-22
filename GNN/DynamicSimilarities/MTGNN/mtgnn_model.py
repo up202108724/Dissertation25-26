@@ -174,6 +174,7 @@ class MTGNN(nn.Module):
         tanhalpha: float = 3.0,
         dilation_exponential: int = 1,
         layer_norm_affine: bool = True,
+        ablate_graph: bool = False,
     ):
         super().__init__()
         self.num_nodes = num_nodes
@@ -181,6 +182,11 @@ class MTGNN(nn.Module):
         self.layers = layers
         self.seq_length = seq_length
         self.horizon = out_dim
+        # Graph-attribution control: when True the learned adjacency is replaced
+        # by the identity, so the mix-hop conv keeps ONLY self-loops -> no
+        # cross-product message passing. Everything else (params, temporal
+        # convs, training) is identical, isolating the contribution of the graph.
+        self.ablate_graph = ablate_graph
 
         self.gc = graph_constructor(num_nodes, subgraph_size, node_dim, alpha=tanhalpha)
         self.register_buffer("idx", torch.arange(num_nodes))
@@ -246,7 +252,11 @@ class MTGNN(nn.Module):
             inp = F.pad(inp, (self.receptive_field - T, 0, 0, 0))
 
         idx = self.idx.to(x.device)
-        adp = self.gc(idx)                                     # (N, N)
+        if self.ablate_graph:
+            # no-graph control: identity adjacency -> mix-hop keeps self-loops only
+            adp = torch.eye(self.num_nodes, device=x.device)
+        else:
+            adp = self.gc(idx)                                 # (N, N)
 
         xx = self.start_conv(inp)
         skip = self.skip0(F.dropout(inp, self.dropout, training=self.training))
