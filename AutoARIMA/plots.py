@@ -74,9 +74,10 @@ def plot_results(train, val, test, forecast,
         pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
         full_title += f"RMSE: {rmse[label]:.4f} | MAE: {mae[label]:.4f} | Bias: {bias[label]:.4f} | Score: {score[label]:.4f} | POCID: {pocid_str}"
         
-    fig = make_subplots(rows=3, cols=1, 
+    fig = make_subplots(rows=3, cols=1,
                         subplot_titles=(full_title, 'Test vs Forecast', 'Training and Validation Loss'),
-                        vertical_spacing=0.1)
+                        vertical_spacing=0.08,
+                        row_heights=[0.45, 0.30, 0.25])
     
     # Define a common hovertemplate to include date and value
     hover_temp = 'Date: %{x|%Y-%m-%d}<br>Value: %{y:.2f}'
@@ -97,8 +98,14 @@ def plot_results(train, val, test, forecast,
         
         legend_name = label
         if is_multi:
-             pocid_str = f"{pocid[label]:.4f}" if pocid.get(label) is not None else "N/A"
-             legend_name = f"{label} (RMSE: {rmse[label]:.2f}, MAE: {mae[label]:.2f})"
+             pocid_str  = f"{pocid.get(label):.4f}"  if pocid  and pocid.get(label)  is not None else "N/A"
+             bias_str   = f"{bias.get(label):.4f}"   if bias   and bias.get(label)   is not None else "N/A"
+             score_str  = f"{score.get(label):.4f}"  if score  and score.get(label)  is not None else "N/A"
+             legend_name = (
+                 f"{label} "
+                 f"(RMSE: {rmse[label]:.2f} | MAE: {mae[label]:.2f} | "
+                 f"Bias: {bias_str} | Score: {score_str} | POCID: {pocid_str})"
+             )
              
         fig.add_trace(go.Scatter(x=test_index, y=fcast, name=legend_name, legendgroup=label, mode='lines', line=dict(color=color, width=2), hovertemplate=hover_temp), row=1, col=1)
     
@@ -195,9 +202,12 @@ def plot_results(train, val, test, forecast,
     fig.update_yaxes(title_text='Loss', row=3, col=1)
     fig.update_xaxes(title_text='Epoch', row=3, col=1)
     
-    fig.update_layout(height=1200, width=1000, 
+    fig.update_layout(height=1400, width=1800,
                       hovermode="x unified",
-                      template="plotly_white")
+                      template="plotly_white",
+                      margin=dict(l=60, r=40, t=120, b=60),
+                      legend=dict(orientation="v", yanchor="top", y=1.0,
+                                  xanchor="left", x=1.02))
     
     if save_path:
         if save_path.endswith('.html'):

@@ -40,6 +40,8 @@ def train_mlp_forecaster(
     exog_cols=None,
     test_size=None,
     exog_scaler=None,
+    best_model_path: Optional[str] = "auto",
+    verbose: bool = True,
 ):
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -94,13 +96,14 @@ def train_mlp_forecaster(
 
     C_in = X_train.shape[2]
     
-    print(f"Train/Val Split Indices:")
-    print(f"  Train End: {train_end_idx}")
-    print(f"  Val Range:     {val_start_idx} to {val_end_idx}")
-    print(f"  Test Range:    {test_start_idx} to End")
-    print(f"  Val Targets:   {y_val.shape[0]} windows created")
-    print(f"Input Shape:  (Batch, {cfg.lookback}, {C_in})")
-    print(f"Output Shape: (Batch, {cfg.horizon}, 1)")
+    if verbose:
+        print(f"Train/Val Split Indices:")
+        print(f"  Train End: {train_end_idx}")
+        print(f"  Val Range:     {val_start_idx} to {val_end_idx}")
+        print(f"  Test Range:    {test_start_idx} to End")
+        print(f"  Val Targets:   {y_val.shape[0]} windows created")
+        print(f"Input Shape:  (Batch, {cfg.lookback}, {C_in})")
+        print(f"Output Shape: (Batch, {cfg.horizon}, 1)")
 
     train_loader = DataLoader(WindowDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
     val_loader = DataLoader(WindowDataset(X_val, y_val), batch_size=cfg.batch_size, shuffle=False)
@@ -130,9 +133,10 @@ def train_mlp_forecaster(
     train_losses = []
     val_losses = []
 
-    model_dir = f'best_models/seed_{seed}/{loss_type}'
-    os.makedirs(model_dir, exist_ok=True)
-    best_model_path = f'{model_dir}/mlp_product_{product_id}.pth'
+    if best_model_path == "auto":
+        model_dir = f'best_models/seed_{seed}/{loss_type}'
+        os.makedirs(model_dir, exist_ok=True)
+        best_model_path = f'{model_dir}/mlp_product_{product_id}.pth'
     best_epoch = 0
     patience_counter = 0
     for epoch in range(1, cfg.epochs + 1):
@@ -170,19 +174,22 @@ def train_mlp_forecaster(
             if val_loss < best_val:
                 best_val = val_loss
                 best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
-                torch.save(best_state, best_model_path)
+                if best_model_path is not None:
+                    torch.save(best_state, best_model_path)
                 best_epoch = epoch
                 patience_counter = 0
-                print(f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
+                if verbose:
+                    print(f"Epoch {epoch}: Train Loss = {train_loss:.6f}, Val Loss = {val_loss:.6f} (New Best)")
             else:
                 patience_counter += 1
                 if cfg.patience is not None and patience_counter >= cfg.patience:
-                    print(f"Early stopping at epoch {epoch} (no val improvement for {cfg.patience} epochs; best epoch={best_epoch}).")
+                    if verbose:
+                        print(f"Early stopping at epoch {epoch} (no val improvement for {cfg.patience} epochs; best epoch={best_epoch}).")
                     break
         else:
             print("WARNING: Validation set is too small to form windows!")
 
-    if hasattr(val_loader.dataset, "__len__") and len(val_loader.dataset) > 0:
+    if verbose and hasattr(val_loader.dataset, "__len__") and len(val_loader.dataset) > 0:
         print(f"Best Val {loss_type.upper()}: {best_val:.6f} (Epoch {best_epoch})")
     if best_state is not None:
         model.load_state_dict(best_state)

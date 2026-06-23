@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import numpy as np
-import pycatch22
+try:
+    import pycatch22 as _pycatch22
+    def catch22_all(ts, catch24=False):
+        return _pycatch22.catch22_all(list(ts), catch24=catch24)
+except ImportError:
+    from _catch24_manual import catch22_all
 
 
 _CATCH22_WIDTH = 22
@@ -10,14 +15,14 @@ _CATCH24_WIDTH = 24          # 22 catch22 + DN_Mean + DN_Spread_Std
 
 # ── catch block helper ─────────────────────────────────────────────────────
 def _compute_catch_block(window_values: np.ndarray, catch24: bool) -> np.ndarray:
-    """(n_nodes, 22|24) catch22/24 features; crashes on degenerate series → 0."""
+    """(n_nodes, 22|24) catch22/24 features; degenerate series → 0."""
     n_nodes = window_values.shape[0]
     width = _CATCH24_WIDTH if catch24 else _CATCH22_WIDTH
     feats = np.zeros((n_nodes, width), dtype=np.float32)
     for i in range(n_nodes):
-        ts = np.asarray(window_values[i], dtype=np.float64).tolist()
+        ts = np.asarray(window_values[i], dtype=np.float64)
         try:
-            vals = pycatch22.catch22_all(ts, catch24=catch24)["values"]
+            vals = catch22_all(ts, catch24=catch24)["values"]
             feats[i] = np.asarray(vals, dtype=np.float32)
         except Exception:
             feats[i] = 0.0

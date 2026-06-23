@@ -320,7 +320,7 @@ def train_gcn_mlpmodel(
                     g2 = float(p.grad.detach().pow(2).sum().item())
                     if n.startswith("conv") or n.startswith("z_norm"):
                         gn_gcn_sq += g2
-                    elif n.startswith("mlp"):
+                    elif n.startswith("timestep_net") or n.startswith("head"):
                         gn_mlp_sq += g2
                 grad_acc_gcn += gn_gcn_sq ** 0.5
                 grad_acc_mlp += gn_mlp_sq ** 0.5

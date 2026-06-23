@@ -23,6 +23,17 @@ import traceback
 
 import numpy as np
 import pandas as pd
+
+# ── Optional psutil for RAM tracking ─────────────────────────────────────────
+try:
+    import psutil as _psutil
+    _PROC = _psutil.Process(os.getpid())
+    def _proc_rss_mb() -> float:
+        return _PROC.memory_info().rss / 1024 ** 2
+except ImportError:
+    def _proc_rss_mb() -> float:   # type: ignore[misc]
+        return 0.0
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -162,8 +173,7 @@ ROLLING_MEAN_EXCL_PREFIX = "rolling_mean_excl_"
 PRODUCT_COUNTS = [1, 10, 29, 50, 100, 200, 500]
 BENCH_SEED     = 42
 BENCH_VARIANTS = [
-    'lstm_baseline', 'mlp_baseline',
-    'graph2vec_lstm', 'graph2vec_mlp',
+
     'gcn_lstm', 'gcn_mlp', 'gat_lstm', 'gat_mlp',
 ]
 
@@ -257,16 +267,15 @@ def prepare_shared():
     df = generate_exogenous_features(df, date_col=DATE_COL, exog_cols=EXOG_COLS)
     full_df = df.copy()
 
-    print(f"Loading top-product list from {TOP_DATA_PATH} ...")
-    top_df = pd.read_feather(TOP_DATA_PATH)
+    min_rows = forecast_horizon + val_size + train_size
+    counts = full_df.groupby(['item_id', 'store_id']).size().reset_index(name='_cnt')
     products = (
-        top_df[["item_id", "store_id"]]
-        .drop_duplicates()
-        .sort_values(["item_id", "store_id"])
-        .apply(lambda r: (int(r["item_id"]), int(r["store_id"])), axis=1)
+        counts[counts['_cnt'] >= min_rows][['item_id', 'store_id']]
+        .sort_values(['item_id', 'store_id'])
+        .apply(lambda r: (int(r['item_id']), int(r['store_id'])), axis=1)
         .tolist()
     )
-    print(f"  {len(products)} (item_id, store_id) pairs available.")
+    print(f"  {len(products)} eligible (item_id, store_id) pairs (>= {min_rows} rows) found.")
 
     cat_labels_dict = (
         full_df.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
@@ -432,12 +441,32 @@ def build_graphs_for_variant(variant, shared, prod, product_id):
     )
 
 
+# ── Memory helpers ───────────────────────────────────────────────────────────
+def _reset_peak_memory():
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+
+def _read_peak_gpu_mb() -> float:
+    if torch.cuda.is_available():
+        return torch.cuda.max_memory_allocated() / 1024 ** 2
+    return 0.0
+
+
 # ── One (variant, product): train + infer ────────────────────────────────────
 def run_one(variant, shared, product_id, store_id):
-    """Returns (build_s, train_s, infer_s) or None if the product is skipped."""
+    """Returns (build_s, train_s, infer_s, peak_gpu_mb, peak_ram_mb, epochs_trained, s_per_epoch)
+    or None if the product is skipped.
+    peak_gpu_mb   — peak GPU memory allocated during the whole run (0 on CPU-only).
+    peak_ram_mb   — peak RSS increase during the whole run (requires psutil).
+    epochs_trained — actual number of epochs run (early-stopping may cut short EPOCHS).
+    s_per_epoch   — train_s / epochs_trained.
+    """
     prod = prepare_product(shared, product_id, store_id)
     if prod is None:
         return None
+
+    _reset_peak_memory()
+    _ram_baseline_mb = _proc_rss_mb()
 
     # ── LSTM baseline ────────────────────────────────────────────────────────
     if variant == 'lstm_baseline':
@@ -462,7 +491,7 @@ def run_one(variant, shared, product_id, store_id):
             tmp_path = _tf.name
         t_train0 = time.time()
         try:
-            model, _, _, _, _ = train_lstm_baseline(
+            model, train_losses, _, _, _ = train_lstm_baseline(
                 epochs=EPOCHS, model=model,
                 train_loader=tr_ld, val_loader=va_ld,
                 exog_cols=cols,
@@ -477,6 +506,7 @@ def run_one(variant, shared, product_id, store_id):
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
         train_s = time.time() - t_train0
+        epochs_trained = len(train_losses)
 
         t_infer0 = time.time()
         recursive_forecast_lstm_baseline(
@@ -500,7 +530,10 @@ def run_one(variant, shared, product_id, store_id):
             script_dir=SCRIPT_DIR,
         )
         infer_s = time.time() - t_infer0
-        return 0.0, train_s, infer_s
+        peak_gpu_mb = _read_peak_gpu_mb()
+        peak_ram_mb = max(0.0, _proc_rss_mb() - _ram_baseline_mb)
+        s_per_epoch = train_s / epochs_trained if epochs_trained else 0.0
+        return 0.0, train_s, infer_s, peak_gpu_mb, peak_ram_mb, epochs_trained, s_per_epoch
 
     # ── MLP baseline ─────────────────────────────────────────────────────────
     if variant == 'mlp_baseline':
@@ -520,14 +553,16 @@ def run_one(variant, shared, product_id, store_id):
             hidden_sizes=MLP_HIDDEN_SIZES, device=str(device),
         )
         t_train0 = time.time()
-        mlp_model, _, _, _, _ = train_mlp_forecaster(
+        mlp_model, _, train_losses, _, _ = train_mlp_forecaster(
             df=prod['df_p'], cfg=cfg, seed=BENCH_SEED, loss_type='mse',
             product_id=f"{product_id}_{store_id}",
             scaler=prod['scaler'], target_channel=0,
             target_col=TARGET_COL, exog_cols=EXOG_COLS_MLP,
             test_size=forecast_horizon, exog_scaler=mlp_exog_scaler,
+            best_model_path=None, verbose=False,
         )
         train_s = time.time() - t_train0
+        epochs_trained = len(train_losses)
 
         hist_target = np.concatenate([prod['train'], prod['val']]).astype(np.float32)
         hist_exog   = prod['df_p'][EXOG_COLS_MLP].iloc[
@@ -550,7 +585,10 @@ def run_one(variant, shared, product_id, store_id):
             device=str(device),
         )
         infer_s = time.time() - t_infer0
-        return 0.0, train_s, infer_s
+        peak_gpu_mb = _read_peak_gpu_mb()
+        peak_ram_mb = max(0.0, _proc_rss_mb() - _ram_baseline_mb)
+        s_per_epoch = train_s / epochs_trained if epochs_trained else 0.0
+        return 0.0, train_s, infer_s, peak_gpu_mb, peak_ram_mb, epochs_trained, s_per_epoch
 
     # ── Graph variants (gcn / gat / graph2vec  ×  lstm / mlp) ────────────────
     head      = _variant_head(variant)
@@ -591,7 +629,7 @@ def run_one(variant, shared, product_id, store_id):
         opt, mode='min', factor=0.5, patience=PATIENCE // 3)
 
     t_train0 = time.time()
-    model, _, _, _, _ = train_fn(
+    model, train_losses, _, _, _ = train_fn(
         seed=BENCH_SEED, epochs=EPOCHS, model=model,
         train_loader=tr_ld, val_loader=va_ld,
         criterion=nn.MSELoss(), criterion2=nn.MSELoss(),
@@ -600,6 +638,7 @@ def run_one(variant, shared, product_id, store_id):
         diag_csv_path=None, diag_meta={},
     )
     train_s = time.time() - t_train0
+    epochs_trained = len(train_losses)
 
     # ── Build ts_seed for inference ───────────────────────────────────────────
     if exog_cols:
@@ -710,8 +749,53 @@ def run_one(variant, shared, product_id, store_id):
             node_feature_mode=NODE_FEAT_MODE,
         )
     infer_s = time.time() - t_infer0
+    peak_gpu_mb = _read_peak_gpu_mb()
+    peak_ram_mb = max(0.0, _proc_rss_mb() - _ram_baseline_mb)
+    s_per_epoch = train_s / epochs_trained if epochs_trained else 0.0
+    return build_s, train_s, infer_s, peak_gpu_mb, peak_ram_mb, epochs_trained, s_per_epoch
 
-    return build_s, train_s, infer_s
+
+# ── Checkpoint helpers ────────────────────────────────────────────────────────
+def _load_checkpoint(csv_path):
+    """Read an existing results CSV and return per-variant resume state.
+
+    Returns
+    -------
+    completed : dict[str, set[tuple]]
+        variant -> {(product_id, store_id), ...} already written to CSV.
+    cum_state : dict[str, dict]
+        variant -> last cumulative values seen in the CSV so that the new
+        run can continue accumulating without double-counting.
+    """
+    completed = {}
+    cum_state = {}
+    if not os.path.exists(csv_path):
+        return completed, cum_state
+    try:
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                v = row.get('variant', '')
+                if not v:
+                    continue
+                try:
+                    pid = int(row['product_id'])
+                    sid = int(row['store_id'])
+                except (KeyError, ValueError):
+                    continue
+                completed.setdefault(v, set()).add((pid, sid))
+                cum_state[v] = {
+                    'cum_build':  float(row.get('cum_build_s',  0)),
+                    'cum_train':  float(row.get('cum_train_s',  0)),
+                    'cum_infer':  float(row.get('cum_infer_s',  0)),
+                    'max_gpu_mb': float(row.get('cum_peak_gpu_mb', 0)),
+                    'max_ram_mb': float(row.get('cum_peak_ram_mb', 0)),
+                    'n_done':     int(row.get('n', 0)),
+                }
+    except Exception as exc:
+        print(f"[checkpoint] Could not read {csv_path}: {exc}. Starting fresh.")
+        return {}, {}
+    return completed, cum_state
 
 
 # ── Benchmark driver ──────────────────────────────────────────────────────────
@@ -719,8 +803,6 @@ def main():
     max_n  = max(PRODUCT_COUNTS)
     shared = prepare_shared()
 
-    # Collect up to max_n products that have sufficient history, in the same
-    # order as TOP_DATA_PATH so every variant runs on the identical product set.
     eligible = []
     for pid, sid in shared['products']:
         if len(eligible) >= max_n:
@@ -730,68 +812,113 @@ def main():
     print(f"\nBenchmarking on {len(eligible)} eligible products (max requested: {max_n}).")
 
     cutoffs = sorted(n for n in PRODUCT_COUNTS if n <= len(eligible))
-    # rows: (variant, n, build_s, train_s, infer_s, total_s, mean_per_product_s)
-    rows = []
+    summary_rows = []  # (variant, n, cum_build, cum_train, cum_infer, total, mean_pp, max_gpu, max_ram) — at cutoffs only, for plots
 
-    for variant in BENCH_VARIANTS:
-        print(f"\n{'#'*70}\n# VARIANT: {variant}\n{'#'*70}")
-        cum_build = cum_train = cum_infer = 0.0
-        n_done = 0
+    completed, cum_state = _load_checkpoint(RESULTS_CSV)
+    resume = bool(completed)
+    if resume:
+        total_done = sum(len(v) for v in completed.values())
+        print(f"\n[resume] Found {RESULTS_CSV} with {total_done} completed (variant, product) rows.")
+        print(f"[resume] Variants already started: {list(completed.keys())}")
 
-        for i, (pid, sid) in enumerate(eligible, start=1):
-            try:
-                res = run_one(variant, shared, pid, sid)
-            except Exception as exc:
-                print(f"  [{variant}] product {pid}/{sid} FAILED: {exc}")
-                traceback.print_exc()
-                res = None
+    csv_mode = 'a' if resume else 'w'
+    with open(RESULTS_CSV, csv_mode, newline='') as csv_f:
+        writer = csv.writer(csv_f)
+        if not resume:
+            writer.writerow([
+                "variant", "product_id", "store_id", "n",
+                "build_s", "train_s", "infer_s",
+                "cum_build_s", "cum_train_s", "cum_infer_s",
+                "product_peak_gpu_mb", "product_peak_ram_mb",
+                "cum_peak_gpu_mb", "cum_peak_ram_mb",
+                "epochs_trained", "s_per_epoch",
+            ])
+            csv_f.flush()
 
-            if res is not None:
-                b, t, inf = res
-                cum_build += b
-                cum_train += t
-                cum_infer += inf
-                n_done    += 1
-                print(
-                    f"  [{variant}] {i}/{len(eligible)}"
-                    f"  build={b:6.2f}s  train={t:7.2f}s  infer={inf:6.2f}s"
-                    f"  (cum_train={cum_train:8.2f}s  cum_infer={cum_infer:7.2f}s)"
-                )
+        for variant in BENCH_VARIANTS:
+            done_set = completed.get(variant, set())
+            state    = cum_state.get(variant, {})
+            cum_build  = state.get('cum_build',  0.0)
+            cum_train  = state.get('cum_train',  0.0)
+            cum_infer  = state.get('cum_infer',  0.0)
+            max_gpu_mb = state.get('max_gpu_mb', 0.0)
+            max_ram_mb = state.get('max_ram_mb', 0.0)
+            n_done     = state.get('n_done',     0)
 
-            if i in cutoffs:
-                mean_pp = (cum_train + cum_infer) / n_done if n_done else float('nan')
-                total   = cum_build + cum_train + cum_infer
-                rows.append((
-                    variant, i,
-                    round(cum_build, 3), round(cum_train, 3), round(cum_infer, 3),
-                    round(total, 3), round(mean_pp, 4),
-                ))
-                print(
-                    f"  >>> CUTOFF N={i}: "
-                    f"build={cum_build:.2f}s  train={cum_train:.2f}s  "
-                    f"infer={cum_infer:.2f}s  total={total:.2f}s"
-                )
+            print(f"\n{'#'*70}\n# VARIANT: {variant}\n{'#'*70}")
+            if done_set:
+                print(f"  [resume] skipping {len(done_set)} already-done products (resuming from n={n_done})")
 
-    # ── Save CSV ──────────────────────────────────────────────────────────────
-    with open(RESULTS_CSV, 'w', newline='') as f:
-        w = csv.writer(f)
-        w.writerow([
-            "variant", "n_products",
-            "build_seconds", "train_seconds", "infer_seconds",
-            "total_seconds", "mean_per_product_seconds",
-        ])
-        w.writerows(rows)
+            for pid, sid in eligible:
+                if (pid, sid) in done_set:
+                    continue
+
+                try:
+                    res = run_one(variant, shared, pid, sid)
+                except Exception as exc:
+                    print(f"  [{variant}] product {pid}/{sid} FAILED: {exc}")
+                    traceback.print_exc()
+                    res = None
+
+                if res is not None:
+                    b, t, inf, gpu_mb, ram_mb, epochs, spe = res
+                    cum_build  += b
+                    cum_train  += t
+                    cum_infer  += inf
+                    max_gpu_mb  = max(max_gpu_mb, gpu_mb)
+                    max_ram_mb  = max(max_ram_mb, ram_mb)
+                    n_done     += 1
+                    print(
+                        f"  [{variant}] {n_done}/{len(eligible)}"
+                        f"  build={b:6.2f}s  train={t:7.2f}s  infer={inf:6.2f}s"
+                        f"  gpu={gpu_mb:7.1f}MB  ram={ram_mb:7.1f}MB"
+                        f"  epochs={epochs:4d}  s/ep={spe:.4f}"
+                        f"  (cum_train={cum_train:8.2f}s  cum_infer={cum_infer:7.2f}s)"
+                    )
+                    writer.writerow([
+                        variant, pid, sid, n_done,
+                        round(b, 3), round(t, 3), round(inf, 3),
+                        round(cum_build, 3), round(cum_train, 3), round(cum_infer, 3),
+                        round(gpu_mb, 2), round(ram_mb, 2),
+                        round(max_gpu_mb, 2), round(max_ram_mb, 2),
+                        epochs, round(spe, 6),
+                    ])
+                    csv_f.flush()
+
+                if n_done in cutoffs:
+                    cutoffs_seen = [c for c in cutoffs if c <= n_done]
+                    if cutoffs_seen and cutoffs_seen[-1] == n_done:
+                        mean_pp = (cum_train + cum_infer) / n_done if n_done else float('nan')
+                        total   = cum_build + cum_train + cum_infer
+                        summary_rows.append((
+                            variant, n_done,
+                            round(cum_build, 3), round(cum_train, 3), round(cum_infer, 3),
+                            round(total, 3), round(mean_pp, 4),
+                            round(max_gpu_mb, 2), round(max_ram_mb, 2),
+                        ))
+                        print(
+                            f"  >>> CUTOFF N={n_done}: "
+                            f"build={cum_build:.2f}s  train={cum_train:.2f}s  "
+                            f"infer={cum_infer:.2f}s  total={total:.2f}s  "
+                            f"peak_gpu={max_gpu_mb:.1f}MB  peak_ram={max_ram_mb:.1f}MB"
+                        )
+
     print(f"\nSaved scalability results -> {RESULTS_CSV}")
 
-    # ── Print table ───────────────────────────────────────────────────────────
+    # ── Print summary table ───────────────────────────────────────────────────
     hdr = (f"{'variant':<18}{'N':>6}{'build_s':>10}"
-           f"{'train_s':>10}{'infer_s':>10}{'total_s':>10}{'mean/prod':>11}")
+           f"{'train_s':>10}{'infer_s':>10}{'total_s':>10}{'mean/prod':>11}"
+           f"{'peak_gpu_MB':>13}{'peak_ram_MB':>13}")
     print(f"\n{hdr}")
     print("-" * len(hdr))
-    for variant, n, b, t, inf, tot, mean in rows:
-        print(f"{variant:<18}{n:>6}{b:>10.2f}{t:>10.2f}{inf:>10.2f}{tot:>10.2f}{mean:>11.3f}")
+    for variant, n, b, t, inf, tot, mean, gpu_mb, ram_mb in summary_rows:
+        print(
+            f"{variant:<18}{n:>6}{b:>10.2f}{t:>10.2f}{inf:>10.2f}"
+            f"{tot:>10.2f}{mean:>11.3f}{gpu_mb:>13.1f}{ram_mb:>13.1f}"
+        )
 
-    plot_scalability(rows)
+    plot_scalability(summary_rows)
+    plot_memory(summary_rows)
 
 
 # ── Scalability plot ──────────────────────────────────────────────────────────
@@ -809,7 +936,7 @@ def plot_scalability(rows):
 
     # ── Collect per-variant series ────────────────────────────────────────────
     series = defaultdict(lambda: dict(n=[], total=[], train=[], infer=[]))
-    for variant, n, build, train, infer, total, _mean in rows:
+    for variant, n, build, train, infer, total, _mean, _gpu_mb, _ram_mb in rows:
         series[variant]['n'].append(n)
         series[variant]['total'].append(total)
         series[variant]['train'].append(train)
@@ -881,6 +1008,89 @@ def plot_scalability(rows):
     plt.savefig(plot_path, dpi=150, bbox_inches='tight')
     plt.close(fig)
     print(f"Saved scalability plot   -> {plot_path}")
+
+
+# ── Memory plot ───────────────────────────────────────────────────────────────
+def plot_memory(rows):
+    """
+    Two-panel figure:
+      left  – peak GPU memory (MB) vs n_products
+      right – peak RAM increase (MB) vs n_products
+
+    Each line is one model variant; markers drawn at PRODUCT_COUNTS cutoffs.
+    """
+    from collections import defaultdict
+
+    series = defaultdict(lambda: dict(n=[], gpu=[], ram=[]))
+    for row in rows:
+        variant, n = row[0], row[1]
+        gpu_mb, ram_mb = row[7], row[8]
+        series[variant]['n'].append(n)
+        series[variant]['gpu'].append(gpu_mb)
+        series[variant]['ram'].append(ram_mb)
+
+    palette = [
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
+        '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+    ]
+    markers  = ['o', 's', '^', 'D', 'v', 'P', '*', 'X']
+    variants = [v for v in BENCH_VARIANTS if v in series]
+
+    panels = [
+        ('gpu', 'Peak GPU memory (MB)',    'Peak GPU Memory'),
+        ('ram', 'Peak RAM increase (MB)',  'Peak RAM Increase'),
+    ]
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=False)
+    fig.suptitle('Scalability analysis — peak memory vs number of products', fontsize=14, y=1.01)
+
+    for ax, (key, ylabel, title) in zip(axes, panels):
+        for idx, variant in enumerate(variants):
+            xs = series[variant]['n']
+            ys = series[variant][key]
+            color  = palette[idx % len(palette)]
+            marker = markers[idx % len(markers)]
+
+            ax.plot(xs, ys,
+                    color=color, marker=marker,
+                    linewidth=2, markersize=9,
+                    markerfacecolor=color, markeredgecolor='white',
+                    markeredgewidth=0.8,
+                    label=variant, zorder=3)
+
+            for x, y in zip(xs, ys):
+                ax.annotate(
+                    str(x),
+                    xy=(x, y),
+                    xytext=(0, 10),
+                    textcoords='offset points',
+                    ha='center', va='bottom',
+                    fontsize=7, color=color,
+                    fontweight='bold',
+                )
+
+        for n in PRODUCT_COUNTS:
+            ax.axvline(n, color='grey', linewidth=0.5, linestyle=':', alpha=0.6, zorder=1)
+
+        ax.set_title(title, fontsize=11)
+        ax.set_xlabel('Number of products', fontsize=10)
+        ax.set_ylabel(ylabel, fontsize=10)
+        ax.set_xticks(PRODUCT_COUNTS)
+        ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: str(int(x))))
+        ax.grid(axis='y', alpha=0.3, zorder=0)
+        ax.spines[['top', 'right']].set_visible(False)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels,
+               loc='lower center', ncol=len(variants),
+               fontsize=9, frameon=True,
+               bbox_to_anchor=(0.5, -0.08))
+
+    plt.tight_layout()
+    plot_path = os.path.join(SCRIPT_DIR, "scalability_memory.png")
+    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"Saved memory plot        -> {plot_path}")
 
 
 if __name__ == '__main__':

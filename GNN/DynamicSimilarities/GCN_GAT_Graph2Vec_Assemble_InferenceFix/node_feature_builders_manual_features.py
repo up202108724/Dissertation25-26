@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-try:
-    import pycatch22 as _pycatch22
-    def catch22_all(ts, catch24=False):
-        return _pycatch22.catch22_all(list(ts), catch24=catch24)
-except ImportError:
-    from _catch24_manual import catch22_all
+from _catch24_manual import catch22_all
 
 
 _CATCH22_WIDTH = 22

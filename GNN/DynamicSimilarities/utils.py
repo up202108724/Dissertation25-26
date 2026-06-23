@@ -399,6 +399,133 @@ def edge_weight_from_metric(val, metric_type):
     return max(0.0, float(val))
 
 
+def build_window_ego_graph(
+    window_data,
+    target_id,
+    metric,
+    metric_type,
+    compute_func,
+    threshold,
+    cat_labels=None,
+    enable_edges_within_star=True,
+    enable_second_degree=False,
+    target_ts_override=None,
+):
+    """Build a single-window ego-graph for ``target_id``.
+
+    This is the per-window core of :func:`neighbourhood_graph` (Phase 2) exposed
+    as a standalone function so inference code can rebuild one ego-graph per
+    forecast step without re-running the full sliding-window pipeline.
+
+    Parameters
+    ----------
+    window_data          : DataFrame (n_items, window_size) — already sliced to
+                           the desired time window.
+    target_id            : row label of the target node in ``window_data``.
+    metric               : metric string (e.g. 'spearman', 'euclidean').
+    metric_type          : 'distance' or 'similarity'.
+    compute_func         : compute_distances_1vsAll or compute_similarities_1vsAll.
+    threshold            : fixed edge-inclusion threshold (same sign convention as
+                           neighbourhood_graph: distance ≤ thr, similarity ≥ thr).
+    cat_labels           : optional dict mapping item_id → category label.
+    enable_edges_within_star : add edges between direct neighbours that pass thr.
+    enable_second_degree : add 2nd-degree neighbours of direct neighbours.
+    target_ts_override   : optional 1-D array-like of length ``window_size``.
+                           When provided the target row is replaced with these
+                           values before computing distances/similarities, so the
+                           model's own rolling predictions are used instead of the
+                           ground-truth test values.
+
+    Returns
+    -------
+    networkx.Graph with edge attribute ``weight`` (larger == more similar).
+    """
+    G = nx.Graph()
+    cat = cat_labels.get(target_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
+    G.add_node(target_id, cat_label=cat)
+
+    all_ts    = window_data.values.copy().astype(float)
+    item_ids  = window_data.index.values
+    target_row = np.where(item_ids == target_id)[0]
+
+    if len(target_row) == 0:
+        return G
+
+    if target_ts_override is not None:
+        all_ts[target_row[0]] = np.asarray(target_ts_override, dtype=float)
+
+    target_ts = all_ts[target_row[0]]
+
+    active_items_mask = np.sum(np.abs(all_ts), axis=1) > 0
+    valid_mask = (item_ids != target_id) & active_items_mask
+
+    if np.sum(np.abs(target_ts)) == 0:
+        valid_mask[:] = False
+
+    vals = compute_func(target_ts, all_ts, metric=metric)
+
+    valid_item_ids    = item_ids[valid_mask]
+    valid_vals        = vals[valid_mask]
+    valid_orig_idxs   = np.arange(len(item_ids))[valid_mask]
+
+    if len(valid_vals) == 0:
+        return G
+
+    if metric_type == 'distance':
+        mask = valid_vals <= threshold
+    else:
+        mask = valid_vals >= threshold
+
+    selected_vals     = valid_vals[mask]
+    selected_ids      = valid_item_ids[mask]
+    selected_orig_idxs = valid_orig_idxs[mask]
+
+    sort_idx = np.argsort(selected_ids)
+    selected_vals      = selected_vals[sort_idx]
+    selected_ids       = selected_ids[sort_idx]
+    selected_orig_idxs = selected_orig_idxs[sort_idx]
+
+    neighbor_indices = []
+    for orig_idx, val, other_id in zip(selected_orig_idxs, selected_vals, selected_ids):
+        cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
+        G.add_node(other_id, cat_label=cat_other)
+        G.add_edge(target_id, other_id, weight=edge_weight_from_metric(val, metric_type))
+        neighbor_indices.append(orig_idx)
+
+    if enable_edges_within_star and len(neighbor_indices) > 1:
+        all_neighbors_ts = all_ts[neighbor_indices]
+        for i, idx1 in enumerate(neighbor_indices):
+            target_neighbor_ts = all_ts[idx1]
+            vals_sub = compute_func(target_neighbor_ts, all_neighbors_ts, metric=metric)
+            for j, (idx2, val_sub) in enumerate(zip(neighbor_indices, vals_sub)):
+                if i < j:
+                    passes = (val_sub <= threshold if metric_type == 'distance'
+                              else val_sub >= threshold)
+                    if passes:
+                        G.add_edge(item_ids[idx1], item_ids[idx2],
+                                   weight=edge_weight_from_metric(val_sub, metric_type))
+
+    if enable_second_degree and len(neighbor_indices) > 0:
+        for idx1 in neighbor_indices:
+            target_neighbor_ts = all_ts[idx1]
+            vals_sub = compute_func(target_neighbor_ts, all_ts, metric=metric)
+            for valid_idx, is_valid in enumerate(valid_mask):
+                if is_valid and valid_idx != idx1:
+                    val_sub  = vals_sub[valid_idx]
+                    other_id = item_ids[valid_idx]
+                    add_edge = (val_sub <= threshold if metric_type == 'distance'
+                                else val_sub >= threshold)
+                    if add_edge:
+                        if not G.has_node(other_id):
+                            cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
+                            G.add_node(other_id, cat_label=cat_other)
+                        if not G.has_edge(item_ids[idx1], other_id):
+                            G.add_edge(item_ids[idx1], other_id,
+                                       weight=edge_weight_from_metric(val_sub, metric_type))
+
+    return G
+
+
 def neighbourhood_graph(product_id, df, metric, metric_type, window_size, compute_func,
                         threshold=None, percentile=None, step_size=1, cat_labels=None, plot_dir=None, residuals=False,
                         enable_edges_within_star=True, enable_second_degree=False, num_plots=None, train_end_idx=None):

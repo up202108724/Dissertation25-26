@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import List, Optional, Sequence
 
 import numpy as np
-import pycatch22
 import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Batch, Data

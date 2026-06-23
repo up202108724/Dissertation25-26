@@ -126,6 +126,18 @@ def _make_pad_graph(template: Data) -> Data:
     )
 
 
+def _patch_target_node_features(graph: Data, std_buffer: "deque", node_feature_mode: str) -> None:
+    """Replace node-0 features in ``graph`` with features derived from ``std_buffer``.
+
+    ``std_buffer`` holds the rolling std-scaled target values (length = window_size).
+    The same ``window_node_features`` call used at train time reconstructs the
+    feature vector so the patched graph stays on the same distribution.
+    """
+    window = np.asarray(list(std_buffer), dtype=np.float32)
+    new_feats = window_node_features(window[None, :], mode=node_feature_mode)
+    graph.x[0] = torch.from_numpy(new_feats[0])
+
+
 def _align_pyg_windows_to_timeline(pyg_windows, window_size, step_size, T):
     """
     Convert the per-window PyG list (one Data per sliding window of width W)

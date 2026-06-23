@@ -33,8 +33,6 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Batch, Data
-                               
-import pycatch22 
 
 _CATCH22_WIDTH = 22
 _CATCH24_WIDTH = 24                    # 22 catch22 + DN_Mean + DN_Spread_Std

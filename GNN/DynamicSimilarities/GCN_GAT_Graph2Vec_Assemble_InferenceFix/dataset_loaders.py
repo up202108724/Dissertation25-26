@@ -33,12 +33,11 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Batch, Data
-from typing import Tuple                               
-import pycatch22 
+from typing import Tuple
 
 _CATCH22_WIDTH = 22
 _CATCH24_WIDTH = 24                    # 22 catch22 + DN_Mean + DN_Spread_Std
-_EXTRA_STATS_WIDTH = 3        
+_EXTRA_STATS_WIDTH = 3
 from node_feature_builders import window_node_features  # internal helper
 
 def build_pyg_graphs_from_nx_windows(
@@ -283,7 +282,6 @@ from __future__ import annotations
 from typing import List, Optional, Sequence
 
 import numpy as np
-import pycatch22
 import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Batch, Data
