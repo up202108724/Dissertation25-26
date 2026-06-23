@@ -599,109 +599,29 @@ def neighbourhood_graph(product_id, df, metric, metric_type, window_size, comput
             global_threshold = 0.0
             
     # --- PHASE 2: Build Graphs using the single global_threshold ---
+    # The per-window construction is delegated to ``build_window_ego_graph`` so
+    # the identical topology/weighting can be reused at recursive-inference time.
     graphs = []
-    
+
     for start_idx in range(0, time_steps - window_size + 1, step_size):
-        G = nx.Graph()
-        
-        cat = cat_labels.get(product_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
-        G.add_node(product_id, cat_label=cat)
-        
         end_idx = start_idx + window_size
         window_data = df.iloc[:, start_idx:end_idx]
-        
-        target_ts = window_data.loc[product_id].values
-        all_ts = window_data.values
-        item_ids = window_data.index.values
-        
-        vals = compute_func(target_ts, all_ts, metric=metric)
-        
-        active_items_mask = np.sum(np.abs(all_ts), axis=1) > 0
-        valid_mask = (item_ids != product_id) & active_items_mask
-        
-        if np.sum(np.abs(target_ts)) == 0:
-            valid_mask[:] = False
-            
-        valid_item_ids = item_ids[valid_mask]
-        valid_vals = vals[valid_mask]
-        valid_original_idxs = np.arange(len(item_ids))[valid_mask]
-        
-        if len(valid_vals) == 0:
-            mask = np.array([], dtype=bool)
-            current_threshold = 0
-        else:
-            if metric_type == 'distance':
-                mask = valid_vals <= global_threshold
-                current_threshold = global_threshold
-            else: # similarity
-                mask = valid_vals >= global_threshold
-                current_threshold = global_threshold
 
-        selected_vals = valid_vals[mask]
-        selected_ids = valid_item_ids[mask]
-        selected_orig_idxs = valid_original_idxs[mask]
-
-        # Garantir ordem determinística (fixar matriz de adjacências independentemente da query ou extração)
-        sort_idx = np.argsort(selected_ids)
-        selected_vals = selected_vals[sort_idx]
-        selected_ids = selected_ids[sort_idx]
-        selected_orig_idxs = selected_orig_idxs[sort_idx]
-
-        neighbor_indices = []
-        for orig_idx, val, other_id in zip(selected_orig_idxs, selected_vals, selected_ids):
-            cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
-            G.add_node(other_id, cat_label=cat_other)
-            # Consistent weighting: bigger == more similar for every metric.
-            # For similarity this is unchanged (selected vals are >= threshold > 0);
-            # for distance this now matches the within-star / 2nd-degree edges.
-            G.add_edge(product_id, other_id,
-                       weight=edge_weight_from_metric(val, metric_type))
-            neighbor_indices.append(orig_idx)
-            
-        if enable_edges_within_star and len(neighbor_indices) > 1:
-            all_neighbors_ts = all_ts[neighbor_indices]
-            for i, idx1 in enumerate(neighbor_indices):
-                target_neighbor_ts = all_ts[idx1] 
-                vals_sub = compute_func(target_neighbor_ts, all_neighbors_ts, metric=metric)
-                
-                for j, (idx2, val_sub) in enumerate(zip(neighbor_indices, vals_sub)):
-                    if i < j:
-                        passes = (val_sub <= current_threshold if metric_type == 'distance'
-                                  else val_sub >= current_threshold)
-                        if passes:
-                            edge_weight = edge_weight_from_metric(val_sub, metric_type)
-                            G.add_edge(item_ids[idx1], item_ids[idx2], weight=edge_weight)
-
-        if enable_second_degree and len(neighbor_indices) > 0:
-            for idx1 in neighbor_indices:
-                target_neighbor_ts = all_ts[idx1] 
-                vals_sub = compute_func(target_neighbor_ts, all_ts, metric=metric)
-                
-                for valid_idx, is_valid in enumerate(valid_mask):
-                    if is_valid and valid_idx != idx1:  # Must be active and not itself nor the central product
-                        val_sub = vals_sub[valid_idx]
-                        other_id = item_ids[valid_idx]
-                        
-                        add_edge = (val_sub <= current_threshold if metric_type == 'distance'
-                                    else val_sub >= current_threshold)
-                        if add_edge:
-                            edge_weight = edge_weight_from_metric(val_sub, metric_type)
-
-                        if add_edge:
-                            if not G.has_node(other_id):
-                                cat_other = cat_labels.get(other_id, "Unknown Category") if cat_labels is not None else "Unknown Category"
-                                G.add_node(other_id, cat_label=cat_other)
-                            if not G.has_edge(item_ids[idx1], other_id):
-                                G.add_edge(item_ids[idx1], other_id, weight=edge_weight)
+        G = build_window_ego_graph(
+            window_data, product_id, metric, metric_type, compute_func,
+            global_threshold, cat_labels=cat_labels,
+            enable_edges_within_star=enable_edges_within_star,
+            enable_second_degree=enable_second_degree,
+        )
 
         start_date = str(window_data.columns[0]).split(' ')[0].split('T')[0]
         end_date = str(window_data.columns[-1]).split(' ')[0].split('T')[0]
-        
+
         G.graph['start_date'] = start_date
         G.graph['end_date'] = end_date
 
         graphs.append(G)
-                
+
     return graphs, global_threshold
 def compute_distances_1vsAll(target_ts, all_ts, metric='amplitude_offset', eps=1e-12, normalize_inputs=False):
     """
