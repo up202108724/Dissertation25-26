@@ -327,29 +327,13 @@ DIAG_CSV_NAME  = "diagnostics.csv"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-# ── Parallelism config ──────────────────────────────────────────────────
-# PARALLEL_MODE: "product" → one subprocess per product-shard (recommended)
-#                "seed"    → one subprocess per seed (each handles all products)
-# MAX_CONCURRENT caps simultaneous processes (Ryzen 7 5600X: 6 physical cores).
-# N_PRODUCT_WORKERS: how many product shards to create (product mode only).
-# PRODUCTS_END: only distribute PRODUCTS_TO_TEST[:PRODUCTS_END]; None = all.
-#               Use to leave the last product(s) for a sequential run later.
-# NO_MERGE=True skips merging the per-worker CSVs into the canonical {metric}.csv.
-PARALLEL = True
-PARALLEL_MODE = "pair"   # "seed", "product", or "pair"
-MAX_CONCURRENT = 6
-N_PRODUCT_WORKERS = 6       # number of workers in "pair" and "product" modes
+# ── Run scope ─────────────────────────────────────────────────────────────
+# This is the SEQUENTIAL runner: no subprocesses, no sharding.  It reads the
+# canonical {metric}.csv (e.g. cid.csv), figures out which
+# (product × seed × model_variant) executions are missing, runs only those, and
+# re-sorts the CSV by (product_id, seed, model_variant) at the end.
+# PRODUCTS_END: restrict to PRODUCTS_TO_TEST[:PRODUCTS_END]; None = all.
 PRODUCTS_END = 60           # restrict to PRODUCTS_TO_TEST[:PRODUCTS_END]; None = all
-NO_MERGE = False
-
-# ── Re-distribute leftover shards from a previous run ────────────────────
-# Used by "product" mode workers AND by the "pair" coordinator to compute
-# the same product subset deterministically before distributing pairs.
-# Set to None or [] for a normal full run.
-REDISTRIBUTE_STAGES = [
-    (6, [2, 3]),
-    (6, [3]),
-]
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -403,337 +387,12 @@ LAG_K_BY_NAME = {"lag_1": 1, "lag_7": 7, "lag_30": 30}
 # recomputed from the rolling history during recursive inference.
 ROLLING_MEAN_EXCL_PREFIX = "rolling_mean_excl_"
 
-
-# ──────────────────────────────────────────────────────────────────────────
-# Parallel launchers (one subprocess per product-shard or per seed)
-# ──────────────────────────────────────────────────────────────────────────
-def _merge_worker_csvs(metrics):
-    """Merge per-worker ``{metric}_w*.csv`` files into the canonical ``{metric}.csv``."""
-    for metric in metrics:
-        partial_files = sorted(_glob_mod.glob(os.path.join(SCRIPT_DIR, f"{metric}_w*.csv")))
-        if not partial_files:
-            continue
-        seen = set()
-        rows = []
-        header = None
-        for p in partial_files:
-            try:
-                with open(p, newline="") as f:
-                    reader = csv.DictReader(f)
-                    header = reader.fieldnames or header
-                    for row in reader:
-                        key = (
-                            row.get("product_id", ""), row.get("store_id", ""),
-                            row.get("seed", ""), row.get("metric", ""),
-                            row.get("model_variant", ""),
-                            row.get("threshold", ""), row.get("ablate_z", ""),
-                            row.get("node_feature_mode", ""),
-                        )
-                        if key not in seen:
-                            seen.add(key)
-                            rows.append(row)
-            except Exception as e:
-                print(f"  Warning: could not read {p}: {e}")
-        if header is None:
-            continue
-        out_path = os.path.join(SCRIPT_DIR, f"{metric}.csv")
-        with open(out_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
-            writer.writeheader()
-            writer.writerows(rows)
-        print(f"Merged {len(rows)} rows from {len(partial_files)} files -> {out_path}")
-
-
-def _spawn_workers(jobs, max_concurrent, metrics, no_merge=False):
-    """
-    Launch one subprocess per (worker_id, num_workers, extra_env) job, bounded
-    to ``max_concurrent`` at a time, then optionally merge per-worker CSVs.
-    """
-    semaphore = threading.Semaphore(max_concurrent)
-    results = {}
-    threads = []
-
-    def _run(wid, nw, extra_env, log_name):
-        with semaphore:
-            env = {
-                **os.environ,
-                "GCN_WORKER_ID": str(wid),
-                "GCN_NUM_WORKERS": str(nw),
-                # 1 thread each so the processes share cores cleanly instead of
-                # all fighting for every core.
-                "OMP_NUM_THREADS": "1",
-                "MKL_NUM_THREADS": "1",
-                "OPENBLAS_NUM_THREADS": "1",
-                "NUMEXPR_NUM_THREADS": "1",
-                "PYTHONUNBUFFERED": "1",
-                **extra_env,
-            }
-            cmd = [sys.executable, "-u", __file__]
-            log_path = os.path.join(SCRIPT_DIR, log_name)
-            print(f"[START] worker={wid}/{nw}  log={log_name}", flush=True)
-            t0 = time.time()
-            with open(log_path, "w", buffering=1) as log_fh:
-                proc = subprocess.Popen(cmd, stdout=log_fh, stderr=subprocess.STDOUT,
-                                        text=True, env=env)
-                pid = proc.pid
-                print(f"[RUN]   worker={wid} pid={pid}", flush=True)
-                try:
-                    rc = proc.wait()
-                except KeyboardInterrupt:
-                    proc.terminate()
-                    proc.wait()
-                    raise
-            elapsed = time.time() - t0
-            status = "OK" if rc == 0 else f"FAILED(rc={rc})"
-            print(f"[DONE]  worker={wid} pid={pid}  {status}  {elapsed/60:.1f} min", flush=True)
-            results[wid] = rc
-
-    print(f"Spawning {len(jobs)} workers  |  max_concurrent={max_concurrent}")
-    for wid, nw, extra_env, log_name in jobs:
-        t = threading.Thread(target=_run, args=(wid, nw, extra_env, log_name), daemon=True)
-        threads.append(t)
-        t.start()
-
-    for t in threads:
-        t.join()
-
-    failed = [w for w, rc in results.items() if rc != 0]
-    print(f"\nCompleted {len(results)} workers.  Failed: {len(failed)}")
-    for w in failed:
-        print(f"  worker={w}  (check its log file)")
-
-    if not no_merge:
-        print(f"\nMerging partial CSVs -> {{metric}}.csv")
-        _merge_worker_csvs(metrics)
-
-
-def _run_parallel_products(num_workers, max_concurrent, metrics, no_merge=False):
-    """One subprocess per disjoint product slice; each runs all SEEDS for its shard."""
-    jobs = [
-        (wid, num_workers, {}, f"log_worker{wid}_of{num_workers}.txt")
-        for wid in range(num_workers)
-    ]
-    _spawn_workers(jobs, max_concurrent, metrics, no_merge=no_merge)
-
-
-def _run_parallel_seeds(seeds, max_concurrent, metrics, no_merge=False):
-    """One subprocess per seed; each handles all products for that single seed."""
-    jobs = [
-        (wid, 1, {"GCN_SEED": str(seed)}, f"log_seed{seed}.txt")
-        for wid, seed in enumerate(seeds)
-    ]
-    _spawn_workers(jobs, max_concurrent, metrics, no_merge=no_merge)
-
-
-def _load_done_keys_from_csvs(metrics):
-    """Scan all per-worker and merged CSVs and return the set of completed keys."""
-    done_keys = set()
-    paths = set()
-    for m in metrics:
-        paths.add(os.path.join(SCRIPT_DIR, f"{m}.csv"))
-        paths.update(_glob_mod.glob(os.path.join(SCRIPT_DIR, f"{m}_w*.csv")))
-    for path in sorted(paths):
-        if not os.path.exists(path):
-            continue
-        try:
-            with open(path, newline='') as f:
-                for row in csv.DictReader(f):
-                    done_keys.add((
-                        row.get("product_id", ""), row.get("store_id", ""),
-                        row.get("seed", ""), row.get("metric", ""),
-                        row.get("model_variant", ""),
-                        row.get("window_size", ""), row.get("step_size", ""),
-                        row.get("threshold", ""), row.get("percentile", ""),
-                        row.get("enable_edges", ""), row.get("enable_second_degree", ""),
-                        row.get("ablate_z", ""), row.get("node_feature_mode", ""),
-                    ))
-        except Exception as e:
-            print(f"[COORDINATOR] Warning: could not read {path}: {e}")
-    return done_keys
-
-
-def _pair_all_done(product_id, store_id, seed, done_keys):
-    """Return True if every expected result for (product, store, seed) is in done_keys."""
-    for _c in grid_configs:
-        _m = _c['metric']
-        _ths = _c.get('thresholds', [None])
-        _pcs = _c.get('percentiles', [None])
-        _is_th = _ths is not None and _ths != [None]
-        _params = _ths if _is_th else _pcs
-        for _mv, _az, _pv, _w, _s, _ee, _esd, _nfm in itertools.product(
-            MODEL_VARIANTS, ABLATE_Z_VALUES, _params, window_sizes, step_sizes,
-            enable_edges_opts, enable_second_degree_opts, node_feature_modes,
-        ):
-            if _az and (_mv.startswith('gat') or _mv.startswith('graph2vec')):
-                continue
-            if _az and _pv != _params[0]:
-                continue
-            if _az and _nfm != node_feature_modes[0]:
-                continue
-            _ct = str(_pv) if _is_th else ""
-            _cp = "" if _is_th else str(_pv)
-            _k = (str(product_id), str(store_id), str(seed), _m, _mv,
-                  str(_w), str(_s), _ct, _cp,
-                  str(_ee), str(_esd), str(_az), _nfm)
-            if _k not in done_keys:
-                return False
-        for _bv in (
-            (["lstm_baseline"] if RUN_LSTM_BASELINE else []) +
-            (["mlp_baseline"]  if RUN_MLP_BASELINE  else [])
-        ):
-            _bk = (str(product_id), str(store_id), str(seed), _m, _bv,
-                   "", "", "", "", "", "", "", "")
-            if _bk not in done_keys:
-                return False
-    return True
-
-
-def _run_parallel_pairs(n_workers, max_concurrent, metrics, no_merge=False):
-    """Distribute pending (product × seed) pairs across exactly n_workers subprocesses.
-
-    The coordinator:
-      1. Loads done_keys from all existing CSVs.
-      2. Loads the product list and applies PRODUCTS_END + REDISTRIBUTE_STAGES.
-      3. For each (product, seed) checks whether every model variant is done.
-      4. Round-robins products (not individual pairs) across workers so that all
-         pending seeds for a product land on the same worker — preserving graph-
-         cache reuse within each worker process.
-      5. Writes a JSON assignment file per worker and spawns the subprocesses.
-    """
-    import json, tempfile
-
-    print("[COORDINATOR] Loading completed entries from existing CSVs...")
-    done_keys = _load_done_keys_from_csvs(metrics)
-    print(f"[COORDINATOR] {len(done_keys)} completed entries found.")
-
-    print(f"[COORDINATOR] Loading product list from {TOP_DATA_PATH}...")
-    top_df = pd.read_feather(TOP_DATA_PATH)
-    all_products = (
-        top_df[["item_id", "store_id"]]
-        .drop_duplicates()
-        .sort_values(["item_id", "store_id"])
-        .apply(lambda r: (int(r["item_id"]), int(r["store_id"])), axis=1)
-        .tolist()
-    )
-    if PRODUCTS_END is not None:
-        all_products = all_products[:PRODUCTS_END]
-    if REDISTRIBUTE_STAGES:
-        for _stage_nw, _stage_workers in REDISTRIBUTE_STAGES:
-            keep_idx = sorted({
-                i for w in _stage_workers
-                for i in range(w, len(all_products), _stage_nw)
-            })
-            all_products = [all_products[i] for i in keep_idx]
-        print(f"[COORDINATOR] After redistribution: {len(all_products)} products.")
-
-    # Find pending seeds per product.
-    pending_products = {}  # (pid, sid) -> [pending seeds]
-    for pid, sid in all_products:
-        pending_seeds = [s for s in SEEDS if not _pair_all_done(pid, sid, s, done_keys)]
-        if pending_seeds:
-            pending_products[(pid, sid)] = pending_seeds
-
-    total_pending = sum(len(v) for v in pending_products.values())
-    print(f"[COORDINATOR] {len(pending_products)} products with pending work, "
-          f"{total_pending} (product × seed) pairs remaining.")
-
-    if not pending_products:
-        print("[COORDINATOR] Nothing pending. Exiting.")
-        return
-
-    # Round-robin products across workers (keeps all seeds of one product together).
-    product_keys = list(pending_products.keys())
-    assignments = [[] for _ in range(n_workers)]
-    for i, pk in enumerate(product_keys):
-        assignments[i % n_workers].append(pk)
-
-    tmp_files = []
-    jobs = []
-    for wid, product_list in enumerate(assignments):
-        if not product_list:
-            continue
-        pairs = [
-            [pid, sid, seed]
-            for (pid, sid) in product_list
-            for seed in pending_products[(pid, sid)]
-        ]
-        tf = tempfile.NamedTemporaryFile(
-            mode='w', suffix='.json', delete=False, dir=SCRIPT_DIR
-        )
-        json.dump(pairs, tf)
-        tf.close()
-        tmp_files.append(tf.name)
-        jobs.append((
-            wid, 1,
-            {"GCN_PAIRS_FILE": tf.name, "GCN_WORKER_ID": str(wid)},
-            f"log_pair_worker{wid}.txt",
-        ))
-        print(f"[COORDINATOR] Worker {wid}: {len(product_list)} products, "
-              f"{len(pairs)} pairs -> {os.path.basename(tf.name)}")
-
-    _spawn_workers(jobs, max_concurrent, metrics, no_merge=no_merge)
-
-    for f in tmp_files:
-        try:
-            os.unlink(f)
-        except OSError:
-            pass
-
-
 # ──────────────────────────────────────────────────────────────────────────
 # Main runner
 # ──────────────────────────────────────────────────────────────────────────
 def main():
-    worker_id   = int(os.environ.get("GCN_WORKER_ID", "0"))
-    num_workers = int(os.environ.get("GCN_NUM_WORKERS", "1"))
-
-    # Limit PyTorch's intra-op thread pool to 1 for any parallel worker so
-    # the processes share cores cleanly instead of all claiming every thread.
-    if num_workers > 1 or "GCN_PAIRS_FILE" in os.environ or "GCN_SEED" in os.environ:
-        torch.set_num_threads(1)
-        torch.set_num_interop_threads(1)
-
-    # ── Parallel launcher (coordinator only) ─────────────────────────────
-    # Workers are identified by: GCN_NUM_WORKERS > 1 (product mode),
-    # GCN_SEED set (seed mode), or GCN_PAIRS_FILE set (pair mode).
-    # The bare coordinator has none of these.
-    is_worker = (num_workers > 1
-                 or "GCN_SEED" in os.environ
-                 or "GCN_PAIRS_FILE" in os.environ)
-    if PARALLEL and not is_worker:
-        metrics = [c['metric'] for c in grid_configs]
-        if PARALLEL_MODE == "seed":
-            _run_parallel_seeds(
-                seeds=SEEDS, max_concurrent=MAX_CONCURRENT,
-                metrics=metrics, no_merge=NO_MERGE,
-            )
-        elif PARALLEL_MODE == "pair":
-            _run_parallel_pairs(
-                n_workers=N_PRODUCT_WORKERS, max_concurrent=MAX_CONCURRENT,
-                metrics=metrics, no_merge=NO_MERGE,
-            )
-        else:  # "product"
-            _run_parallel_products(
-                num_workers=N_PRODUCT_WORKERS, max_concurrent=MAX_CONCURRENT,
-                metrics=metrics, no_merge=NO_MERGE,
-            )
-        return
-
-    # Pair-mode workers get their assignment from a JSON file; seed-mode workers
-    # run a single seed; product-mode workers run all SEEDS.
-    seeds_to_run = ([int(os.environ["GCN_SEED"])] if "GCN_SEED" in os.environ
-                    else list(SEEDS))
-
-    # Pair mode: read the coordinator-written assignment file.
-    _pairs_file = os.environ.get("GCN_PAIRS_FILE")
-    _explicit_pairs = None  # list of (product_id, store_id, seed) triples, or None
-    if _pairs_file:
-        import json as _json
-        with open(_pairs_file) as _pf:
-            _raw_pairs = _json.load(_pf)
-        _explicit_pairs = [(int(r[0]), int(r[1]), int(r[2])) for r in _raw_pairs]
-        print(f"[PAIR WORKER {worker_id}] Loaded {len(_explicit_pairs)} pairs "
-              f"from {os.path.basename(_pairs_file)}")
+    # Sequential runner — one process, all products × seeds in order.
+    seeds_to_run = list(SEEDS)
 
     print(f"Loading data from {DATA_PATH}...")
     df = pd.read_feather(DATA_PATH)
@@ -765,35 +424,11 @@ def main():
         )
         print(f"Running all {len(PRODUCTS_TO_TEST)} (item_id, store_id) pairs from dataset.")
 
-    # Apply PRODUCTS_END so the last product(s) can be excluded from the
-    # parallel run and handled sequentially later.
+    # Apply PRODUCTS_END so the run scope matches the CSV being completed.
     if PRODUCTS_END is not None:
         PRODUCTS_TO_TEST = PRODUCTS_TO_TEST[:PRODUCTS_END]
 
-    # ── Re-distribution: narrow to the leftover of previous split(s), stage by
-    # stage, preserving order so the subsequent re-shard stays balanced.  Runs
-    # identically in every worker (deterministic), so all agree on the subset.
-    if REDISTRIBUTE_STAGES:
-        for _stage_nw, _stage_workers in REDISTRIBUTE_STAGES:
-            keep_idx = sorted({
-                i for w in _stage_workers
-                for i in range(w, len(PRODUCTS_TO_TEST), _stage_nw)
-            })
-            PRODUCTS_TO_TEST = [PRODUCTS_TO_TEST[i] for i in keep_idx]
-        print(f"[REDISTRIBUTE] Restricted to {len(PRODUCTS_TO_TEST)} products "
-              f"via stages {REDISTRIBUTE_STAGES}.")
-
-    # ── Product sharding (parallelism across workers) ────────────────────
-    # Each worker processes a disjoint slice so multiple processes run
-    # simultaneously without duplicating work.  Only applied in product mode
-    # (num_workers > 1).  In seed mode num_workers==1 but worker_id is the seed
-    # index (0..N-1), so slicing would wrongly drop the first worker_id products
-    # (list[k::1] == list[k:]); every seed-worker must handle ALL products.
-    n_products_total = len(PRODUCTS_TO_TEST)
-    if num_workers > 1:
-        PRODUCTS_TO_TEST = PRODUCTS_TO_TEST[worker_id::num_workers]
-    print(f"Worker {worker_id}/{num_workers}: processing "
-          f"{len(PRODUCTS_TO_TEST)} / {n_products_total} products  |  seeds={seeds_to_run}")
+    print(f"Sequential run: {len(PRODUCTS_TO_TEST)} products  |  seeds={seeds_to_run}")
 
     cat_labels_dict = (
         full_df.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()
@@ -820,29 +455,19 @@ def main():
             df_wide_global.loc[item_id_iter].values.reshape(-1, 1)
         ).flatten()
 
-    # ── Per-worker CSV suffix (avoids concurrent-write races) ────────────
-    # Each worker writes to its own {metric}_w{id}.csv; the coordinator merges
-    # them into the canonical {metric}.csv after all workers finish.  Seed-mode
-    # processes have num_workers==1 but still run concurrently (one per seed), so
-    # they ALSO need a distinct shard — keyed on their unique GCN_WORKER_ID — or
-    # they would race on the single {metric}.csv.  The "_w{id}" naming keeps both
-    # the resume scan and _merge_worker_csvs globs ({metric}_w*.csv) working.
-    is_seed_worker = "GCN_SEED" in os.environ
-    is_pair_worker = "GCN_PAIRS_FILE" in os.environ
-    worker_csv_suffix = f"_w{worker_id}" if (num_workers > 1 or is_seed_worker or is_pair_worker) else ""
+    # Write directly to the canonical {metric}.csv (e.g. cid.csv) — no shards.
+    worker_csv_suffix = ""
 
     # ── Load already-completed rows for resumption ────────────────────────
-    # A (product, store, seed, model_variant, …config…) already evaluated in
-    # ANY shard is skipped (training + inference + CSV write).  We scan every
-    # per-worker shard ``{metric}_w*.csv`` (e.g. cid_w0..cid_w4) AND the merged
-    # ``{metric}.csv`` — not just this worker's own file — so a result written
-    # by a different worker / earlier run is honoured here too.
+    # The canonical {metric}.csv (e.g. cid.csv) is the single source of truth:
+    # any (product, store, seed, model_variant, …config…) already present there
+    # is skipped (training + inference + CSV write), so only the MISSING
+    # executions actually run.
     _done_keys: set = set()
     _resume_csvs: set = set()
     for _cfg in grid_configs:
         _m = _cfg['metric']
-        _resume_csvs.add(os.path.join(SCRIPT_DIR, f"{_m}.csv"))           # merged
-        _resume_csvs.update(_glob_mod.glob(os.path.join(SCRIPT_DIR, f"{_m}_w*.csv")))  # all shards
+        _resume_csvs.add(os.path.join(SCRIPT_DIR, f"{_m}.csv"))           # canonical only
     for _resume_csv in sorted(_resume_csvs):
         if not os.path.exists(_resume_csv):
             continue
@@ -885,32 +510,13 @@ def main():
     _graph2vec_cache = {}
     _graph_cache_product = None
 
-    # ── Build work-item list ─────────────────────────────────────────────
-    # Pair mode uses the coordinator-assigned list (grouped by product so the
-    # graph cache fires on consecutive seeds for the same product).
-    # All other modes fall back to the cartesian product of PRODUCTS_TO_TEST × seeds.
-    if _explicit_pairs is not None:
-        from collections import OrderedDict as _OD
-        _by_prod = _OD()
-        for _pid, _sid, _s in _explicit_pairs:
-            _key = (_pid, _sid)
-            if _key not in _by_prod:
-                _by_prod[_key] = []
-            _by_prod[_key].append(_s)
-        _work_items = list(_by_prod.items())  # [((pid, sid), [seeds])]
-    else:
-        _work_items = [((pid, sid), list(seeds_to_run)) for pid, sid in PRODUCTS_TO_TEST]
-
-    # ── Progress tracking (this worker's shard only) ─────────────────────
-    total_units = sum(len(seeds) for _, seeds in _work_items)
+    # ── Progress tracking ────────────────────────────────────────────────
+    # Every (product, seed) is one work unit; products are processed with all
+    # their seeds consecutively so the per-product graph cache is reused.
+    total_units = len(PRODUCTS_TO_TEST) * len(seeds_to_run)
     units_done = 0
 
-    def _iter_work():
-        for (_pid, _sid), _seeds in _work_items:
-            for _s in _seeds:
-                yield (_pid, _sid), _s
-
-    for (product_id, store_id), seed in _iter_work():
+    for (product_id, store_id), seed in itertools.product(PRODUCTS_TO_TEST, seeds_to_run):
         if (product_id, store_id) != _graph_cache_product:
             _graph_cache = {}
             _graph2vec_cache = {}
@@ -1022,12 +628,22 @@ def main():
         # GCN+LSTM requires a graph for every config — no_emb baseline is dropped.
         all_configs = list(grid_configs)
 
+        # A baseline is "done" only if it is already present for EVERY metric in
+        # grid_configs, so we never recompute one that's already in cid.csv.
+        _metrics_all = [c['metric'] for c in grid_configs]
+        def _baseline_done(_bv):
+            return all(
+                (str(product_id), str(store_id), str(seed), _m, _bv,
+                 "", "", "", "", "", "", "", "") in _done_keys
+                for _m in _metrics_all
+            )
+
         # ── LSTM Baseline (run once per product) ──────────────────────────
         _bl_forecast = None
         _bl_t_losses: list = []
         _bl_v_losses: list = []
         _bl_rmse = _bl_mae = _bl_bias = _bl_score = _bl_pocid = None
-        if RUN_LSTM_BASELINE:
+        if RUN_LSTM_BASELINE and not _baseline_done("lstm_baseline"):
             print(f"\n{'='*60}")
             print("Running LSTM Baseline...")
             print(f"{'='*60}")
@@ -1125,7 +741,7 @@ def main():
         _mlp_t_losses: list = []
         _mlp_v_losses: list = []
         _mlp_rmse = _mlp_mae = _mlp_bias = _mlp_score = _mlp_pocid = None
-        if RUN_MLP_BASELINE:
+        if RUN_MLP_BASELINE and not _baseline_done("mlp_baseline"):
             print(f"\n{'='*60}")
             print("Running MLP Baseline...")
             print(f"{'='*60}")
@@ -2015,7 +1631,7 @@ def main():
         print(f"\n[TIMING] Product {product_id} | store {store_id} | exp {seed}: "
               f"{product_elapsed:.1f} s ({product_elapsed/60:.2f} min)")
 
-        # ── Progress + ETA (this worker's shard) ───────────────────────────
+        # ── Progress + ETA ─────────────────────────────────────────────────
         # ETA uses the average wall-clock per completed unit (which folds in
         # graph-build overhead), extrapolated over the units still remaining.
         units_done += 1
@@ -2023,7 +1639,7 @@ def main():
         run_elapsed = time.time() - total_t0
         avg_per_unit = run_elapsed / units_done
         eta_seconds = avg_per_unit * units_left
-        print(f"[PROGRESS] Worker {worker_id}/{num_workers}: "
+        print(f"[PROGRESS] "
               f"{units_done}/{total_units} done | {units_left} remaining "
               f"| elapsed {run_elapsed/60:.1f} min | avg {avg_per_unit/60:.2f} min/unit "
               f"| ETA {eta_seconds/60:.1f} min ({eta_seconds/3600:.2f} h)")
@@ -2043,6 +1659,31 @@ def main():
             w.writerow([pid, sid, eidx, f"{sec:.3f}"])
         w.writerow(["TOTAL_ALL", "", "", f"{total_elapsed:.3f}"])
     print(f"  Timings written to: {timings_csv_path}")
+
+    # ── Final re-ordering of the results CSV ──────────────────────────────
+    # Sort every {metric}.csv by (product_id, seed, model_variant) so the file
+    # is deterministic and easy to scan.  Read as strings (keep_default_na=False)
+    # so empty cells and integer formatting are preserved byte-for-byte.
+    _model_rank = {m: i for i, m in enumerate(
+        ['lstm_baseline', 'mlp_baseline',
+         'graph2vec_lstm', 'graph2vec_mlp',
+         'gcn_lstm', 'gcn_mlp', 'gat_lstm', 'gat_mlp']
+    )}
+    for _m in {c['metric'] for c in grid_configs}:
+        _csv_path = os.path.join(SCRIPT_DIR, f"{_m}.csv")
+        if not os.path.exists(_csv_path):
+            continue
+        _cdf = pd.read_csv(_csv_path, dtype=str, keep_default_na=False)
+        _cdf['_pid']  = _cdf['product_id'].astype(int)
+        _cdf['_seed'] = _cdf['seed'].astype(int)
+        _cdf['_mo']   = _cdf['model_variant'].map(
+            lambda v: _model_rank.get(v, len(_model_rank))
+        )
+        _cdf = (_cdf.sort_values(['_pid', '_seed', '_mo'], kind='mergesort')
+                    .drop(columns=['_pid', '_seed', '_mo']))
+        _cdf.to_csv(_csv_path, index=False)
+        print(f"  Re-ordered {_csv_path} ({len(_cdf)} rows) "
+              f"by product_id, seed, model_variant.")
 
 
 
