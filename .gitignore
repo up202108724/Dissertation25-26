@@ -25,4 +25,5 @@ spearman_w*.csv
 node_features/
 DynamicGraphPlots/
 DemoData/
+DemoData2/
 log_worker*.txt

@@ -1,0 +1,79 @@
+[PAIR WORKER 2] Loaded 4 pairs from tmpoi6jzr6y.json
+Loading data from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\data_andre_classified.feather...
+Loading top products from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\top_12500.feather...
+Running all 61 (item_id, store_id) pairs from dataset.
+[REDISTRIBUTE] Restricted to 3 products via stages [(6, [2, 3]), (6, [3])].
+Worker 2/1: processing 3 / 3 products  |  seeds=[42, 1000, 26008, 555555, 213626, 907969, 5219788, 13451285, 23616558, 618626816]
+[RESUME] Loaded 4738 completed entries from 12 CSV(s); matching runs will be skipped.
+
+================================================================================
+PROCESSING PRODUCT 907967 FOR STORE 6269  [Seed 5219788]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Loading existing LSTM baseline from c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\best_models\lstm_baseline_907967_6269_exp5219788.pth...
+LSTM Baseline RMSE: 20.1484
+
+============================================================
+Running MLP Baseline...
+============================================================
+Loading existing MLP baseline from C:\Users\Andre Silva\Desktop\Dissertation25-26\best_models\seed_5219788\mse\mlp_product_907967_6269.pth...
+MLP Baseline RMSE: 20.4846
+[RESUME] Skipping graph2vec_lstm ablate_z=False product=907967 store=6269 seed=5219788
+[RESUME] Skipping graph2vec_mlp ablate_z=False product=907967 store=6269 seed=5219788
+[RESUME] Skipping gcn_lstm ablate_z=False product=907967 store=6269 seed=5219788
+[RESUME] Skipping gcn_mlp ablate_z=False product=907967 store=6269 seed=5219788
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=cid, threshold=4.17, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved graph threshold=4.17: 4.17
+Node features saved to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\node_features\node_features_907967_6269_cid_th4.1700_w30_catch24_minmaxlast.csv
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\best_models\30\1\cid\th4.17\best_gat_lstm_perstep_907967_cid_w30_s1_th_4.17_nfcatch24_minmaxlast_exp5219788.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.017967 | Val: 0.027533 | ||z||=4.033 Var(z)=0.0619 | |grad_gcn|=5.31e-02 |grad_lstm|=6.41e-02 ratio=8.28e-01
+Epoch 20/1000 | Train: 0.016327 | Val: 0.026362 | ||z||=4.031 Var(z)=0.0867 | |grad_gcn|=7.75e-02 |grad_lstm|=6.66e-02 ratio=1.16e+00
+Epoch 30/1000 | Train: 0.014599 | Val: 0.034942 | ||z||=4.034 Var(z)=0.1904 | |grad_gcn|=9.90e-02 |grad_lstm|=5.81e-02 ratio=1.70e+00
+Epoch 40/1000 | Train: 0.014577 | Val: 0.026167 | ||z||=4.012 Var(z)=0.1629 | |grad_gcn|=7.30e-02 |grad_lstm|=6.37e-02 ratio=1.15e+00
+Epoch 50/1000 | Train: 0.015877 | Val: 0.025473 | ||z||=4.013 Var(z)=0.2665 | |grad_gcn|=1.21e-01 |grad_lstm|=1.09e-01 ratio=1.12e+00
+Epoch 60/1000 | Train: 0.013694 | Val: 0.025381 | ||z||=4.025 Var(z)=0.3025 | |grad_gcn|=1.18e-01 |grad_lstm|=1.01e-01 ratio=1.16e+00
+Traceback (most recent call last):
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\graph2vec_gcn_gat_assmble_parallelized_workers2.py", line 2050, in <module>
+    main()
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\graph2vec_gcn_gat_assmble_parallelized_workers2.py", line 1680, in main
+    model, train_losses, val_losses, best_epoch, train_time = train_fn(
+                                                              ^^^^^^^^^
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\train_methods.py", line 102, in train_gcn_lstm_model
+    outputs = model(pyg_batch, target_idx, ts_batch)   # (B, H, 1)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1776, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1787, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\gcn_models.py", line 259, in forward
+    h = self.conv1(pyg_batch.x, pyg_batch.edge_index, edge_attr=edge_attr)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1776, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1787, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch_geometric\nn\conv\gat_conv.py", line 362, in forward
+    alpha = self.edge_updater(edge_index, alpha=alpha, edge_attr=edge_attr,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ANDRES~1\AppData\Local\Temp\gcn_models_EdgeWeightedGATConv_edge_updater_12wb2z4j.py", line 179, in edge_updater
+    out = self.edge_update(
+          ^^^^^^^^^^^^^^^^^
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\gcn_models.py", line 48, in edge_update
+    alpha = super().edge_update(alpha_j, alpha_i, edge_attr, index, ptr, dim_size)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch_geometric\nn\conv\gat_conv.py", line 405, in edge_update
+    alpha_edge = (edge_attr * self.att_edge).sum(dim=-1)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

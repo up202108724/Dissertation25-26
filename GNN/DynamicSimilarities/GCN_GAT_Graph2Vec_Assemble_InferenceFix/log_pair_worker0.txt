@@ -1,0 +1,52 @@
+[PAIR WORKER 0] Loaded 3 pairs from tmpzevirsbt.json
+Loading data from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\data_andre_classified.feather...
+Loading top products from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\top_12500.feather...
+Running all 61 (item_id, store_id) pairs from dataset.
+[REDISTRIBUTE] Restricted to 3 products via stages [(6, [2, 3]), (6, [3])].
+Worker 0/1: processing 3 / 3 products  |  seeds=[42, 1000, 26008, 555555, 213626, 907969, 5219788, 13451285, 23616558, 618626816]
+[RESUME] Loaded 4738 completed entries from 12 CSV(s); matching runs will be skipped.
+
+================================================================================
+PROCESSING PRODUCT 26008 FOR STORE 6269  [Seed 13451285]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Loading existing LSTM baseline from c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\best_models\lstm_baseline_26008_6269_exp13451285.pth...
+LSTM Baseline RMSE: 42.7552
+
+============================================================
+Running MLP Baseline...
+============================================================
+Loading existing MLP baseline from C:\Users\Andre Silva\Desktop\Dissertation25-26\best_models\seed_13451285\mse\mlp_product_26008_6269.pth...
+MLP Baseline RMSE: 47.3014
+[RESUME] Skipping graph2vec_lstm ablate_z=False product=26008 store=6269 seed=13451285
+[RESUME] Skipping graph2vec_mlp ablate_z=False product=26008 store=6269 seed=13451285
+[RESUME] Skipping gcn_lstm ablate_z=False product=26008 store=6269 seed=13451285
+[RESUME] Skipping gcn_mlp ablate_z=False product=26008 store=6269 seed=13451285
+
+============================================================
+Running Experiment: variant=gat_lstm, ablate_z=False, metric=cid, threshold=4.17, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved graph threshold=4.17: 4.17
+Node features saved to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\node_features\node_features_26008_6269_cid_th4.1700_w30_catch24_minmaxlast.csv
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\best_models\30\1\cid\th4.17\best_gat_lstm_perstep_26008_cid_w30_s1_th_4.17_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Traceback (most recent call last):
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\graph2vec_gcn_gat_assmble_parallelized_workers2.py", line 2050, in <module>
+    main()
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\graph2vec_gcn_gat_assmble_parallelized_workers2.py", line 1680, in main
+    model, train_losses, val_losses, best_epoch, train_time = train_fn(
+                                                              ^^^^^^^^^
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\train_methods.py", line 105, in train_gcn_lstm_model
+    loss.backward()
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\_tensor.py", line 630, in backward
+    torch.autograd.backward(
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\autograd\__init__.py", line 364, in backward
+    _engine_run_backward(
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\autograd\graph.py", line 865, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

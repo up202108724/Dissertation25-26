@@ -1,0 +1,9 @@
+variant,mean_build_s,std_build_s,total_build_s,n_products
+lstm_baseline,0.0,0.0,0.0,500
+mlp_baseline,0.0,0.0,0.0,500
+graph2vec_lstm,2.3187,10.8493,1159.358,500
+graph2vec_mlp,2.4688,15.878,1234.407,500
+gcn_lstm,2.1367,1.161,1068.34,500
+gcn_mlp,2.7941,6.655,1397.055,500
+gat_lstm,2.902,2.2418,1450.981,500
+gat_mlp,2.5627,1.7106,1281.371,500

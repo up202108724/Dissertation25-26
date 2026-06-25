@@ -1035,4 +1035,306 @@ def compute_metrics(y_test, y_pred):
     pocid = POCID(y_test, y_pred)
     return rmse, mae, bias, score, pocid
 
+def compute_similarities_allvsall(all_ts, metric='pearson', eps=1e-12):
+    """
+    Computes the full pairwise similarity matrix between all time series in all_ts.
+    Optimized for all-vs-all (N x N) computation using PyTorch matrix operations.
+    
+    Args:
+        all_ts: 2D array or tensor of shape (N, T) where N is number of time series, T is sequence length.
+        metric: 'pearson', 'spearman', or 'kendall'.
+        eps: small value to avoid division by zero.
+        
+    Returns:
+        sim_matrix: numpy array of shape (N, N) containing pairwise similarities.
+    """
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    X = torch.tensor(all_ts, dtype=torch.float32, device=device)
+    N, T = X.shape
+    
+    if metric == 'pearson':
+        X_mean = torch.mean(X, dim=1, keepdim=True)
+        X_centered = X - X_mean
+        
+        # Pairwise Covariance matrix (N x N)
+        cov = torch.mm(X_centered, X_centered.t())
+        
+        # Variances
+        X_var = torch.sqrt(torch.sum(X_centered**2, dim=1))
+        # Outer product to get all pairwise combinations of standard deviations
+        denom = X_var.unsqueeze(1) * X_var.unsqueeze(0)
+        
+        sim = cov / (denom + eps)
+        # Ensure perfect 1.0 on diagonal to correct floating point rounding errors
+        sim.fill_diagonal_(1.0) 
+        return sim.cpu().numpy()
+        
+    elif metric == 'spearman':
+        # Average-rank (fractional) ranking with proper tie handling, fully vectorised.
+        def _avg_ranks(M):
+            R, n = M.shape
+            sorted_vals, order = torch.sort(M, dim=1)
+            positions = torch.arange(n, device=device).unsqueeze(0).expand(R, n)
+            
+            # Mark group starts/ends among tied (equal) sorted values
+            is_new = torch.ones(R, n, dtype=torch.bool, device=device)
+            is_new[:, 1:] = sorted_vals[:, 1:] != sorted_vals[:, :-1]
+            is_end = torch.ones(R, n, dtype=torch.bool, device=device)
+            is_end[:, :-1] = sorted_vals[:, :-1] != sorted_vals[:, 1:]
+            
+            # First/last sorted position of each tie group, propagated to every member
+            start_idx = torch.cummax(torch.where(is_new, positions, torch.zeros_like(positions)), dim=1)[0]
+            end_pos = torch.where(is_end, positions, torch.full_like(positions, n))
+            end_idx = torch.flip(torch.cummin(torch.flip(end_pos, [1]), dim=1)[0], [1])
+            
+            # Average ordinal rank over the group: ((start+1) + (end+1)) / 2
+            avg_ord = (start_idx + end_idx).to(M.dtype) / 2.0 + 1.0
+            ranks = torch.empty_like(M)
+            ranks.scatter_(1, order, avg_ord)
+            return ranks
 
+        X_ranks = _avg_ranks(X)
+
+        X_mean = torch.mean(X_ranks, dim=1, keepdim=True)
+        X_centered = X_ranks - X_mean
+        
+        # Pairwise Covariance matrix of the ranks (N x N)
+        cov = torch.mm(X_centered, X_centered.t())
+        X_var = torch.sqrt(torch.sum(X_centered**2, dim=1))
+        denom = X_var.unsqueeze(1) * X_var.unsqueeze(0)
+        
+        sim = cov / (denom + eps)
+        sim.fill_diagonal_(1.0)
+        return sim.cpu().numpy()
+        
+    elif metric == 'kendall':
+        if T < 2:
+            return torch.ones((N, N), device=device).cpu().numpy()
+            
+        idx1, idx2 = torch.triu_indices(T, T, offset=1, device=device)
+        
+        # Compute all pairwise temporal differences for every sequence
+        X_diffs = X[:, idx1] - X[:, idx2]
+        X_signs = torch.sign(X_diffs)
+        
+        # S is the dot product of the sign vectors. 
+        # Matrix multiplying (N x Pairs) @ (Pairs x N) yields the (N x N) S-matrix
+        S = torch.mm(X_signs, X_signs.t())
+        
+        X_non_ties = torch.sum(X_signs**2, dim=1)
+        denom = torch.sqrt(X_non_ties.unsqueeze(1) * X_non_ties.unsqueeze(0))
+        
+        sim = torch.where(denom == 0, torch.tensor(0.0, device=device), S / denom)
+        sim.fill_diagonal_(1.0)
+        return sim.cpu().numpy()
+        
+    else:
+        raise ValueError(f"Metric {metric} not supported")
+    
+
+
+
+import torch
+import numpy as np
+
+import torch
+import numpy as np
+
+def compute_distances_allvsall(all_ts, metric='amplitude_offset', eps=1e-12):
+    """
+    Computes the full NxN pairwise distance matrix between all time series in all_ts.
+    Optimized for all-vs-all computation using PyTorch matrix operations.
+    
+    Args:
+        all_ts: 2D array or tensor of shape (N, T) where N is number of time series, T is sequence length.
+        metric: Distance metric to use.
+        eps: Small value to avoid division by zero.
+        
+    Returns:
+        dist_matrix: numpy array of shape (N, N) containing pairwise distances.
+    """
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    X = torch.tensor(all_ts, dtype=torch.float32, device=device)
+    N, T = X.shape
+
+    if metric == 'manhattan':
+        # Broadcasting to create a (N, N, T) tensor, then sum over T
+        dist = torch.sum(torch.abs(X.unsqueeze(1) - X.unsqueeze(0)), dim=2)
+        return dist.cpu().numpy()
+
+    elif metric == 'hamming':
+        X_bin = (X > 0).float()
+        diffs = torch.abs(X_bin.unsqueeze(1) - X_bin.unsqueeze(0))
+        dist = torch.mean(diffs, dim=2)
+        return dist.cpu().numpy()
+
+    elif metric == 'amplitude_offset':
+        X_mean = torch.mean(X, dim=1, keepdim=True)
+        X_std = torch.std(X, dim=1, keepdim=True) + eps
+        X_norm = (X - X_mean) / X_std
+        
+        # cdist computes pairwise p-norm distances
+        dist = torch.cdist(X_norm, X_norm, p=2)
+        return dist.cpu().numpy()
+
+    elif metric == 'slope_consistency':
+        X_min = torch.min(X, dim=1, keepdim=True)[0]
+        X_max = torch.max(X, dim=1, keepdim=True)[0]
+        X_norm = (X - X_min) / (X_max - X_min + eps)
+        
+        # (N, N, T) differences
+        diffs = X_norm.unsqueeze(1) - X_norm.unsqueeze(0)
+        dist = torch.var(diffs, dim=2, unbiased=False)
+        return dist.cpu().numpy()
+
+    elif metric == 'cid':
+        # Euclidean Distance component
+        ed_dist = torch.cdist(X, X, p=2)
+        
+        # Complexity Estimation component
+        ce_X = torch.sqrt(torch.sum(torch.diff(X, dim=1) ** 2, dim=1))
+        ce_X_safe = torch.maximum(ce_X, torch.tensor(eps, device=device))
+        
+        # Create NxN grids of complexities
+        ce_grid_1 = ce_X_safe.unsqueeze(1).expand(N, N)
+        ce_grid_2 = ce_X_safe.unsqueeze(0).expand(N, N)
+        
+        ce_max = torch.maximum(ce_grid_1, ce_grid_2)
+        ce_min = torch.minimum(ce_grid_1, ce_grid_2)
+        cf_dist = ce_max / ce_min
+        
+        # Element-wise multiplication of N x N matrices
+        cid_dist = ed_dist * cf_dist
+        
+        # Ensure diagonal is exactly 0.0
+        cid_dist.fill_diagonal_(0.0)
+        return cid_dist.cpu().numpy()
+
+    elif metric == 'dtw':
+        try:
+            from tslearn.metrics import cdist_dtw
+            X_np = X.cpu().numpy()
+            
+            # cdist_dtw already natively supports all-vs-all if only one array is provided
+            dist = cdist_dtw(
+                X_np,
+                global_constraint="sakoe_chiba", 
+                sakoe_chiba_radius=2, 
+                n_jobs=-1
+            )
+            return dist
+        except ImportError:
+            raise ValueError("metric='dtw' requires 'tslearn' to be installed.")
+
+    elif metric == 'phase_invariance':
+        X_np = X.cpu().numpy()
+        min_dists = np.full((N, N), np.inf)
+        
+        for shift in range(T):
+            shifted_X = np.roll(X_np, shift, axis=1)
+            
+            # Compute Euclidean distance using scipy or fast numpy broadcasting
+            # We can use scipy's cdist to rapidly get the NxN matrix for this shift
+            from scipy.spatial.distance import cdist
+            current_dists = cdist(X_np, shifted_X, metric='euclidean')
+            
+            min_dists = np.minimum(min_dists, current_dists)
+            
+        np.fill_diagonal(min_dists, 0.0)
+        return min_dists
+
+    elif metric == 'lorentzian':
+        diffs = torch.abs(X.unsqueeze(1) - X.unsqueeze(0))
+        dist = torch.sum(torch.log1p(diffs), dim=2)
+        return dist.cpu().numpy()
+
+    elif metric == 'twed':
+        try:
+            from sktime.distances import pairwise_distance
+            X_np = X.cpu().numpy()
+            return pairwise_distance(X_np, metric='twe', nu=0.001, lmbda=1.0)
+        except ImportError:
+            raise ValueError("metric='twed' requires 'sktime'.")
+
+    elif metric == 'erp':
+        try:
+            from sktime.distances import pairwise_distance
+            X_np = X.cpu().numpy()
+            return pairwise_distance(X_np, metric='erp', g=0.0)
+        except ImportError:
+            raise ValueError("metric='erp' requires 'sktime'.")
+
+    elif metric == 'stid':
+        X_np = X.cpu().numpy()
+        min_dists = np.full((N, N), np.inf)
+        
+        for shift in range(-2, 3): 
+            shifted_X = np.roll(X_np, shift, axis=1)
+            
+            # Optimal scaling alpha for NxN
+            # (N, N) dot products
+            dot_products = shifted_X @ X_np.T 
+            X_norm_sq = np.sum(X_np**2, axis=1) + eps
+            alpha_matrix = dot_products / X_norm_sq[None, :]
+            
+            # Distance computation requires broadcasting:
+            # shifted_X is (N, T). X_np is (N, T). alpha is (N, N)
+            # We need to compute || shifted_X[i] - alpha[i, j] * X_np[j] || for all i, j
+            for i in range(N):
+                # Calculate row i of the distance matrix
+                scaled_X = alpha_matrix[i, :][:, None] * X_np
+                current_dists_row = np.linalg.norm(shifted_X[i] - scaled_X, axis=1)
+                min_dists[i, :] = np.minimum(min_dists[i, :], current_dists_row)
+                
+        np.fill_diagonal(min_dists, 0.0)
+        return min_dists
+
+    elif metric == 'sbd':
+        X_np = X.cpu().numpy()
+        dists = np.zeros((N, N))
+        
+        X_norms = np.linalg.norm(X_np, axis=1)
+        X_norms = np.maximum(X_norms, eps)
+        
+        pad_len = 2 * T - 1
+        # Precompute all FFTs
+        ffts = np.fft.fft(X_np, n=pad_len, axis=1)
+        ffts_rev = np.fft.fft(X_np[:, ::-1], n=pad_len, axis=1)
+        
+        for i in range(N):
+            # Multiply FFT of X_i with all reversed FFTs
+            cc_freq = ffts[i] * ffts_rev
+            cc = np.real(np.fft.ifft(cc_freq, axis=1))
+            
+            ncc = np.max(cc, axis=1) / (X_norms[i] * X_norms)
+            dists[i, :] = 1 - ncc
+            
+        np.fill_diagonal(dists, 0.0)
+        return dists
+
+    elif metric == 'msm':
+        try:
+            from sktime.distances import pairwise_distance
+            X_np = X.cpu().numpy()
+            return pairwise_distance(X_np, metric='msm')
+        except ImportError:
+            raise ValueError("metric='msm' requires 'sktime'.")
+
+    elif metric == 'edr' or metric == 'lcss':
+        try:
+            from sktime.distances import pairwise_distance
+            X_np = X.cpu().numpy()
+            epsilon = 0.5
+            
+            if metric == 'lcss':
+                # sktime's LCSS returns similarity or distance depending on version; 
+                # pairwise_distance generally returns distance.
+                return pairwise_distance(X_np, metric='lcss', epsilon=epsilon)
+            else:
+                return pairwise_distance(X_np, metric='edr', epsilon=epsilon)
+                
+        except ImportError:
+            raise ValueError(f"metric='{metric}' requires 'sktime'.")
+
+    else:
+        raise ValueError(f"Metric {metric} not supported")

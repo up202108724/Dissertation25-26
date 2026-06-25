@@ -1,0 +1,144 @@
+[PAIR WORKER 1] Loaded 3 pairs from tmp9f5qwrkk.json
+Loading data from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\data_andre_classified.feather...
+Loading top products from c:\Users\Andre Silva\Desktop\Dissertation25-26\dataset\top_12500.feather...
+Running all 61 (item_id, store_id) pairs from dataset.
+[REDISTRIBUTE] Restricted to 3 products via stages [(6, [2, 3]), (6, [3])].
+Worker 1/1: processing 3 / 3 products  |  seeds=[42, 1000, 26008, 555555, 213626, 907969, 5219788, 13451285, 23616558, 618626816]
+[RESUME] Loaded 4738 completed entries from 12 CSV(s); matching runs will be skipped.
+
+================================================================================
+PROCESSING PRODUCT 213629 FOR STORE 6269  [Seed 13451285]
+================================================================================
+
+
+============================================================
+Running LSTM Baseline...
+============================================================
+Loading existing LSTM baseline from c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\best_models\lstm_baseline_213629_6269_exp13451285.pth...
+LSTM Baseline RMSE: 16.4808
+
+============================================================
+Running MLP Baseline...
+============================================================
+Loading existing MLP baseline from C:\Users\Andre Silva\Desktop\Dissertation25-26\best_models\seed_13451285\mse\mlp_product_213629_6269.pth...
+MLP Baseline RMSE: 17.6372
+
+============================================================
+Running Experiment: variant=graph2vec_lstm, ablate_z=False, metric=cid, threshold=4.17, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Generating graphs dynamically using neighbourhood_graph...
+Successfully constructed 732 graphs dynamically. Fixed computed threshold: 4.17
+Fitting Graph2Vec on 518 train-period graphs; inferring embeddings for 732 valid graphs out of 732...
+A extrair subestruturas via WL e a isolar grafos únicos para treino...
+A construir vocabulário para 240 assinaturas únicas de grafo...
+A treinar em 240 grafos (ignorando redundâncias topológicas)...
+Finished generating embeddings!
+Total time taken: 0.48 seconds
+Skipping saving embeddings to disk (save_embeddings=False).
+Graph Embeddings Shape: (732, 16)
+Resolved graph2vec threshold=4.17: 4.17
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\best_models\30\1\cid\th4.17\best_graph2vec_lstm_perstep_213629_cid_w30_s1_th_4.17_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.012394 | Val: 0.007599 | ||z||=3.957 Var(z)=0.0076 | |grad_gcn|=6.91e-03 |grad_lstm|=6.26e-02 ratio=1.10e-01
+Epoch 20/1000 | Train: 0.011247 | Val: 0.006400 | ||z||=3.921 Var(z)=0.0090 | |grad_gcn|=7.52e-03 |grad_lstm|=7.20e-02 ratio=1.04e-01
+Epoch 30/1000 | Train: 0.010813 | Val: 0.006630 | ||z||=3.887 Var(z)=0.0112 | |grad_gcn|=7.25e-03 |grad_lstm|=6.79e-02 ratio=1.07e-01
+Epoch 40/1000 | Train: 0.011410 | Val: 0.007794 | ||z||=3.858 Var(z)=0.0128 | |grad_gcn|=8.90e-03 |grad_lstm|=7.74e-02 ratio=1.15e-01
+Epoch 50/1000 | Train: 0.010178 | Val: 0.007247 | ||z||=3.820 Var(z)=0.0158 | |grad_gcn|=7.39e-03 |grad_lstm|=6.09e-02 ratio=1.21e-01
+Epoch 60/1000 | Train: 0.009687 | Val: 0.006129 | ||z||=3.776 Var(z)=0.0193 | |grad_gcn|=7.38e-03 |grad_lstm|=5.89e-02 ratio=1.25e-01
+Epoch 70/1000 | Train: 0.009092 | Val: 0.007570 | ||z||=3.740 Var(z)=0.0255 | |grad_gcn|=6.85e-03 |grad_lstm|=4.95e-02 ratio=1.38e-01
+Epoch 80/1000 | Train: 0.008164 | Val: 0.006199 | ||z||=3.736 Var(z)=0.0285 | |grad_gcn|=4.29e-03 |grad_lstm|=3.01e-02 ratio=1.43e-01
+Epoch 90/1000 | Train: 0.007775 | Val: 0.005957 | ||z||=3.740 Var(z)=0.0317 | |grad_gcn|=3.94e-03 |grad_lstm|=2.80e-02 ratio=1.40e-01
+Epoch 100/1000 | Train: 0.007466 | Val: 0.006037 | ||z||=3.744 Var(z)=0.0366 | |grad_gcn|=3.94e-03 |grad_lstm|=2.95e-02 ratio=1.34e-01
+Epoch 110/1000 | Train: 0.007166 | Val: 0.006241 | ||z||=3.747 Var(z)=0.0416 | |grad_gcn|=3.58e-03 |grad_lstm|=2.75e-02 ratio=1.30e-01
+Epoch 120/1000 | Train: 0.006998 | Val: 0.006446 | ||z||=3.750 Var(z)=0.0455 | |grad_gcn|=3.65e-03 |grad_lstm|=2.87e-02 ratio=1.27e-01
+Epoch 130/1000 | Train: 0.006822 | Val: 0.006738 | ||z||=3.753 Var(z)=0.0498 | |grad_gcn|=3.75e-03 |grad_lstm|=2.99e-02 ratio=1.25e-01
+Early stopping at epoch 137 (no improvement for 100 epochs).
+Running Inference...
+Finished cid @ 4.17 -> RMSE: 17.219263196779625
+
+
+============================================================
+Running Experiment: variant=graph2vec_mlp, ablate_z=False, metric=cid, threshold=4.17, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Reusing cached graph2vec embeddings for ('cid', 4.17, 30, 1, True, False, 13451285)
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\best_models\30\1\cid\th4.17\best_graph2vec_mlp_perstep_213629_cid_w30_s1_th_4.17_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Epoch 10/1000 | Train: 0.018083 | Val: 0.012659 | ||z||=3.993 Var(z)=0.2829 | |grad_gcn|=6.39e-03 |grad_mlp|=1.50e-01 ratio=4.27e-02
+Epoch 20/1000 | Train: 0.015360 | Val: 0.010935 | ||z||=3.986 Var(z)=0.2842 | |grad_gcn|=4.76e-03 |grad_mlp|=1.11e-01 ratio=4.28e-02
+Epoch 30/1000 | Train: 0.014416 | Val: 0.009061 | ||z||=3.979 Var(z)=0.2797 | |grad_gcn|=4.56e-03 |grad_mlp|=9.71e-02 ratio=4.70e-02
+Epoch 40/1000 | Train: 0.013085 | Val: 0.008255 | ||z||=3.971 Var(z)=0.2748 | |grad_gcn|=3.90e-03 |grad_mlp|=8.89e-02 ratio=4.39e-02
+Epoch 50/1000 | Train: 0.013019 | Val: 0.008042 | ||z||=3.963 Var(z)=0.2750 | |grad_gcn|=4.46e-03 |grad_mlp|=8.96e-02 ratio=4.98e-02
+Epoch 60/1000 | Train: 0.012254 | Val: 0.007367 | ||z||=3.953 Var(z)=0.2752 | |grad_gcn|=4.66e-03 |grad_mlp|=8.36e-02 ratio=5.58e-02
+Epoch 70/1000 | Train: 0.011665 | Val: 0.007112 | ||z||=3.944 Var(z)=0.2717 | |grad_gcn|=4.44e-03 |grad_mlp|=7.95e-02 ratio=5.59e-02
+Epoch 80/1000 | Train: 0.011653 | Val: 0.007121 | ||z||=3.937 Var(z)=0.2715 | |grad_gcn|=4.26e-03 |grad_mlp|=8.26e-02 ratio=5.16e-02
+Epoch 90/1000 | Train: 0.011033 | Val: 0.006714 | ||z||=3.928 Var(z)=0.2718 | |grad_gcn|=3.65e-03 |grad_mlp|=7.17e-02 ratio=5.09e-02
+Epoch 100/1000 | Train: 0.010956 | Val: 0.006993 | ||z||=3.920 Var(z)=0.2706 | |grad_gcn|=3.45e-03 |grad_mlp|=7.00e-02 ratio=4.93e-02
+Epoch 110/1000 | Train: 0.010562 | Val: 0.006884 | ||z||=3.913 Var(z)=0.2688 | |grad_gcn|=3.87e-03 |grad_mlp|=7.28e-02 ratio=5.31e-02
+Epoch 120/1000 | Train: 0.010678 | Val: 0.007204 | ||z||=3.905 Var(z)=0.2661 | |grad_gcn|=4.65e-03 |grad_mlp|=8.45e-02 ratio=5.49e-02
+Epoch 130/1000 | Train: 0.010822 | Val: 0.006445 | ||z||=3.897 Var(z)=0.2689 | |grad_gcn|=4.10e-03 |grad_mlp|=7.51e-02 ratio=5.46e-02
+Epoch 140/1000 | Train: 0.011652 | Val: 0.006534 | ||z||=3.888 Var(z)=0.2641 | |grad_gcn|=4.80e-03 |grad_mlp|=8.53e-02 ratio=5.62e-02
+Epoch 150/1000 | Train: 0.010471 | Val: 0.006538 | ||z||=3.880 Var(z)=0.2645 | |grad_gcn|=3.73e-03 |grad_mlp|=6.85e-02 ratio=5.45e-02
+Epoch 160/1000 | Train: 0.010255 | Val: 0.006216 | ||z||=3.873 Var(z)=0.2593 | |grad_gcn|=3.86e-03 |grad_mlp|=6.90e-02 ratio=5.59e-02
+Epoch 170/1000 | Train: 0.010841 | Val: 0.006277 | ||z||=3.865 Var(z)=0.2593 | |grad_gcn|=4.36e-03 |grad_mlp|=7.14e-02 ratio=6.11e-02
+Epoch 180/1000 | Train: 0.010145 | Val: 0.006941 | ||z||=3.858 Var(z)=0.2575 | |grad_gcn|=4.13e-03 |grad_mlp|=6.57e-02 ratio=6.29e-02
+Epoch 190/1000 | Train: 0.010404 | Val: 0.007037 | ||z||=3.851 Var(z)=0.2556 | |grad_gcn|=4.16e-03 |grad_mlp|=7.15e-02 ratio=5.81e-02
+Epoch 200/1000 | Train: 0.010118 | Val: 0.006705 | ||z||=3.844 Var(z)=0.2553 | |grad_gcn|=4.11e-03 |grad_mlp|=6.64e-02 ratio=6.19e-02
+Epoch 210/1000 | Train: 0.010388 | Val: 0.006818 | ||z||=3.837 Var(z)=0.2574 | |grad_gcn|=4.44e-03 |grad_mlp|=6.98e-02 ratio=6.37e-02
+Epoch 220/1000 | Train: 0.009459 | Val: 0.007129 | ||z||=3.829 Var(z)=0.2527 | |grad_gcn|=3.61e-03 |grad_mlp|=6.51e-02 ratio=5.54e-02
+Epoch 230/1000 | Train: 0.010119 | Val: 0.006324 | ||z||=3.822 Var(z)=0.2549 | |grad_gcn|=4.02e-03 |grad_mlp|=6.83e-02 ratio=5.89e-02
+Epoch 240/1000 | Train: 0.009540 | Val: 0.006893 | ||z||=3.815 Var(z)=0.2538 | |grad_gcn|=3.90e-03 |grad_mlp|=6.20e-02 ratio=6.28e-02
+Epoch 250/1000 | Train: 0.010072 | Val: 0.006344 | ||z||=3.808 Var(z)=0.2502 | |grad_gcn|=3.81e-03 |grad_mlp|=6.48e-02 ratio=5.88e-02
+Epoch 260/1000 | Train: 0.009675 | Val: 0.006646 | ||z||=3.802 Var(z)=0.2486 | |grad_gcn|=3.80e-03 |grad_mlp|=6.68e-02 ratio=5.68e-02
+Epoch 270/1000 | Train: 0.010101 | Val: 0.006788 | ||z||=3.793 Var(z)=0.2527 | |grad_gcn|=4.01e-03 |grad_mlp|=6.99e-02 ratio=5.74e-02
+Epoch 280/1000 | Train: 0.009517 | Val: 0.006566 | ||z||=3.788 Var(z)=0.2477 | |grad_gcn|=3.91e-03 |grad_mlp|=6.55e-02 ratio=5.97e-02
+Epoch 290/1000 | Train: 0.009662 | Val: 0.006701 | ||z||=3.779 Var(z)=0.2474 | |grad_gcn|=4.72e-03 |grad_mlp|=7.41e-02 ratio=6.37e-02
+Epoch 300/1000 | Train: 0.009118 | Val: 0.006546 | ||z||=3.772 Var(z)=0.2445 | |grad_gcn|=4.18e-03 |grad_mlp|=6.26e-02 ratio=6.67e-02
+Early stopping at epoch 303 (no improvement for 100 epochs).
+Running Inference...
+Finished cid @ 4.17 -> RMSE: 17.630879204205726
+
+
+============================================================
+Running Experiment: variant=gcn_lstm, ablate_z=False, metric=cid, threshold=4.17, window_size=30, enable_edges=True, 2nd_degree=False, node_features=catch24_minmaxlast
+============================================================
+Resolved graph threshold=4.17: 4.17
+Node features saved to: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\node_features\node_features_213629_6269_cid_th4.1700_w30_catch24_minmaxlast.csv
+Resolved checkpoint: c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\best_models\30\1\cid\th4.17\best_gcn_lstm_perstep_213629_cid_w30_s1_th_4.17_nfcatch24_minmaxlast_exp13451285.pth
+Training new per-step GCN+LSTM model...
+Traceback (most recent call last):
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\graph2vec_gcn_gat_assmble_parallelized_workers2.py", line 2050, in <module>
+    main()
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\graph2vec_gcn_gat_assmble_parallelized_workers2.py", line 1680, in main
+    model, train_losses, val_losses, best_epoch, train_time = train_fn(
+                                                              ^^^^^^^^^
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\train_methods.py", line 102, in train_gcn_lstm_model
+    outputs = model(pyg_batch, target_idx, ts_batch)   # (B, H, 1)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1776, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1787, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\Andre Silva\Desktop\Dissertation25-26\GNN\DynamicSimilarities\GCN_GAT_Graph2Vec_Assemble_InferenceFix\gcn_models.py", line 138, in forward
+    h = self.conv1(pyg_batch.x, pyg_batch.edge_index, edge_weight=ew)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1776, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1787, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch_geometric\nn\conv\gcn_conv.py", line 260, in forward
+    x = self.lin(x)
+        ^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1776, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1787, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Andre Silva\Desktop\Dissertation25-26\.venv\Lib\site-packages\torch_geometric\nn\dense\linear.py", line 127, in forward
+    return F.linear(x, self.weight, self.bias)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

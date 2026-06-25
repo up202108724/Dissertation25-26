@@ -1,0 +1,6 @@
+variant,mean_epochs_per_product,std_epochs_per_product,avg_s_per_epoch_weighted,avg_s_per_epoch_mean,n_products
+lstm_baseline,146.086,58.1966,0.0415,0.0416,500.0
+mlp_baseline,154.846,91.6139,0.0386,0.0387,500.0
+graph2vec_lstm,137.084,37.5075,0.2839,0.2839,500.0
+graph2vec_mlp,197.32,135.0023,0.2877,0.2878,500.0
+gcn_lstm,125.1429,22.0722,1.0524,1.0497,84.0

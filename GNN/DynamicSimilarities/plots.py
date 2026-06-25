@@ -469,3 +469,144 @@ def plot_networkx_plotly(G, title="Network Graph", save_path=None, target_node=N
         fig.write_html(save_path)
     else:
         fig.show()
+
+
+def plot_threshold_network(matrix, node_labels, threshold, metric_type='similarity', title=None):
+    """
+    Plots an interactive network graph using Plotly and NetworkX.
+    Nodes with 0 connections are hidden from the plot.
+    
+    Args:
+        matrix (np.ndarray): 2D array of similarities or distances (NxN).
+        node_labels (list): List of product IDs or names for the nodes.
+        threshold (float): The cutoff value for creating an edge.
+        metric_type (str): 'similarity' (keep >= threshold) or 'distance' (keep <= threshold).
+        title (str): Custom title for the plot.
+        
+    Returns:
+        fig: A Plotly graph object figure.
+    """
+    if title is None:
+        direction = ">=" if metric_type == 'similarity' else "<="
+        title = f"Product Network ({metric_type.capitalize()} {direction} {threshold})"
+
+    # 1. Initialize the NetworkX Graph
+    G = nx.Graph()
+    
+    # Add nodes
+    for i, label in enumerate(node_labels):
+        G.add_node(i, label=str(label))
+        
+    # 2. Add edges based on the threshold rule
+    rows, cols = matrix.shape
+    for i in range(rows):
+        for j in range(i + 1, cols):  # Upper triangle to avoid duplicate edges
+            val = matrix[i, j]
+            # Ignore self-loops and NaN values
+            if i == j or np.isnan(val):
+                continue
+                
+            if metric_type == 'similarity' and val >= threshold:
+                G.add_edge(i, j, weight=val)
+            elif metric_type == 'distance' and val <= threshold:
+                G.add_edge(i, j, weight=val)
+
+    # ---------------------------------------------------------
+    # 2.5 NEW: Remove isolated nodes (nodes with 0 connections)
+    # ---------------------------------------------------------
+    isolated_nodes = list(nx.isolates(G))
+    G.remove_nodes_from(isolated_nodes)
+
+    # If the graph becomes completely empty, handle gracefully
+    if len(G.nodes()) == 0:
+        print(f"Warning: No connections found for threshold {threshold}. Graph is empty.")
+        # Return an empty figure with a warning title
+        return go.Figure(layout=go.Layout(title=f"No connections found at {direction} {threshold}"))
+
+    # 3. Calculate Layout (Spring layout spaces out highly connected nodes nicely)
+    pos = nx.spring_layout(G, seed=42)
+
+    # 4. Create Plotly Edge Trace
+    edge_x = []
+    edge_y = []
+    
+    for edge in G.edges(data=True):
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+        
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=1.0, color='#888'),
+        hoverinfo='none',
+        mode='lines'
+    )
+
+    # 5. Create Plotly Node Trace
+    node_x = []
+    node_y = []
+    node_text = []
+    
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+        node_text.append(G.nodes[node]['label'])
+
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode='markers+text',
+        text=node_text,
+        textposition="top center",
+        hoverinfo='text',
+        marker=dict(
+            showscale=True,
+            colorscale='YlGnBu',
+            reversescale=True,
+            color=[],
+            size=15,
+            colorbar=dict(
+                thickness=15,
+                title=dict(text='Node Degree', side='right'),
+                xanchor='left'
+            ),
+            line_width=2
+        )
+    )
+
+    # 6. Color nodes by their degree (number of connections)
+    # 6. Color nodes by their degree (number of connections)
+    node_adjacencies = []
+    node_hovertext = []
+    
+    # FIX: Remove enumerate. G.adjacency() yields (node_id, adjacency_dict)
+    for node, adj_dict in G.adjacency():
+        degree = len(adj_dict)
+        node_adjacencies.append(degree)
+        node_hovertext.append(f"Product: {G.nodes[node]['label']}<br>Connections: {degree}")
+
+    node_trace.marker.color = node_adjacencies
+    node_trace.hovertext = node_hovertext
+
+    node_trace.marker.color = node_adjacencies
+    node_trace.hovertext = node_hovertext
+
+    # 7. Assemble the Figure
+    fig = go.Figure(data=[edge_trace, node_trace],
+             layout=go.Layout(
+                title=dict(text=title, font=dict(size=16)),
+                showlegend=False,
+                hovermode='closest',
+                margin=dict(b=20,l=5,r=5,t=40),
+                annotations=[dict(
+                    text=f"Total Nodes (Connected): {len(G.nodes())} | Total Edges: {len(G.edges())} | Hidden Isolated Nodes: {len(isolated_nodes)}",
+                    showarrow=False,
+                    xref="paper", yref="paper",
+                    x=0.005, y=-0.002
+                )],
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+             )
+             
+    return fig
