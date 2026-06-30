@@ -406,10 +406,14 @@ if __name__ == "__main__":
                       .fillna(0))
     print(f"Full dataset: {df_wide.shape[0]} products × {df_wide.shape[1]} time steps")
 
+    N_FOCAL = 60
     print(f"Loading focal products from {DATA_PATH}...")
     df_focal  = pd.read_feather(DATA_PATH)
-    focal_ids = df_focal['item_id'].unique().tolist()
-    print(f"Focal products: {len(focal_ids)}")
+    _focal_totals = (df_focal.groupby('item_id')['value'].sum()
+                              .sort_values(ascending=False))
+    focal_ids = _focal_totals.head(N_FOCAL).index.tolist()
+    print(f"Focal products: {len(focal_ids)} (top {N_FOCAL} by total sales, "
+          f"from {_focal_totals.shape[0]} candidates)")
 
     if USE_TRAIN_VAL_ONLY:
         df_wide = df_wide.iloc[:, :TRAIN_SIZE + VAL_SIZE]

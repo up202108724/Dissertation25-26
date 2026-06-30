@@ -246,12 +246,7 @@ def plot_distribution(all_values, metric, metric_type, window_size,
                    label=f"Threshold ({cutoff:.3f})")
 
     title_suffix = f" | top {top_percentile}%" if top_percentile is not None else ""
-    ax.set_title(
-        f"Focal-vs-Full Pairwise {metric_type.capitalize()} Distribution — {metric}{title_suffix} | "
-        f"window={window_size} d, step={step_size} | "
-        f"{n_focal} focal × {n_full} full | {len(all_values):,} observations",
-        fontsize=11,
-    )
+   
     ax.set_xlabel(f"{metric_type.capitalize()} ({metric})", fontsize=11)
     ax.set_ylabel("Count", fontsize=11)
     ax.legend(fontsize=9)
@@ -377,8 +372,8 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(SCRIPT_DIR, '../..')))
 
     # ---- Configuration ----------------------------------------
-    METRIC          = "cid"   # 'spearman' | 'kendall' | 'cid'
-    METRIC_TYPE     = "distance" # 'similarity' | 'distance'  (cid → 'distance')
+    METRIC          = "spearman"   # 'spearman' | 'kendall' | 'cid'
+    METRIC_TYPE     = "similarity" # 'similarity' | 'distance'  (cid → 'distance')
     WINDOW_SIZE     = 30
     STEP_SIZE       = 1
     TOP_PERCENTILE  = 1            # plot a second chart zoomed into the top N% strongest pairs

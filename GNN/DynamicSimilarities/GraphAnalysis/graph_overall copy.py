@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Make sibling imports work whether run from repo root or this folder
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))  # repo root
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))              # GNN/DynamicSimilarities (utils.py, plots.py)
 sys.path.append(os.path.dirname(__file__))
 
 from sklearn.preprocessing import StandardScaler
@@ -375,11 +376,15 @@ if __name__ == "__main__":
     DATA_PATH = os.path.join(BASE_DIR, '..', '..', '..',
                              'dataset', 'top_12500.feather')
 
-    # Focal products: the 61 items in DATA_PATH
+    # Focal products: top-N by total sales from DATA_PATH (benchmark uses 60)
+    N_FOCAL = 60
     print(f"Loading focal products from {DATA_PATH}...")
     df_focal = pd.read_feather(DATA_PATH)
-    ITEM_IDS = df_focal['item_id'].unique().tolist()
-    print(f"Focal products: {len(ITEM_IDS)}")
+    _focal_totals = (df_focal.groupby('item_id')['value'].sum()
+                              .sort_values(ascending=False))
+    ITEM_IDS = _focal_totals.head(N_FOCAL).index.tolist()
+    print(f"Focal products: {len(ITEM_IDS)} (top {N_FOCAL} by total sales, "
+          f"from {_focal_totals.shape[0]} candidates)")
 
     # Neighbour pool: full dataset (all products serve as candidate neighbours)
     print(f"Loading full neighbour dataset from {FULL_DATA_PATH}...")

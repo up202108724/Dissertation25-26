@@ -28,8 +28,13 @@ DATA_PATH = os.path.join(_HERE, "../../../dataset/data_andre_fulfilled.feather")
 TOP_PATH  = os.path.join(_HERE, "../../../dataset/top_12500.feather")
 
 # ── Load data ──────────────────────────────────────────────────────────────
-top_ids = pd.read_feather(TOP_PATH)["item_id"].unique().tolist()
-print(f"Loaded {len(top_ids)} top_12500 products.")
+N_FOCAL = 60  # benchmark uses the top 60 by total sales (top_12500 holds 61)
+_top_df  = pd.read_feather(TOP_PATH)
+_top_totals = (_top_df.groupby("item_id")["value"].sum()
+                      .sort_values(ascending=False))
+top_ids = _top_totals.head(N_FOCAL).index.tolist()
+print(f"Loaded {len(top_ids)} top_12500 products (top {N_FOCAL} by total sales, "
+      f"from {_top_totals.shape[0]} candidates).")
 
 df_raw         = pd.read_feather(DATA_PATH)
 cat_labels_dict = df_raw.drop_duplicates('item_id').set_index('item_id')['cat_label'].to_dict()

@@ -70,18 +70,30 @@ def run_demsar_framework_by_family(data_input, metric='rmse', alpha=0.05, mode='
         print(f"{'='*60}")
         df = df[df['seed'] == seed_value]
         block_cols = ['product_id']
+        pivot_agg = 'first'
+    elif mode == 'per_product':
+        # Conservative blocking: collapse seeds into one value per product so each
+        # block is a genuinely independent dataset (N = n_products, e.g. 60), in
+        # line with the canonical Demsar framework. This is the robustness check
+        # against the liberal product x seed blocking used by mode='total'.
+        print(f"\n{'='*60}")
+        print(f"--- Running Statistical Evaluation for {metric.upper()} | PER-PRODUCT (mean over seeds) ---")
+        print(f"{'='*60}")
+        block_cols = ['product_id']
+        pivot_agg = 'mean'
     else:
         print(f"\n{'='*60}")
         print(f"--- Running Statistical Evaluation for {metric.upper()} | TOTAL SEEDS ---")
         print(f"{'='*60}")
         block_cols = ['product_id', 'seed']
+        pivot_agg = 'first'
 
     # 3. Pivot the data to get blocks
     pivot_df = df.pivot_table(
-        index=block_cols, 
-        columns='model_variant', 
-        values=metric, 
-        aggfunc='first' 
+        index=block_cols,
+        columns='model_variant',
+        values=metric,
+        aggfunc=pivot_agg
     )
     
     initial_rows = len(pivot_df)
@@ -164,6 +176,10 @@ def plot_cd_diagram(avg_ranks, nemenyi_results, metric='rmse', graph_type='Spear
         plot_title = f"Critical Difference Diagram ({metric.upper()} - {graph_type.capitalize()}{family_tag_title}{ablation_tag_title} - Seed {seed_value})\n"
         save_plot_path = f"cd_diagram_{metric.lower()}_{graph_type.lower()}{family_tag_file}_seed{seed_value}{ablation_tag_file}.pdf"
         print(f"\nGenerating CD Diagram for {graph_type.capitalize()} (Seed {seed_value})...")
+    elif mode == 'per_product':
+        plot_title = f"Critical Difference Diagram ({metric.upper()} - {graph_type.capitalize()}{family_tag_title}{ablation_tag_title} - Per Product)\n"
+        save_plot_path = f"cd_diagram_{metric.lower()}_{graph_type.lower()}{family_tag_file}_perproduct{ablation_tag_file}.pdf"
+        print(f"\nGenerating CD Diagram for {graph_type.capitalize()} (Per Product, mean over seeds)...")
     else:
         plot_title = f"Critical Difference Diagram ({metric.upper()} - {graph_type.capitalize()}{family_tag_title}{ablation_tag_title} - Total Aggregation)\n"
         save_plot_path = f"cd_diagram_{metric.lower()}_{graph_type.lower()}{family_tag_file}_total{ablation_tag_file}.pdf"
