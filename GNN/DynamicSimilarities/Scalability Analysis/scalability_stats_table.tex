@@ -1,0 +1,20 @@
+\begin{table}[ht]
+  \centering
+  \caption{Per-model scalability statistics over $N=500$ products: mean and std of per-product training time, mean per-product inference time, and cumulative totals.}
+  \label{tab:scalability_stats}
+  \small
+  \begin{tabular}{lrrrrrrr}
+    \toprule
+    \textbf{Model variant} & \textbf{Mean build (s)} & \textbf{Mean train (s)} & \textbf{Std train (s)} & \textbf{Mean infer (s)} & \textbf{Cum.\ train (s)} & \textbf{Cum.\ infer (s)} & $N$ \\
+    \midrule
+    lstm\_baseline & \textemdash & 8.20 & 2.89 & 0.170 & 4098 & 85 & 500 \\
+    mlp\_baseline & \textemdash & 12.00 & 6.74 & 0.240 & 6001 & 120 & 500 \\
+    graph2vec\_lstm & 3.04 & 45.16 & 12.84 & 1.272 & 22578 & 636 & 500 \\
+    graph2vec\_mlp & 3.06 & 68.46 & 40.66 & 1.138 & 34229 & 569 & 500 \\
+    gcn\_lstm & 3.00 & 59.91 & 19.05 & 0.487 & 29955 & 244 & 500 \\
+    gcn\_mlp & 3.04 & 89.63 & 66.65 & 0.471 & 44815 & 236 & 500 \\
+    gat\_lstm & 3.16 & 101.83 & 109.03 & 0.671 & 50913 & 336 & 500 \\
+    gat\_mlp & 2.95 & 140.63 & 196.11 & 0.605 & 70313 & 302 & 500 \\
+    \bottomrule
+  \end{tabular}
+\end{table}

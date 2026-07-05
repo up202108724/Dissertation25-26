@@ -1,0 +1,49 @@
+%% abstract.tex: abstract in PT and EN  (FEUP regulations)
+%% -------------------------------------------------------
+
+\chapter*{Abstract}
+%
+Demand forecasting is a foundational task in retail optimization that directly
+influences supply chain coordination, inventory management, and promotional
+strategies. While machine learning models have significantly advanced sequential
+prediction, traditional approaches treat individual products as isolated time
+series or attempt to learn shared behaviors implicitly, discarding explicit
+relational dependencies such as substitution, complementarity, or shared
+promotional impacts. Although Graph Neural Networks (GNNs) have shown notable
+success in physical spatiotemporal domains, such as traffic and energy networks,
+their application in retail remains severely limited owing to the latent, volatile,
+and the time-varying nature of product-to-product relationships. To bridge this gap,
+this dissertation presents a comprehensive spatiotemporal framework spanning two
+integration paradigms: a decoupled, loss-independent embedding pipeline and an
+integrated, end-to-end spatiotemporal architecture. In both, the product networks
+are constructed identically through target-centric topologies over rolling
+historical windows using data-driven, \emph{loss-independent} statistical
+similarity and distance criteria, namely Spearman's correlation and
+Complexity-Invariant Distance (CID). The two paradigms differ in how relational
+features are then extracted: the decoupled strategy uses Graph2Vec to learn graph
+embeddings without any access to the forecasting objective, whereas the end-to-end
+strategy uses inductive Graph Convolutional Networks (GCN) and Graph Attention
+Networks (GAT) whose parameters are optimized \emph{jointly} with the forecasting
+loss. The resulting context vectors are fused with temporal inputs and evaluated
+through recursive multi-step forecasting heads, including Long Short-Term Memory
+(LSTM) networks and Time-Distributed Multilayer Perceptrons (MLP). The empirical
+pipeline was evaluated on an operational retail dataset partitioned into
+chronological training, validation, and holdout segments. Product prioritization is
+guided by the ADI-$CV^2$ demand-pattern framework, which curates a high-signal
+benchmark subset of 60 top-selling smooth and erratic items from a 1,427-product
+catalog. The framework was validated using non-parametric statistical criteria
+alongside point-forecasting metrics, namely MAE and POCID. The results reveal a
+clear magnitude--direction trade-off: relational augmentation does not improve, and
+can slightly degrade, absolute error (MAE), where univariate baselines and the
+loss-independent Graph2Vec embeddings remain strongest, but it significantly and
+robustly improves directional accuracy (POCID), with end-to-end attention-based GAT
+hybrids best at anticipating synchronized demand movements. The work thus
+establishes loss-independent graph-\emph{construction} guidelines and characterizes
+when relational intelligence is, and is not, beneficial for local retail
+forecasting.
+
+Keywords: Retail Demand Forecasting, Graph Neural Networks, Spatiotemporal
+Modeling, Dynamic Graph Embedding, Inductive Representation Learning.
+
+
+\acresetall %% to reset the acronym usage

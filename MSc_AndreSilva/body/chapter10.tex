@@ -1,0 +1,108 @@
+\chapter{Conclusions}
+
+\section{Final Remarks}
+
+This dissertation focuses on how to utilize relational and predictive dependencies within retail demand forecasting. It was written in collaboration with an innovation team at the Retail Consult. The main problem is to move away from purely univariate forecasting models and represent the complex, structural, and often hidden relationships between items in dynamic catalogs. The second aim is to build stable relational representations of retail data and to be able to use them again in forecasting over time.
+
+To evaluate these two integration strategies, we employed the Graph2Vec-embedding-pipeline and the end-to-end inductive encoder GCNs and GATs, together with autoregressive baseline models such as LSTMs and MLPs. In our experimental setup, we tested these methods over 60 "Smooth" and "Erratic" retail products using 10 different random seeds and eight different forecasting models to guarantee the statistical reliability of the results.
+
+% --- SLR paragraph: unchanged ---
+
+The systematic literature review (SLR) analyzed existing approaches for multivariate time-series forecasting that model relational structures and inter-variable dependencies as latent structures and examined those based on graph-based representation learning. We searched major online libraries, such as ACM Digital Library, IEEE Xplore, and Scopus, with query strings tailored towards graph-based structure learning, time-series representation learning, and the application of graph-based structure learning to retail demand forecasting. According to the PRISMA methodology, after identifying 647 publications from the initial search terms, we synthesized 20 relevant studies through a structured identification, selection, and eligibility process. The major findings include a paradigm shift from predefined static graph structures to dynamically generated learned structures for modeling non-stationarity in retail environments. Additionally, the review identified a significant scalability bottleneck in end-to-end learned-graph architectures owing to the joint optimization of graph structure and forecasting loss, which can become prohibitively expensive when applied to large-scale product catalogs. Therefore, this review emphasizes the need for modular loss-independent pipelines that apply strong statistical heuristics and inductive graph encoders to retain predictive robustness and operational tractability.
+
+The results of this dissertation clearly address all the essential limitations of current state-of-the-art studies. Because retail catalogs have no defined or even implicit physical topology and are generally much larger than previous benchmark datasets ($N \approx 10^4$ SKUs), most traditional dense causal estimators (for example, TGN) and end-to-end learned graph architectures (for example, MTGNN, AGCRN, STAD-GCN) create significant scalability barriers to being used as effective relational adaptive frameworks. To develop both relational adaption and computational tractability simultaneously, each variant in this dissertation uses a common \emph{loss-independent graph-construction} phase. Unlike the previously stated lock-step and elastic distance metrics, which will always favor low-complexity ``hubs'', this stage employs strong statistical heuristics: Complexity-Invariant Distance (CID) to reduce temporal irregularities and identify true structural similarities between product SKUs that have significantly different sales volumes, and Spearman correlation for monotonic co-move. In addition to this common construction stage, this study examines two encoding paradigms: a decoupled loss-independent embedding (Graph2Vec) that is trained without any knowledge of the forecasting objective, and end-to-end inductive encoders (GCN and GAT) that learn both their own parameter values and the parameters associated with the forecasting objective. Because continuous promotions and seasonal changes quickly render static transductive embeddings (DeepWalk) obsolete, both paradigms employ snapshot-based sliding window techniques combined with inductive encoders capable of generalizing to new unseen graph topologies during inference without requiring full retraining from scratch. Together, these provide a scalable framework that offers structural awareness of real-world retail environments.
+
+
+Based on the work performed, the answers to the research questions are as follows:
+
+\textbf{RQ1: How can graph-based representations of retail data be constructed to
+generate high-quality node embeddings that capture latent relational and
+predictive dependencies between products, and how can they be effectively reused
+by temporal forecasting models?} \\
+To construct effective relational representations without an explicit physical
+structure, this study utilized a dynamic, data-driven approach based on sliding
+30-day historical windows. Graphs were generated using loss-independent
+statistical criteria---Spearman's rank correlation to capture monotonic
+co-movement and Complexity-Invariant Distance (CID) to group products by
+structural shape, and volatility. The resulting topologies were target-centric
+ego-graphs, where node features were represented using a 27-dimensional vector
+combining catch24 temporal shape statistics with explicit scale anchors (min, max,
+and the last observed values). For reuse by temporal models, the framework contrasted
+two paradigms. The embedding-decoupled strategy used Graph2Vec to produce static,
+macro-level structural vector. The end-to-end strategy used inductive graph
+encoders, GCN and GAT, which dynamically mapped local product neighborhoods into a
+stable latent space using shared parameters. These embeddings were injected into
+the autoregressive input sequences of the temporal forecasters at every step of
+the recursive rollout, with the graph rebuilt at each step from the model's own
+predictions to maintain strict causality.
+
+\textbf{RQ2: How do different strategies for integrating graph-derived embeddings
+with temporal forecasting models (such as LSTM or MLP) affect absolute forecasting
+accuracy and directional trend prediction in retail demand forecasting?} \\
+The integration of graph-derived embeddings yielded a stark dichotomy between
+absolute magnitude forecasting and directional trend prediction, consistent across
+both LSTM and MLP backbones. For absolute accuracy (MAE), the univariate baselines
+and the macro-level Graph2Vec embeddings significantly outperformed the localized
+routing hybrids: under the MSE training objective, node-level spatial aggregation
+acted as disruptive noise, causing a quantifiable degradation in magnitude
+accuracy. Conversely, for directional accuracy (POCID), the hierarchy is reversed.
+The localized graph-augmented architectures, particularly the attention-weighted
+GAT variants, significantly outperformed the baselines, a result that persisted
+under conservative per-product statistical aggregation. This demonstrates that
+while dynamic graph augmentation introduces variance that harms absolute error, it
+captures synchronized market movements and structural inflection points that purely
+univariate models fail to anticipate.
+
+\textbf{RQ3: How scalable are graph-embedding-based forecasting pipelines when
+applied to retail datasets subject to exogenous variables, seasonal effects,
+calendar-driven variability, and frequent product catalog changes?} \\
+The scalability analysis showed that the per-product processing cost grows linearly; however, the computational bottlenecks differ substantially depending on the architecture. During
+training, the graph-free baselines were the most efficient, whereas the GAT
+variants were roughly an order of magnitude more expensive owing to the attention
+mechanism; graph construction itself was negligible. Recursive
+multi-step inference, however, revealed a cost inversion: because the unobserved
+future is progressively replaced by the model's own predictions, the graph must be
+rebuilt at each forecast step. Here the decoupled Graph2Vec approach became the
+most expensive, requiring full Weisfeiler--Lehman relabelling and a Doc2Vec
+inference pass at each step, whereas the GCN and GAT models required only a single
+forward pass. While viable at a localized scale, the sequential processing of
+target-centric ego-graphs indicates that transitioning to global or semi-global
+spatio-temporal architectures, sharing parameters across the entire assortment, is
+necessary for optimal scaling of massive catalogs.
+
+% --- CORRECTED hypothesis-evaluation paragraph ---
+Returning to the core hypothesis of Section~\ref{subsec:core_hypothesis}---that
+relational information improves local forecasting---the evidence supports a
+qualified, two-sided conclusion, rather than a uniform gain. On the \emph{magnitude}
+axis (MAE), the hypothesis is \emph{not} supported: univariate baselines and the
+macro-level Graph2Vec embedding remain at least as accurate as, and frequently
+better than localized GCN/GAT hybrids. On the \emph{directional} axis (POCID),
+the hypothesis \emph{is} supported: localized graph-augmented models, and the
+attention-weighted GAT variants in particular, significantly and robustly
+outperforms the baselines. The central contribution of this work is therefore the
+explicit characterization of this magnitude--direction trade-off: dynamic,
+loss-independent relational structure is most valuable not for shrinking absolute
+error on smooth and erratic series, but for anticipating the direction of
+synchronized demand movements that purely local models miss.
+
+% --- NEW: Limitations paragraph ---
+Several limitations delimit the scope of these conclusions in this study. The evaluation was
+restricted to a single operational dataset and to smooth and erratic demand
+patterns; the results should not be extrapolated to intermittent or lumpy series.
+All models were trained under an MSE objective but assessed primarily on MAE and
+POCID, so the magnitude-axis findings should be read with that
+objective--metric mismatch in mind. Finally, the graph-augmented models were
+benchmarked against strong univariate baselines rather than head-to-head against
+the end-to-end learned graph architectures surveyed in the state of the art;
+a direct comparison is left to future work.
+\section{Future Work}
+
+Although the research questions have been addressed and the core framework validated, the target-centric formulation introduces relevant scalability challenges that must be explored in future studies. Insights gathered from the experimental phase suggest key areas for enhancing computational efficiency, improving model robustness over long horizons, and adapting to broader retail environments in the future.
+
+A critical area of focus is the transition from local to global architectures. Currently, the framework requires the construction of a neighborhood graph and independent training of models for individual products, which becomes computationally expensive as the catalog grows. The lock-step inference procedure requires graph updates and forecasts to be coordinated synchronously across products over the prediction horizon (computed from a snapshot at step $i$ and updated before step $i+1$). Adopting global or semi-global architectures that share parameters across the assortment allows forecasts for multiple products to be produced in a single forward pass. Additionally, employing pre-computed candidate neighborhoods, approximate nearest-neighbor searches, or restricting graph construction to specific demand classes would drastically reduce computational redundancy.
+
+Another fundamental direction is the systematic comparison of alternative graph update strategies. Dynamic graph updates introduce a trade-off between adaptability and stability of the model. When the predicted values are used to update the graph recursively, errors can propagate through both the time series and relational structures. Future studies should compare static graphs (computed only from the training period), rolling graphs (updated with recent actual observations), and predicted dynamic graphs to determine the sensitivity of each construction method to forecast noise.
+
+Mitigating error accumulation during recursive multi-step forecasting is equally essential. Exploring direct multi-step forecasting, hybrid direct-recursive strategies, scheduled sampling, and uncertainty-aware graph construction could significantly reduce the dependency on prior point forecasts. In parallel, a deeper investigation into the error evolution between the MLP and LSTM heads across the horizon is needed to determine whether the recurrent memory effectively limits long-term degradation compared to the more conservative, average-oriented MLP predictions.
+
+Finally, addressing the cold-start problem and expanding it to heterogeneous networks will significantly improve the versatility of the framework. Retail catalogs are highly dynamic; therefore, inductive graph learning techniques should be used to embed new SKUs based on metadata (category, brand, and price range) before the demand history is established. Furthermore, extending the current homogeneous item-to-item graphs to heterogeneous retail graphs—explicitly mapping relationships between stores, promotions, suppliers, and calendar events—would capture a much broader set of demand drivers, aligning the model even closer to the complexities of real-world retail.

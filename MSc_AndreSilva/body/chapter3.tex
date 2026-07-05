@@ -1,0 +1,344 @@
+\chapter{State of the Art}
+
+Graph-based modeling has become increasingly popular for developing time-series forecasting solutions that can represent the relationship between multiple entity types evolving together in real time (e.g., traffic, energy, financial markets, and recommender systems) \cite{jin2024survey,li2018dcrnn,yu2018stgcn}. The predictive model leverages the structural information provided by the relational structure of the data to provide an additional source of inductive bias. The relational structure describes the relationships between each variable type, whereas the temporal component of the predictive model describes how these relationships develop over time. There are significant differences throughout the literature in terms of obtaining the relational structure (construct versus learn), extracting relevant representations from it (adjacency matrices, node embedding, message passing features), and how tightly the relational structure is linked to the objectives of the forecasting task \cite{jin2024survey,wu2019graphwavenetdeepspatialtemporal,wu2020connectingdotsmultivariatetime}. Each of these factors will greatly affect whether the resultant representations can be reused across multiple predictive models and tasks, scaled up to include a large number of variable types, and robust to changes in the non-stationarity of the relationships. All three are key areas of focus in this study.
+
+For the remainder of this chapter, the term "graph" refers to a "predictive dependency or similarity structure" used to aid in forecasting; causal graphs are discussed separately and require more stringent assumptions than those required to create a predictive dependency or similarity structure. Additionally, similar to other forms of networked data (e.g., road maps), the dependency structure of items sold by a retailer is generally hidden, dynamic, subject to external influences (e.g., promotions and seasonal variations), and exists hierarchically (e.g., SKU-category-department) and/or with regard to multiple item types (e.g., SKU-store).
+
+\section{ADI--\texorpdfstring{$CV^2$}{CV	extasciicircum 2} Demand-Pattern Classification}
+\label{subsec:adi_cv2_classification_ch2}
+
+The \ac{ADI}--$CV^2$ framework characterizes each demand series using two summary measures: \ac{ADI} and the squared \ac{CV} of nonzero demand sizes, $CV^2$. \ac{ADI} captures the degree of intermittence, whereas $CV^2$ captures the variability of positive demand magnitudes.
+
+Let $y_{i,t}$ denote the demand for product $i$ at time $t$, observed over a time horizon of length $T_i$. The number of periods with strictly positive demand is given by
+
+\begin{equation}
+    N_i^{+} = \sum_{t=1}^{T_i} \mathbb{I}(y_{i,t} > 0),
+    \label{eq:n_positive_demand_ch2}
+\end{equation}
+
+where $\mathbb{I}(\cdot)$ denotes the indicator function. The Average Demand Interval is defined as
+
+\begin{equation}
+    ADI_i = \frac{T_i}{N_i^{+}}.
+    \label{eq:adi_ch2}
+\end{equation}
+
+Values of $ADI_i$ close to one indicate that demand occurs in most observed periods, whereas larger values indicate increasingly intermittent demands.
+
+To measure the demand-size variability, the coefficient of variation is computed using only non-zero demand observations. Let $y_i^{+}$ denote the set of strictly positive demand values for product $i$. The coefficient of variation is defined as
+
+\begin{equation}
+    CV_i = \frac{\sigma(y_i^{+})}{\mu(y_i^{+})},
+    \label{eq:cv_ch2}
+\end{equation}
+
+where $\mu(y_i^{+})$ and $\sigma(y_i^{+})$ denote the mean and standard deviation of the nonzero demand values, respectively. The classification uses $CV_i^2$ rather than $CV_i$ directly.
+
+Syntetos et al. developed demand pattern region boundaries for selecting appropriate forecasting models by comparing the theoretical Mean Squared Errors of various forecasting model types. They examined an exponentially Weighted Moving Average Model (EWMA), Croston’s Model and the Syntetos—Boylan Approximation (SBA) and they found that stable threshold values exist at
+
+\begin{equation}
+    ADI^* \approx 1.32,
+    \qquad
+    (CV^2)^* \approx 0.49.
+    \label{eq:adi_cv2_cutoffs_ch2}
+\end{equation}
+
+These thresholds partition the $(ADI, CV^2)$ plane into four demand-pattern regions. A low ADI indicates frequent demand occurrence, whereas a high ADI indicates intermittent demand. Similarly, a low $CV^2$ indicates relatively stable positive demand sizes, whereas a high $CV^2$ indicates strong variability in the quantities sold when demand occurs.
+
+\begin{table}[h]
+\centering
+\caption{ADI--$CV^2$ demand-pattern regions.}
+\label{tab:adi-cv2-regions}
+\begin{tabular}{llll}
+\toprule
+\textbf{Category} & \textbf{ADI} & \textbf{$CV^2$} & \textbf{Interpretation} \\
+\midrule
+Smooth 
+& $ADI \le 1.32$ 
+& $CV^2 \le 0.49$ 
+& Frequent demand with low non-zero size variability \\
+
+Erratic 
+& $ADI \le 1.32$ 
+& $CV^2 > 0.49$ 
+& Frequent demand with high non-zero size variability \\
+
+Intermittent 
+& $ADI > 1.32$ 
+& $CV^2 \le 0.49$ 
+& Infrequent demand with relatively stable non-zero sizes \\
+
+Lumpy 
+& $ADI > 1.32$ 
+& $CV^2 > 0.49$ 
+& Infrequent demand with highly variable non-zero sizes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The smooth product category represents those with low intermittence and variability. The characteristics of a smooth product include regular sale frequencies and consistent demand magnitudes, resulting in clear and unbroken time-series data. Owing to the nature of the smooth product time-series, it is well-suited for use in this research's initial evaluation benchmark that seeks to determine if the models developed in this research can accurately identify and quantify relationships and trends within the historical demand data.
+
+Erratic products, while having an equivalent number of sales as smooth products (i.e., regular), result in varying levels of demand during each sale period. This results in greater difficulty in developing accurate forecasts owing to erratic variations in sales magnitudes. Erratic demand patterns can result from numerous factors, including promotional activities, price changes, stock-out conditions, and other events that impact demand in the short term.
+
+Intermittent products exhibit fewer instances of demand than smooth or erratic products. However, each demand instance has a similar magnitude. Therefore, the primary challenge with intermittent products is determining when demand will occur. In addition, because intermittent products represent sparse datasets, there is often a limited opportunity to analyze errors, especially if large portions of the dataset contain no demand.
+
+As previously discussed, lumpy products exhibit both high intermittence and variability. Thus, they produce the most irregular time-series data possible because of their unpredictable demand occurrence and magnitude. While lumpy products were selected for analysis subsequent to the initial benchmark subsets examined in this dissertation, they are amenable to additional analysis using robust methodologies.
+
+In summary, the application of the ADI -- $CV^2$ methodology allows for simple and meaningful ways to differentiate among product categories based on their respective demand frequency and variability characteristics. Moreover, unlike previous methods that utilized classifications as simply descriptive quadrants, the Syntetos et al. formulation provides a theoretically based motivation for the classification, thereby allowing researchers to select appropriate methodologies based on the product's inherent characteristics.
+
+\subsection{Two-Fold Forecasting for Irregular Demand: Occurrence \texorpdfstring{$\rightarrow$}{->} Size}
+\label{sec:two-fold-approach-rozanec}
+
+\label{sec:two-fold-approach-rozanec}
+
+\cite{reframingdemandforecastingtwofold} defined unsteady or unpredictable and irregularly-shaped demand as a specific \emph{compound} type of forecasting issue. This problem arises from a unique process that generates events. This creates several zero values. The author of this study developed a \emph{decomposition} into \emph{two parts}, where (i) \textbf{the occurrence of demand} is represented as a \emph{classification} problem and (ii) the \emph{size of non-zero demand} is represented as a \emph{regression} problem. These two problems are solved separately, but the size estimates are then combined (\emph{gated}) based on the estimated probability of occurrence.
+
+The authors also proposed a model-oriented structure that differentiates between \textbf{\textit{R}} (recurring occurrence; regression only) and \textbf{\textit{C+R}} (unusual occurrence; classifier + regressor). They noted that while the use of \textbf{ADI} thresholds has been shown to provide a useful reference point, $CV$-based sub-type categorization is less important when utilizing \emph{global} occurrence models. Global occurrence models have been trained on many datasets. Such models help reduce sparsity. The authors reported improved classification results with their global occurrence learning approach (CatBoost), particularly when dealing with lumpy demand. The authors also found that the classification performance was generally insensitive to time horizons. Therefore, the occurrence dynamics appear to vary slowly over time.
+
+The authors' two-part framework provides motivation for evaluating each part of the \emph{pipeline} individually. The authors recommended examining the diagnosis of the pipeline using three types of metrics: occurrence (AUC-ROC), accuracy of size (MASE variants), and operational impact (SPEC). The authors empirically showed that the compound forecasting approach can outperform other alternative approaches (e.g., ADIDA) using a dataset for automotive applications.
+
+
+
+
+    
+
+
+\section{Graph Construction For Retail Demand Forecasting} 
+\label{sec:sota-graph-construction}
+
+The domain of retail demand forecasting has several key differences compared to other applications with obvious physical relational structures, such as traffic forecasting. The primary difference is that in retail demand forecasting, the relationship among products is usually indirect or latent and is confounded by the same common factors (i.e., seasonality and mass promotions). These relationships may vary over time. Transactional basket information is unavailable within the dataset for this dissertation; therefore, it is impossible to create an explicit co-purchase graph. Therefore, relational prior knowledge must be obtained using \textbf{loss-independent} data signals. This can include product metadata, hierarchy taxonomy labels, similarity in sales trajectory (controlling for seasonal/promotional variables), and co-promotion exposure.
+
+This section aligns with the \textbf{loss-independent} architecture paradigm and describes methods for building graphs that are \emph{disconnected} from the downstream forecasting loss. The first class of heuristic graphs is reviewed. Heuristics are designed to represent simple and interpretable relationships (taxonomy, correlation, promotion co-exposure, and co-activation proxy). The next subsection describes three theoretically based correlation graph generators. Correlation graph generators provide additional robustness and sparsity when dealing with high dimensionality: Information Filtering Networks (filtering under topology constraints), Graphical Lasso (sparse precision matrix estimation), and Covariance Shrinkage (deterministic/denoising conditioning). A final summary of candidate edge sparsification (post-processing - Top-K/kNN) is also provided. Candidate edge sparsification provides a method for reducing the computational cost associated with evaluating dense pairwise scoring functions on a large retailer scale.
+
+\subsection{Heuristic Graph Construction Methods}
+\label{sec:heuristic_graphs}
+
+
+
+
+Early graph-based approaches to time-series modeling rely on heuristic graph construction methods, in which relational structures are defined using domain knowledge or simple statistics computed from the data. This approach defines relational structures in terms of domain knowledge or simple statistics derived from the data. In these settings, the nodes represent entities such as sensors, regions, or products are represented as nodes, and edges are established based on predefined similarities or interaction criteria.  The edges between them are created according to predefined similarity or relationship rules. Heuristic graph construction methods are appealing because of their simplicity, interpretability, and low computational cost. We will focus on graphs whose nodes represent SKUs (one node per item\_id), resulting in a global SKU-SKU relational prior that can be reused for each store. If the available data represent panel-store-item, it is possible to calculate the SKU dependency scores at both aggregated (i.e., summation across all stores) and store levels by computing the average of the respective scores.
+
+Correlation-based graphs are one of the most well-known classes of heuristic graphs. Correlation-based graphs define edges by calculating statistical dependency measures, such as the Pearson or Spearman correlation coefficient of two time series. They have been extensively utilized in many fields, such as energy consumption forecasting, traffic modeling, and industrial monitoring, based on the assumption that highly dependent time series tend to exhibit relevant interactions. Thresholded correlation graphs, k-nearest neighbors (kNN) correlation graphs, and correlation measures that consider lags are some examples of variations. Industrial forecasting frameworks may combine a physical graph with an additional behavioral similarity graph, which can be built from entity time series. An example of how this idea can be transferred to other contexts is shown by RCCNet \cite{10.1145/3690649}, where a road network provides a spatial context. However, it also constructs a courier-courier graph through past time-series similarity.
+
+Analogous to the use of correlations in the industry, an SKU-SKU similarity graph is commonly used in retail. There is no direct equivalent to the route-based physical structure in retail; therefore, the latter is not expected to exist. Because retail time-series are typically sparse and zero-inflated (because of intermittent demand or temporary product unavailability), robust versions of correlation-based similarity graphs may utilize robust variants that complement the correlation on raw counts with similarity computed on transformed time-series and/or binary activity indicators.  The second popular heuristic is to build co-occurrence or co-purchase graphs. Co-purchase graphs cannot be built directly because transaction baskets are not provided (they contain only daily store × item unit sales); however, they can be approximated via co-sale/co-activation proxies (e.g., the Jaccard similarity of non-zero sales indicators).
+
+\subsubsection{Distance-Based Structural Similarity}
+Whereas correlation-based heuristics ($\rho$ ) identify synchronous linear co-movements, they fail when relationship patterns appear as delayed or structural similarity patterns. Pipelines can construct graphs using time-series distance metrics to create edge weight adjacency matrices. The distance metrics used can be broadly categorized into \emph{ lock-step }and \emph{ elastic } measures \cite{esling2012time}. Lock-step metrics, such as the traditional Euclidean or Lorentzian distance measure, compare points in the time series based on a rigid lock-step comparison of points at the same timestamp. Although they require low computational resources, they are highly susceptible to noise, phase shifts, and localized temporal distortion.
+
+The rigidity of lock-step metrics has been addressed with \emph{elastic distance metrics}, which permit non-linear alignments over time. DTW iteratively finds an optimal alignment path that minimizes the cumulative distance in the presence of temporal warping or phase lag. Error-tolerant variants of elastic distance metrics have been developed to address challenges in noisy and irregular data spaces. Examples include LCSS and EDR \cite{chen2005robust} where outliers are treated as gaps in a penalty function; MSM \cite{stefan2013msm}; and SBD \cite{paparrizos2015kshape} which normalizes coefficient values over all possible time shifts to ensure phase invariance.
+
+Although each of the above-mentioned methods provides some form of tracking capability, one of the most significant obstacles to the use of raw distance metrics to construct heuristically determined graphs is their general inability to provide robustness against geometric changes to time series. A key principle in designing a good distance estimator is that it should be invariant under several forms of transformation. Ideally, a good distance estimator should be \emph{Invariant Against Amplitude Offset} (i.e., recognize the same pattern regardless of how much it has shifted vertically due to changes in base demands); \emph{Consistent With Slope} (i.e., able to determine whether two patterns represent scaled versions of the same underlying pattern); and \emph{Invariant Against Phase} (i.e., be able to detect delays between patterns, but not treat those delays as dissimilarities).
+
+\subsubsection{Complexity-Invariant Distance (CID)}
+Keyly, lock-step metrics and elastic ones suffer from a systemic bias toward complexity: conventional distance measures tend to overestimate the similarity, that is, underestimate the distance, between low-complexity series (such as flat and smooth demand patterns) and high-complexity series (such as highly fluctuating and volatile demand patterns). They falsely draw edges towards inactive nodes.
+
+To resolve these discrepancies, the Complexity-Invariant Distance (CID) \cite{batista_cid_2014} introduces an adjustment factor in the form of a weighting of some base distance measure (usually Euclidean), where the weighting depends on the ratio of the "structural complexity" of the two paired series. The complexity of a time-series \( x \) is determined using its first derivative (temporal derivative). This first derivative maps the total path length of the time-series as follows:
+\begin{equation}
+    CE(x) = \sqrt{\sum_{i=1}^{n-1} (x_{i+1} - x_i)^2},
+\end{equation}
+which is then combined with the base metric to yield the invariant distance formulation:
+\begin{equation}
+    \text{CID}(x, y) = \text{Dist}(x, y) \times \frac{\max(CE(x), CE(y))}{\min(CE(x), CE(y))}.
+\end{equation}
+CID can detect the actual similarity structure of the data by using mathematical penalties that are placed on the distance (or difference) in complexity that exists between two series. Using such a method, CID will also prevent smooth, flat, low-variability demand time series from being artificially selected as the "hub" nodes within the topology generated. The ability to identify true structural similarities is especially important when there is a large degree of variation in the product offerings contained in a retail company's product catalog. For example, a retail company may have thousands of products that range from products that are very similar in terms of their demand patterns (smooth, high volume) to those that are totally different (zero inflated, erratic). By providing CID with the ability to find structural similarities regardless of the varying degrees of complexity, CID will provide a mathematically stable base upon which loss-independent topologies can be created. This capacity to discover structural, shape-based graphs under highly mismatched complexity scales serves as the foundational justification for the multi-topological graph variants evaluated in Chapter \ref{Graph Constructoin}.
+\subsection{Information-Theoretic, Causal, and Regularized Estimators}
+\label{subsec:info_causal_regularized_estimators}
+
+Beyond correlation and distance-based heuristics, loss-independent dependency estimators can be used to derive graphs that capture directed, nonlinear and conditional dependencies. These methods operate on pairs of series, typically after preprocessing to reduce shared seasonality and promotion confounding, to yield weighted adjacency matrices. The literature offers several advanced estimators to achieve this, although often at a significant computational cost.
+
+\subsubsection{Information-Theoretic and Causal Graphs}
+\label{subsubsec:info_causal_graphs}
+
+Methods for estimating relationships among variables, such as Granger Causality (GC), Transfer Entropy (TE), and Mutual Information (MI), are used to build directed graph representations of how information flows through time between different variable values. Likewise, Maximum Likelihood Estimation (MLE/MLR) is used to estimate a matrix describing how variables couple together from a generative model. Although the above-mentioned methods can expand the relational prior space that includes both nonlinear and asymmetrical relations, it would be computationally infeasible to perform pairwise relationship estimates at a "retail" level, that is, when  $N \approx 10^4$ \acp{SKU}. Consequently, most feasible implementations must use small moving window sizes, reduce dimensionality using lower-order embedding techniques, or limit the number of edges in each candidate.
+
+\subsubsection{Precision Matrix and Shrinkage Estimators}
+\label{subsubsec:precision_shrinkage}
+
+Instead of arbitrary thresholds, Graphical Lasso (GLASSO) \cite{friedman2008glasso} identifies conditional dependency among products by estimating a sparse precision matrix (the inverse of the covariance). As such, this method allows researchers to isolate those product-to-product relationships that occur directly due to one another's behavior versus those occurring due to other factors in addition to their relationship with each other. 
+Covariance Shrinkage is an alternative technique that provides additional stabilization to empirical covariance estimators by shrinking empirical estimates toward a structured target. However, these techniques are computationally intensive owing to the iterative optimization process. Therefore, they can be expensive for very large SKU graphs.
+
+\subsubsection{Information Filtering Networks (IFNs)}
+\label{subsubsec:ifns}
+
+IFNs extract sparse, interpretable dependency structures from dense correlation matrices using explicit topological constraints, rather than simple thresholds. Methods such as the Planar Maximally Filtered Graph (PMFG)\cite{tumminello2005pmfg} or Triangulated Maximally Filtered Graph (TMFG)\cite{massara2016tmfg} filter edges to retain the most informative relations while enforcing planarity or chordal structures.
+
+While these advanced estimators (Causal, GLASSO, IFNs) provide robust theoretical properties and improve stability, their computational overhead often conflicts with the need for frequent graph regeneration in non-stationary retail environments. Consequently, practical retail-scale pipelines frequently rely on simple heuristics paired with aggressive sparsification to achieve tractability in the pipeline.
+
+\subsection{Sparsification and Candidate-Edge Selection (Top-$K$/$k$NN)}
+\label{subsec:sparsification_topk_knn}
+
+One problem when using methods that generate large, dense, pairwise score matrices (for example, correlations, covariances, and similarities of embeddings) at the level of a real-world retail application (in other words, $N \approx 10^4$ \acp{SKU}) is that these can be too expensive to both store and use downstream (i.e., for the purpose of neighbor aggregation or message-passing). One common approach to this problem is candidate edge sparsification, in which each node in the network retains no more than $K$ nodes as its immediate neighbors \cite{wu2019graphwavenetdeepspatialtemporal, wu2020connectingdotsmultivariatetime}. The resulting $\mathcal{O}(NK)$-size sparse graph allows users to explicitly control their memory usage and the computational cost.
+
+Top-$K$ selection of entities via their similarity to each other within some kind of vector representation or feature space is a well-known technique that can be complemented by the normalized weighting of neighboring items. An example application of this type of pattern in the knowledge-driven pipeline environment is as follows: after computing the cosine similarity of an entity's embedding to all other embeddings in the graph, then selecting its $K$-most similar neighbors (where K is a small number), and finally aggregating the feature vectors from those neighbors using a weighted average where the weights are determined via a softmax function over the normalization factors. The same logic applies in a typical retail environment once products have been embedded (i.e., taxonomic embeddings, attribute embeddings, etc.); similarities induce a sparsity to the neighborhood of an item, while the degree of influence that a given neighbor has on an item's aggregated feature vector is controlled by how it is weighted in the aggregation process relative to the other neighbors.
+
+Building upon these approaches is the approach to generate an explicit k-Nearest Neighbor (kNN) candidate graph and treat K as a quality/sparsity knob. STEP/TSFormer generates an explicit kNN graph with learned time series representations and states that K represents a trade-off in terms of completeness vs. Redundancy; i.e., a smaller value for K may overlook important connections while larger values may produce too many edges (some of which may be irrelevant/noisy), which will ultimately reduce the effectiveness of the GNN Aggregation \cite{10.1145/3534678.3539396}. As such, when considering very large collections of data, it would make sense to consider Top-K Sparsification as a first-class operation and provide dependency discovery and subsequent GNN Layers that are computationally feasible.
+
+
+
+
+\section{Graph Embedding Generation}
+\label{sec:graph_embedding_generation}
+
+Graph embeddings are representations (in lower dimensions) of the nodes of a graph using vectors that capture structural (how connected), relational (the connections themselves), and semantic properties (what it means). Because these methods do not generate a model that performs a specific forecast, they are intended as general-purpose or 'task-agnostic' methods and may be used in multiple applications.
+Unless stated otherwise, the term \emph{graph-based embeddings} is used to denote \emph{node-level embeddings} learned from a graph (one vector per entity) rather than a single graph-level representation.
+
+
+
+\subsection{Random-Walk Based Graph Embeddings}
+Graph embedding techniques, developed early on through random walk and distribution-based models, were first established in natural language processing (NLP). DeepWalk\footnote{\url{https://arxiv.org/abs/1408.5785}} and Node2Vec\footnote{\url{https://arxiv.org/abs/1607.00653}} have since developed node embeddings based upon random walk simulations over graph topologies; they treat these sequential patterns as "sentence" types. The authors used the Skip-Gram loss function as an optimization goal, which ensures that the context of a node is preserved in the embedding space, such that when a node appears within a similar neighborhood of the graph structure, it is represented by two close vector representations.
+Random walk methods treat random walks as sentences and nodes as words. Therefore, deepwalk captures the community structure and local proximity inherent to the method. Node2vec adopts this concept and introduces bias into random walks to allow for sampling strategies that are a mix of breadth-first and depth-first explorations. This allows the embedding to capture both the local neighborhood around each node and the role of each node within the overall structure of the network.
+
+The advantages of using these methods include their high computational efficiency and ease of implementation. The disadvantages of these methods include being inherently static; therefore, if there is a change in the graph, the model must be trained again. Additionally, all the aforementioned random walk-based methods are transductive in nature. Transduction is a process in which training data are used directly to make predictions on new, unseen data. In other words, none of the methods mentioned can naturally learn how to embed new nodes (products) in an unseen context without retraining. Furthermore, neither of these methods considers node attribute information nor accounts for heterogeneous edge types. This limits the applicability of these models to several relational domains, including but not limited to retail product networks.
+
+As long as the pipeline is loss-independent, these embeddings can be computed independently of the forecasted loss function and then combined with input data representing historical values at different points in time for use with a temporal predictor. However, in environments similar to those found in many retail settings (i.e., environments with a large amount of catalog churn and time-varying relationships between entities, i.e., promotions), the static nature of the transductive methods described above would likely result in embeddings becoming outdated rapidly unless some form of rolling window was applied during computation. Moreover, there is no natural way to accommodate unseen products using the existing framework unless additional training is performed.
+
+\subsection{Inductive Graph Neural Network Encoders}
+
+GNNs represent a new direction in the study of graphs. This is because they allow us to train the inductive graph embedding models.
+
+GraphSAGE uses learnable aggregation functions and aggregates information from a node's local neighbors to embed it \cite{hamilton2017graphsage}. Thus, unlike random walk-based approaches, GraphSAGE allows for inductive generalization. This means that GraphSAGE can compute the embeddings of a given node regardless of whether that node has been seen before. The embedding of a node is determined based on its feature vector(s) and the structural relationship it has with its local neighbors.
+
+A similar approach may be adopted when using Graph Convolutional Networks (\acp{GCN}) \cite{kipf2017semi} or Graph Attention Networks (\acp{GAT}) \cite{velickovic2018graph} to encode a graph. Both \acp{GCN} and \acp{GAT} support the training of general-purpose graph encoders, which learn a set of node representations via message-passing. These encoders do not need to be specifically designed for a particular downstream task. Once these encoders are trained using unsupervised or self-supervised objectives (i.e., reconstructing a neighborhood or performing contrastive learning) \cite{velickovic2019deep, zhu2020deep}, the resulting node embeddings produced by them are reusable. In other words, these node embeddings can be used by an external temporal forecaster.
+
+These encoders can be trained once on the created graph (or for each roll-up window) and then use the learned node embeddings to produce predictions for an external temporal forecaster in loss-independent pipelines.
+
+\subsubsection{Pre-trained Time-Series Encoders as Node Feature Generators}
+Recent studies have focused on using self-supervised training to create \emph{generalizable}, reusable representations of time-series information through \emph{pre-training} a model prior to applying it to downstream tasks. An example of this approach is STEP/TSFormer, where a transformer-encoder is trained in a masked reconstruction fashion on \emph{segmented} patches from long windows of history to produce a set of representations at the segment level (as well as an optional global level), capturing both long-term patterns of seasonality and short-term context \cite{10.1145/3534678.3539396}. These representations can then be \emph{frozen} and assigned to each product as an external representation of its characteristics so that they may be directly used in conjunction with other forms of input to independently train temporal forecasters (for example, \acp{MLP}, \acp{LSTM}, or \acp{TCN}). Alternatively, they could form a more robust \emph{candidate} graph structure through the formation of sparse kNN graphs within the embedding space and not simply based on the correlation between time-series of sales. Furthermore, when operating in environments with thousands of \acp{SKU}, kNN provides a scalable method for creating candidate graphs, as it does not require the full pairwise comparisons found in $N^2$-dependent methods.
+
+\subsection{Relational Self-Supervised Representations for Multivariate Time Series}
+
+\label{subsec:relational_ssl_mts}
+
+Time pretraining has been shown to significantly improve the performance of neural network models in temporal tasks. Recent advances have focused on developing \emph{multivariate} time-series (\acs{MTS}) representation methods that include both intra-variable structures (temporal) and inter-variable relationships in the training objectives. An exemplary model for these new approaches is COGNet \cite{wang2024cognet}, which uses a combination of
+
+\begin{itemize}
+
+    \item[(i)] A masked autoencoder (MAE style) based on transformers for reconstructing long-windowed versions of the input signal. 
+
+    \item[(ii)] A contrastive learning module designed to create representations that are invariant to data augmentation while still allowing discrimination among different samples.
+
+\end{itemize}
+
+An important aspect of COGNet's architecture is an additional graph feature representation block to combine information from neighboring variables in the input sequence and to train representations using an additional \emph{graph contrastive loss}. The conceptual objective of this approach is to encourage the learned embeddings to capture both the temporal dependencies in individual variables and the cross-variable dependency relationships.
+
+In the context of this dissertation, this type of relational self-supervised encoding produces \emph{dependency-sensitive embeddings}, whose outputs can be used as node features that are directly compatible with \textbf{decoupled, loss-independent pipelines}. These embeddings are dependent on the output of the self-supervised process rather than the joint optimization of a forecasting loss function. Therefore, they can be independently utilized by other downstream forecasters (e.g., \ac{LSTM}, \ac{TCN}, or \ac{MLP}) or diagnostic models. This allows for a separate evaluation of the usefulness of the representations generated during the self-supervised phase, as well as the enhanced modularity of the forecasted horizons and forecasting architectures.
+
+The authors' motivation for incorporating neighborhood sparsity was twofold: first, because in high-dimensional MTS, indiscriminately applying the ``all-to-all'' form of aggregation can lead to the introduction of excessive noise and dilution of the effect of potentially useful neighbors; second, by constraining the number of neighbors aggregated at each node to $K$, where $K$ is some bound determined by the user, the message passing costs at each node become tractable and sparse, reducing what would otherwise be an unmanageably dense inter-variable scoring problem. Within the framework of \textbf{loss-independent architectures}, this provides another potential design pattern for a candidate edge module: calculate the dependency score (e.g., cosine similarity in the embedded space or correlation-based similarity) of all possible edges connecting nodes within a given graph. Then, select and retain only those edges having a dependency score that falls within the top-$K$ highest values. Finally, the resulting candidate edges are used to generate a sparse subgraph and apply a graph encoder.
+
+\subsection{Dynamic Graph Embedding: Predecessors, Taxonomy, and Design Trade-offs}
+\label{subsec:dynamic_embedding_predecessors_deep}
+
+Dynamic Graph Embedding is a new method for representing nodes in dynamic graphs. Unlike Static Graph Embeddings, which do not consider changes in the relational structure over time, the main challenge in using DGEs is finding a tradeoff between two opposing objectives: Temporal Sensitivity, which captures meaningful changes in the neighborhood and interactions of nodes over time, and Temporal Stability, which maintains sufficient continuity of node representations such that these representations are equivalent at different points in time. There are three ways to consider how time can be represented in relation to the representation learning objective and how time can be used to ensure consistent updates of node representations: \emph{(a) temporal graph representation}, \emph{(b) representation learning objective}, and \emph{(c) update mechanism}. Prior research on Dynamic Graph Embeddings can thus be thought of as being categorized based on how it represents time or how it ensures consistent temporal updating of its representations. Snapshot-based methods and sequential-interaction-based methods have different implications for modular loss-independent pipelines.
+
+\subsubsection{Snapshot-Based Dynamic Embedding Approaches}
+Snapshot-based methods discretize an evolving graph into a set of static graphs $\left\{G^{\left(1\right)}, \ldots,G^{\left(T\right)}\right\}$. Each $G^{\left(t\right)}$ represents a static aggregation of interactions over a fixed window in time (for example, days or weeks). Thus, it can be considered a repeated static embedding problem with temporally coupled parameters. However, there exists a critical modeling decision that typically does not have an effect: the size of a snapshot window determines how much the model's response will be smoothed by variance versus its ability to capture variability by bias.
+
+\paragraph{Hierarchical pooling over sequential graphs.}
+Beyond the immediate Node Embedding evolution, several methods have been developed to model time-dependent correlations in sequential graph structures. Hierarchical Correlation Pooling (HierCorrPool)\cite{wang2024hiercorrpool} develops a hierarchical pooling method for aggregating relationship information across windows and developing a multiresolution relational summary. While this is an elegant way to aggregate relationships (for example, from SKU to category levels), in large-scale retail applications, the need for extreme sparsity (Top K/knn) to maintain tractability is due to the computational burden associated with dense pooling representations.
+\paragraph{Incremental snapshot reconstruction and temporal alignment.}
+An important family of methods uses embeddings learned by minimizing the loss incurred by the reconstruction of each snapshot with an added constraint that limits the variation over time. DANE \cite{li2017dane}, which combines topology and attribute information, uses reconstructions at different times to identify changes. In contrast, DynGEM \cite{goyal2018dyngem} uses deep autoencoders to find nonlinear embeddings for each snapshot but enforces stability. Finally, TIMERS \cite{zhang2018timers} uses the relative change in the adjacency matrix and incremental SVD to quickly compute updates when two successive snapshots are very similar.
+
+These methods can be interpreted as optimizing a two-term objective:
+\[
+\mathcal{L} = \underbrace{\sum_{t=1}^{T} \mathcal{L}_{\text{rec}}(G^{(t)}, Z^{(t)})}_{\text{fit each snapshot}}
++ \lambda \underbrace{\sum_{t=2}^{T}\|Z^{(t)}-Z^{(t-1)}\|^2}_{\text{temporal smoothness}},
+\]
+where $Z^{(t)}$ is the embedding at time $t$. The smoothness term provides an essential constraint on how the embeddings can be transformed from one snapshot to another; if there was no such constraint, the embeddings in different snapshots could be arbitrarily rotated so that they are as similar or dissimilar as desired relative to each other. 
+\textbf{This represents a major challenge of the temporal alignment issue, that is, maintaining consistency among the latent vector representations at the different static snapshots, which is inherent in decoupling representation pipelines.} In contrast to prior approaches that resolve this issue through explicit regularization techniques (e.g., graph Laplacian), the hybrid model described in Chapter 8 addresses this implicitly by using inductive \acp{GNN} (i.e., \ac{GCN}/\ac{GAT}) with shared parameters across all time steps.
+
+\paragraph{Temporal Dependence with RNNs }
+
+In addition to explicitly modeling temporal dependence by learning from a \emph{window} of previous \emph{snapshots}, temporal dependence can be modeled in another way. 
+The tNodeEmbed \cite{singer2019tnodeembed} learns snapshot-level embedding with \textbf{static methods}, which are then fused together using \acp{LSTM}. 
+DynGraph2Vec \cite{goyal2019dyngraph2vec} use deep architectures (autoencoder and recurrent network) to predict the future structure of the graph.
+Attention-based models, such as DySAT \cite{sankar2020dysat}, employ temporal self-attention on snapshot-level embeddings.
+
+Unlike EvolveGCN, which evolves node representations as the direct output of the model, the \emph{weights} or parameters of an instance of a Graph Convolutional Network (\acs{GCN}) are evolved using a Recurrent Unit (\ac{GRU}/\ac{LSTM}). This has several advantages that make it better suited to capture \emph{non-stationarity} in a graph and provides a strong precedent for integrating \acp{GCN} with Temporal Recurrent Processors, which is \textbf{a concept directly applied in end-to-end \acs{GCN}-\acs{LSTM} architectures covered in Chapter 8.}
+
+\paragraph{Fixed-Window Snapshotting vs. Alternative Temporal Models.}
+An alternative is to combine a simple temporal graph model with static embedding techniques. Jin et al.~\cite{jin2022generalizing}, for example, proposed other discretization alternatives like epsilon-graphs (where instead of fixing the duration of each snapshot, we fix the number of edges at each snapshot) that provide better stability on fluctuation events, along with weighted temporal reachability graphs (WTRG). Nevertheless, the use of snapshots (the $\tau$-graph) is still considered the most robust and interpretable way to represent temporally dependent relationships in retail demand forecasting because it takes advantage of the intrinsic cyclical nature of retail weekly/monthly business patterns (e.g., 7 d week and 30 d month). Therefore, this study exclusively adopts a window-based approach using rolling 30-day windows to measure periodic seasonal and promotional changes without the necessity of transforming an event stream into a graph.
+
+
+\subsubsection{A Modular View: From Dynamic Embeddings to Loss-Independent Pipelines}
+\label{ss:dyn-modular}
+
+The primary advantage of creating dynamic embeddings as modular components instead of simply extending static embeddings to dynamic settings is that they provide a structure for building modular components. The basic elements of modular components include the selection of a temporal graph representation (e.g., edge streams or snapshot sequences), a temporal consistency method (e.g., incremental updates, smoothing, or recurrence), and a base embedding function (e.g., \ac{GraphSAGE} or \ac{GCN}). Modular components have been very important in developing loss-independent forecasting pipelines because they provide a clear understanding that \textit{learning dynamic representations does not necessarily mean using an end-to-end forecasting model}. Rather than training all components of the system together, the embedding portion of the system may be trained separately under either self-supervised or auxiliary objectives. Once the embedding is stabilized, it can be exported, and an independently trained temporal forecaster can be used to generate forecasts.
+
+Retail relational systems typically represent \textit{multiple entity types} (i.e., products, categories, etc.) with \textit{different relational semantics} (e.g., taxonomy membership, co-promotion exposure, and substitutability). Therefore, collapsing all these different relational signals into a single homogeneous adjacency matrix significantly reduces the signal strength. For example, there is a significant difference between a product being promoted next to another product and a product being displayed in the same category. Thus, dynamic heterogeneous embedding models are also suitable for this type of application. In addition to highlighting the value of newer methods (e.g., DyHINE and DyHANE) within modular pipelines, the view provided here explains why the properties emphasized by these new methods (i.e., \textit{inductive embedding} [enabling unseen nodes], \textit{heterogeneity} [representing different edge/node types], and \textit{online updating} [reducing need for retraining]) will be highly beneficial in retail applications where catalog content often changes rapidly, and there exist many different relational semantics describing how entities relate to one another.
+
+Dynamic Heterogeneous Information Network Embedding (DyHINE) \cite{xie2021dyhine} provides a specific example of how inductive learning can be extended to dynamic heterogeneous information networks through the introduction of a temporal aggregation mechanism. Using this mechanism, DyHINE enables online updates of node representations in a dynamic heterogeneous graph based solely on its evolving neighborhood structures. Therefore, these updates are completely decoupled from downstream task requirements. Another example is DyHANE \cite{martirano2024dyhane}, which focuses on continuous learning for dynamic heterogeneous attributed networks. In this case, at every time step, DyHANE identifies the subset of \textit{influenced nodes} impacted by recent topological or attribute changes. It uses both the identified influenced nodes and an experience replay memory buffer containing previously generated output to enable the updating of a \ac{GNN} encoder (e.g., \ac{GATv2}) that represents the network's attributes while minimizing catastrophic forgetting.
+
+Although these types of models were primarily developed for traditional downstream classification or link prediction tasks, maintaining accurate node representations in real time as the underlying graph evolves without fully retraining the entire model is directly applicable to loss-independent forecasting. This concept was operationalized during this research by creating time-indexed retail graphs from available data sources (e.g., correlation graphs conditioned on calendar effects, product demand proximity over a sliding window, and promotion co-exposure). Subsequently, periodic refreshes of product embeddings are made through an incremental encoder and exported as exogenous input features to independent temporal predictors (for example, \ac{LSTM}, \acp{TCN}, and \acp{MLP}). This allows researchers to quantitatively evaluate the trade-offs between update costs, embedding stability, and forecasting accuracy as a result of non-stationary behavior.
+
+
+
+
+\section{Learned-Graph Forecasting Architectures}
+\label{sec:learned-graph-pathb}
+
+Graph-based forecasting is another major area of study. \acp{GNN} have been used for \ac{MTS} forecasting, where the relationally dependent aspects of the variables are modeled simultaneously with the forecasting objectives. Variables in the \ac{MTS} are treated as nodes, and the edges represent the latent dependencies between them, inferred directly by training. These were developed to overcome two issues inherent to previous DL methods: they model temporal patterns very well, but they do not explicitly treat the relationship between the individual variables. The combination of graph learning and message passing provides learned-graph forecasters with a relational inductive bias that improves predictive accuracy when the dependencies are latent, non-spatial, or previously unknown.
+
+Although this thesis builds its graph-first pipelines on a common
+\emph{loss-independent graph-construction} stage, the relational encoders span two
+regimes --- a decoupled, loss-independent embedding (Graph2Vec) and end-to-end
+inductive encoders (\ac{GCN} and \ac{GAT}) jointly optimized with the forecasting loss. A
+brief overview of fully end-to-end learned-graph architectures is included here
+because they are adjacent to the latter.
+
+\subsection{MTGNN, AGCRN, and GTS}
+\label{sec:pathb-mtgnn-agcrn-gts}
+
+Representative learned-graph multivariate time-series (\acs{MTS}) forecasters include \ac{MTGNN} \cite{wu2020connectingdotsmultivariatetime}, AGCRN \cite{bai2020adaptivegraphconvolutionalrecurrent}, and GTS \cite{shang2021discretegraphstructurelearning}. The primary contribution of \ac{MTGNN} is the introduction of a learnable graph structure module that generates a \emph{directed} adjacency matrix using trainable node embeddings. The generated graph structure is then passed to the graph convolution layers of \ac{MTGNN} to enable the propagation of information across variables. In addition, \ac{MTGNN} use temporal convolution to identify sequential patterns. Building on these principles to operate on non-spatial \acs{MTS} data without a predefined graph structure, the AGCRN introduces a node-adaptive mechanism. This mechanism assigns a learnable embedding to each node, dynamically generates an adjacency matrix based on the embedding similarity, and integrates this structure into a recurrent forecasting backbone. GTS further advanced the state-of-the-art by formulating structure learning as latent relational inference, inspired by Neural Relational Inference (NRI) \cite{kipf2018nri}. Specifically, GTS emphasizes probabilistic graph sampling and discrete relational modeling to improve the interpretability of identified dependencies. Collectively, \ac{MTGNN}, AGCRN, and GTS demonstrate the dominant end-to-end approach in which the relational structure is optimized jointly with the forecasting loss. Thus, these models tightly couple graph inference, representation learning and prediction.
+
+Although \ac{MTGNN}, AGCRN, and GTS are not explicitly designed for modular reuse, they highlight two conceptually reusable artifacts: the learned adjacency matrix (or sampled relational graph) and the node representations produced by message passing prior to the forecasting head. In principle, these artifacts can be exported by freezing the learned graph and/or embeddings after training and using them as inputs for independent temporal predictors (e.g., \acp{LSTM}, \acp{GRU}, \acp{TCN}, or \acp{MLP}). However, because they are optimized jointly with a specific forecasting objective, the resulting structures are typically task and horizon specific. Consequently, direct reuse may generalize poorly unless additional constraints such as regularization, auxiliary objectives, or stability mechanisms are introduced. This limitation motivates the design choice adopted in this study, in which the
+relational priors (the graph topology) are \emph{constructed independently of the
+forecasting loss} via rolling-window Spearman/\acs{CID} criteria, improving
+interpretability and reusability across the temporal heads and horizons. The downstream
+encoder may then be either decoupled (Graph2Vec) or trained end-to-end (\acs{GCN}/\acs{GAT}).
+
+\subsection{Scalable Dynamic Structure Learning: TimeGNN}
+\label{sec:pathb-timegnn}
+To overcome these constraints, recent research has focused on developing models that can adaptively and efficiently capture the temporal dynamics of graphs. A notable model representing this advancement is the TimeGNN \cite{xu2024timegnn}.
+
+TimeGNN captures the dynamic evolution of inter-series dependencies and stationary correlation patterns among time series by generating adaptive temporal graph representations. In contrast to fixed structural topologies, TimeGNN represents evolving relationships between different variables using an adaptive graph structure. This adaptivity is crucial when relationships evolve rapidly because of exogenous shocks or volatility.
+
+Moreover, unlike many traditional GNN-based architectures, TimeGNN was developed with computational performance as the primary design goal. The authors reported that their implementation achieved substantial speedups during prediction (typically ranging from 4x to 80x) compared to similar state-of-the-art graph-based architectures \cite{xu2024timegnn}. Thus, this study not only demonstrates the feasibility of using graph neural networks to improve forecasting accuracy in volatile time-series data but also provides valuable insights into the scalability challenges (RQ3) inherent in large-scale product forecasting problems.
+
+\paragraph{Proximity to Loss-Independent Architectures.}
+TimeGNN is an end-to-end GNN forecaster because its dynamic graph representation is optimized jointly with the forecasting loss function, and its empirical success supports several key assumptions of this dissertation. Specifically, TimeGNN's demonstration that static graphs provide insufficient relational information for modeling volatile time series reinforces the core premise of this study: forecasting robustness and accuracy can be significantly improved if the relational structures are allowed to evolve dynamically over time.
+\subsection{Dynamic Attention-Based Graphs in Retail: STAD-GCN}
+\label{sec:pathb-stadgcn}
+
+Although foundational learned-graph methods, such as \ac{MTGNN} and AGCRN, have significantly improved the ability to identify hidden dependencies, they generally assume that the inferred relational structures remain relatively consistent over extended periods. However, relationships within the retail environment—driven by product substitutions, complementarities, and competitive dynamics—are highly volatile and continuously evolve in response to external market forces.
+
+To account for these shifting dependencies, Kim and Park \cite{kim2024stadgcn} proposed a Spatial-Temporal Attention-based Dynamic Graph Convolutional Network \ac{STAD-GCN}, focusing specifically on retail sales forecasting. Unlike models that learn a single fixed adjacency matrix,  \ac{STAD-GCN} employs a spatial attention mechanism to dynamically compute edge weights between retail items at each time step. By learning these dynamic edge weights end-to-end, \ac{STAD-GCN} successfully captures the temporal variability of competitive influences across retail locations, yielding a significantly better performance than static graph-based models.
+
+\paragraph{Relevance to Loss-Independent Architectures and Scalability.}
+The empirical success of  \ac{STAD-GCN} provides crucial validation for the core premise of this dissertation: accurate retail forecasting requires \emph{time-varying relational structures} rather than static topological representations. However, because  \ac{STAD-GCN} is an \textbf{end-to-end GNN forecaster}, its reliance on computing a dense set of spatial attention values across all nodes at every time step introduces a severe \textit{scalability bottleneck} when applied to large retail product catalogs ($N \approx 10^4$ \ac{SKUs}). This inherent limitation directly motivates the \emph{integrated loss-independent} methodology proposed in this study. By decoupling the generation of dynamic graphs from the optimization of the forecasting loss by utilizing rolling-window heuristics and explicit top-$K$ edge sparsification, the proposed framework achieves the relational adaptivity of models such as  \ac{STAD-GCN} while remaining computationally tractable for massive retail environments.
+
+\subsection{Discrete and Regularized Structure Learning}
+\label{sec:pathb-discrete-regularized}
+
+Beyond continuous adjacency learning via embedding similarity, an associated research direction explicitly targets \emph{sparse} and \emph{discrete} graph discovery to improve the interpretability and scalability. Regularized Graph Structure Learning (RGSL) ~\cite{Yu20222362} can learn an implicit dense similarity matrix from node embeddings and generate a sparse adjacency using sampling based on the Gumbel-Softmax method, allowing it to optimize over an end-to-end pipeline while maintaining an \textit{extractable} discrete graph. The authors also introduced a fusion mechanism that can combine an explicit prior graph with the learned implicit graph (for example, through Laplacian-based mixing) to reflect real-world applications where there are both partial domain knowledge and data-driven relationships that need to be integrated. Although the above methods  are trained completely end-to-end using forecast loss, they represent a useful reference point for loss-independent pipelines. Discrete structure learning increases the ability to see the relations learned by the model; however, the generated graphs can still have strong ties to the training process and the task.
+
+\subsection{Retail-Scale Learned-Graph Forecasting: ASG-RNN}
+\label{sec:pathb-asg-rnn}
+
+A notable retail-scale learned-graph forecaster is the Attribute-Space Graph Recurrent Network (ASG-RNN)~\cite{MA2024123727}, which proposed a global storeSKU replenishment with quantile outputs. ASG-RNN constructs a sparse SKU--SKU product network via a \emph{directed $k$NN} graph in a \emph{learned attribute space}: categorical SKU attributes are embedded, and distances in that space determine neighbors. The resultant graph defines the structure for gated graph convolutions to propagate cross-SKU promotional information, which are subsequently combined into a Seq2Seq recurrent forecaster for multi-horizon quantile predictions.
+
+In terms of conceptualization, the ASG-RNN can be considered a hybrid. ASG-RNN utilizes an explicit k-NN sparsification method (scalable and interpretable); however, the similarity metric (the learned attribute embeddings) is optimized together with the forecast objective, thus positioning the overall system closer to end-to-end  than loss-independent approaches for constructing similarity metrics. In addition to providing improved accuracy, the ASG-RNN offers practical engineering strategies related to scalability and efficiency for commercial applications. The ASG-RNN constructs a static union-of-SKUs graph, dynamically extracts time-store subgraph masks from evolving assortment data, groups many store-time episodes by batching them through block diagonal matrix stacking of adjacency matrices, and uses local normalization/scaling and masking to prevent active (all zero or off-shelf) series from dominating model training. These design decisions represent implementable examples for RQ3 (scalability and robustness) while maintaining the coupling of learned representations to the forecasting objectives.
+\subsubsection{Alternative Paradigms: Causal Graph Learning} 
+\label{sec:causal-graph-mts} 
+The main focus of this dissertation has been on utilizing \textit{correlation}- and \textit{similarity}-driven methods for constructing graphs; a related area of study uses \textit{causal} graph learning to represent directed and asymmetric relationships and dependencies. Because transfer entropy (TE) \cite{febrinanto2025cgad}, \cite{duan2021caugnn} does not assume linearities when quantifying directed information transfer using information-theoretic measures, it represents one type of method for causal adjacency.
+
+From a modular viewpoint, there is conceptual alignment with respect to how causal adjacency may serve as a distinct, loss-independent preprocessing stage within modular pipelines for causal induction using \ac{TE}-based approaches. However, owing to the sensitivity of causal discovery to confounders, such as seasonal patterns and promotional events that occur simultaneously across retailers, rigorous causal discovery also presents significant computational challenges on a large scale. Consequently, although causal structures provide better interpretability regarding information flow directionality, we consider them here as a potential future extension and not the primary experimental baseline.
+
+\section{Evaluation of Statistical Models in Retail Demand Forecasting}\label{sec:sota_evaluation_retail}
+
+Demand forecasting models can be evaluated in terms of their ability to make correct predictions (point forecasts) because they directly impact replenishment decisions and inventory management, and therefore stock availability. While metrics such as the Root Mean Square Error (RMSE) and Mean Absolute Error (MAE) measure the magnitude of prediction errors, Directional Accuracy Measures (such as POCID) evaluate whether the model was able to predict in the right direction. In particular, the direction of demand changes is critical in retail. Even with moderate error levels, incorrect directions of change in demand could cause overstock or out-of-stock situations.
+
+In addition to evaluating at the aggregate level, visual assessments are used to determine if the modeled data followed the actual demand pattern, captured all local maxima/minima in that pattern, and did not "collapse" towards its mean value. Visual inspection is particularly helpful when comparing models that use neural networks with those that use graph-based methods. Although both types of models may have similar average errors, there are likely to be differences in behavior around peaks, drops, and low-demand periods.
+
+Finally, when comparing multiple models for the same set of items, statistical comparisons provide a more valid way to compare the relative performance of each model than examining individual metric values. The Friedman test and Wilcoxon Signed-Rank Test are non-parametric statistical tests that allow the comparison of repeated forecasting results from different models across many items without having to assume that the error distributions are normal.
+
+While other papers in the retail forecasting area discuss other issues, including robustness to peak period demand, sparse history products, structural zeros, interpretability, and uncertainty quantification, the last three of which would be essential characteristics of any production-level forecasting system, these topics are beyond the scope of this dissertation. Therefore, this dissertation focused on statistically and visually assessing the point-forecasting performance of models while considering the additional areas mentioned as potential areas for future research.

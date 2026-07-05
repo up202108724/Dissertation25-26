@@ -1,0 +1,91 @@
+\chapter{Introduction} \label{chap:intro}
+
+This section describes the context, motivation, and structural outline of this study.
+
+\section{Context and Motivation} \label{sec:context_motivation}
+
+Retailers operate in an extremely dynamic and competitive marketplace where they must continually adjust their operations owing to fluctuating consumer demand, changing external conditions (such as government regulations), and internal limitations (including store layout). As consumers become increasingly technology-savvy, retailers are becoming reliant on sophisticated systems of technologies that enable them to support all aspects of retailing, including planning, merchandising, supply chain management, multi-channel marketing, and customer service. The majority of the world’s top 20 retailers use similar enterprise-level software platforms to manage the complexities associated with supporting large-scale retail operations.
+
+Demand forecasting is one of the most important, yet difficult, tasks in the retail ecosystem. Demand forecast accuracy affects a retailer’s ability to determine how much inventory to purchase for each location, when to order replacements, what prices should be charged for items, and ultimately, the amount of labor needed at each store. Incorrect forecasts can lead to potential loss of sales through stock-outs, increased costs through overstocked items, lost employee productivity, and unhappy customers. While tremendous advancements have occurred using both statistical and \ac{ML}-based forecasting methodologies, there remains room for improvement in addressing several shortcomings inherent in the current methodologies. Current approaches typically either model each item individually as a separate time series or attempt to find common trends across multiple items without accounting for the complex interdependencies among individual items, locations, and external events.
+
+\subsection{Why Graphs?}
+Graph theory provides a natural and robust mathematical framework for representing the relationships among entities in a retail network. Each item may be represented as a node in the graph along with its relationship (edges) to other items in terms of similarity, co-purchase behavior, geographic proximity, etc. \acp{GNN} expand upon this concept by allowing neural networks to leverage the relational information contained in the graph to propagate, transform, and learn about the relationships. A \ac{GNN} allows a forecasting system to consider the historical demand of each item and the demand history of neighboring items in the graph, thus potentially creating more robust and better-informed predictions.
+
+\subsection{Research Gap}
+Although \acp{GNN} have achieved considerable success in areas including traffic forecasting and energy consumption prediction, they are still underutilized in retail demand forecasting. Research has focused primarily on small-scale graphs, short-term prediction horizons, and controlled environments that do not accurately represent the real-world complexities, heterogeneities, and operational limitations of retail systems. There is also no established process for creating retail-specific graphs, assessing their topological properties, or successfully using graph-based embeddings within forecasting models for retail sales.
+
+In addition, retail datasets present additional challenges relative to other datasets, which further widen the gaps noted above. These include tens of thousands of products, uncontrolled promotional events, high variability, and proprietary event calendars. Most prior \ac{GNN} time series forecasting research focuses almost exclusively on achieving the highest possible levels of absolute forecast accuracy and ignores an equally important aspect of the forecasting model building process: the assessment of the validity and interpretation of the learned graph topology. While most prior methods implicitly assumed that the graph learned by the method was valid, few methods assessed its interpretability, stability, and correspondence with actual product relationships in the retail environment.
+
+The common exclusion of these aspects from prior research is a significant gap in prior research. Accordingly, the objective of this project is to evaluate whether dynamic graph topologies, particularly those created across moving historical demand windows, can adequately model changing relational dependency among products, improve overall forecast accuracy, and create more powerful, scalable, and operationally relevant forecasting tools that can represent dynamic relational intelligence.
+
+\section{Empirical Context and Data Properties}
+\label{sec:empirical_context}
+
+This empirical context is essential for developing the methodology applied in this dissertation. As such, it can be seen that the methodological framework applied throughout the dissertation was directly influenced by empirical data properties; that is, the transactional basket (or receipt), with respect to the actual purchases made by individual customers, was not provided in the empirical data set used in this study. Thus, relational prior assumptions cannot be drawn using traditional inference methods because a canonical co-purchase graph cannot be established.
+
+Therefore, relational prior assumptions had to be inferred based on loss-independent indicators or "signals,” which included past purchase histories, common promotion exposure, and similarity in product shapes.
+
+Although the lack of observation of transactional baskets presents some limitations, the empirical dataset provides an exceptionally robust time frame for all analyses performed in this study. That is, the length of the empirical time frame examined consists of 761 consecutive days of daily demand observations for every item-store pair, thereby enabling a comprehensive examination of long-term trends, including multiple seasonal highs, holidays, and extended promotional cycles.
+
+\section{Problem Definition} \label{sec:problem_definition}
+
+Forecasting retail demand is difficult because of the complex relationships among products, stores, marketing activities, and external events. However, most traditional forecasting models treat each product independently as an individual time series without considering the relationship between them, that is, the substitution, complementary, and promotion effects on other products.
+
+Although graph-based approaches have attempted to identify these relationships through explicit encoding of dependencies using graphs, little work has been done on applying these techniques to develop a well-validated retail demand forecasting solution.
+
+One major deficiency in current research is the lack of a clear delineation of graph learning, embedding generation, and temporal forecasting. Most \ac{GNN}-based forecasting solutions use the output of the graph message-passing operation as the input to a subsequent temporal processing unit (e.g., \ac{LSTM}, \ac{GRU}, \ac{TCN}, or an \ac{MLP} decoder) to process seasonality and calendar-driven variations, in addition to modeling lagged values. Therefore, it remains unclear which method(s) are best suited for integrating graph representation into the design of forecasting systems, as well as what improvements may result from one approach over another.
+
+Therefore, the primary question of interest in this study is as follows:
+
+\begin{quote}
+\textit{How can data-driven dynamic graphs be constructed and integrated with temporal forecasting architectures to effectively capture shifting product interdependencies and improve local forecasting robustness under seasonal and calendar-driven variability?}
+\end{quote}
+
+
+
+
+\subsection{Predictive Power Reduction During Critical Holiday/Seasonal And Calendar Dates}
+The retail calendar differs from the general public calendar and includes holidays, special events, and/or extended or limited operating hours, as well as retailer-specific promotions. Therefore, it has been shown that most forecasting systems do not have direct access to the proprietary calendars utilized by retailers. As such, they can be expected to underperform in terms of accuracy and reliability during times when demand deviates significantly from normal patterns (holiday periods) when there may be no valid comparison to past data on which to base forecasts (days the store is closed).
+
+
+\section{Research Questions} \label{sec:research_questions}
+
+To address the problem in all its dimensions, a set of research questions was devised to guide the methodology and evaluation of this study:
+
+\begin{itemize}
+    \item \textbf{RQ1:} How can graph-based representations of retail data be constructed to generate high-quality node embeddings that capture latent relational and predictive dependencies between products, and how can they be effectively reused by temporal forecasting models?
+    \item \textbf{RQ2:} How do different strategies for integrating graph-derived embeddings with temporal forecasting models (such as \ac{LSTM} or \ac{MLP}) affect absolute forecasting accuracy and directional trend prediction in retail demand forecasting?
+    \item \textbf{RQ3:} How scalable are graph-embedding-based forecasting pipelines when applied to retail datasets subject to exogenous variables, seasonal effects, calendar-driven variability, and frequent product catalog changes?
+\end{itemize}
+
+\section{Scope and Delimitations} \label{sec:scope}
+To ensure a rigorous and computationally tractable evaluation of the proposed models, the experimental scope of this study made specific filtering choices. First, while the store dataset contains 1,427 products, the framework specifically curates a high-signal benchmark subset of 60 top-selling items to ensure a reliable statistical signal for model selection, topological validation and graph construction.
+
+Secondly, the experimental evaluation was specifically limited to smooth and erratic demand series. Both categories of demand series have low intermittence demand occurrence frequently (low ADI) in common, which avoids additional complexity by not including sparse zero-heavy demand series; they differ intentionally in demand size variability, low CV² for smooth products and high CV² for erratic products, allowing spatial and temporal models to be benchmarked reliably across both stable and more volatile demand magnitude regimes. As a direct result of this scope, any conclusions drawn from this evaluation should not be generalized directly to higher intermittent or lumpy demand patterns, which represent separate classes of forecasting challenge that will require different approaches.
+Finally, although the cold-start problem, that is, the integration of new products with little to no sales history,is a foundational challenge in retail forecasting, evaluating cold-start scenarios falls outside the empirical scope of this study. To ensure a reliable baseline for comparing the graph-based and temporal models, the experimental dataset was deliberately filtered to include only high-volume and well-established products. Because this selection process inherently excludes newly introduced items, evaluating alternative inductive techniques to embed cold-start products via metadata is designated as an area for future research
+
+\section{Contributions}\label{sec:contributions}
+To meet the previously stated challenges and fill the mentioned knowledge gaps, this dissertation develops a complete spatiotemporal structure that includes the complete integration of the forecasting model with the embedding pipeline. More precisely, this study makes the following three main contributions to the area of retail demand forecasting:
+
+\begin{itemize}
+\item This dissertation develops a new method using Spearman’s correlation and CID for dynamically creating graphs, where the used methodology is independent of losses and relies on data.
+\item This dissertation expands the practices for evaluating retail demand forecasting by systematically comparing embedding-decoupled methods such as Graph2vec with end-to-end inductive encoder methods such as GCNs and GATs. 
+\item This dissertation provides the first explicit quantitative representation of the multi-objective trade-offs between the overall quality of the predictions (RMSE/MAE) and their direction (POCID) that can be achieved by graph-enhanced forecasting models for certain groups of retailers. 
+
+\end{itemize}
+
+\section{Structure of Dissertation} \label{sec:structure}
+The present dissertation contains ten chapters, with Chapter 1 being the current introductory chapter. The remainder of this paper is organized as follows.
+
+\begin{itemize}
+\item In \textbf{Chapter 2}, the methodology used for the literature review on GNNs and spatiotemporal modeling is presented.
+\item \textbf{Chapter 3} represents the state-of-the-art, giving a broad overview of the most important developments currently available, according to pertinent literature found through the literature review conducted prior to this dissertation.
+\item \textbf{Chapter 4} formally defines the problem, states the core hypothesis that relational information derived from a dynamic item graph can improve local forecasting, and introduces the general methodology and architecture overview for the proposed spatiotemporal solution.
+\item \textbf{Chapter 5} describes the exploratory data analysis and gives insight into the features of the considered retail dataset, using the ADI--CV$^2$ demand-pattern classification. It outlines how the curation process reduced the initial number of 1427 items in the product catalog to a signal-rich benchmark set of 60 top-selling items. Additionally, it illustrates the timescale of the dataset, which contains 761 days of historical demand values.
+\item \textbf{Chapter 6} establishes the local, univariate baseline models used to isolate the value of relational information. It details the shared training protocol, chronological data partitioning, and evaluation metrics, followed by the LSTM and Time-Distributed MLP architectures and their respective hyperparameter configurations.
+\item \textbf{Chapter 7} emphasizes the graph-constructing methodology. A data-driven, loss-independent statistical similarity and distance criterion methodology for constructing dynamic graphs using Spearman's correlation and CID is introduced.
+\item \textbf{Chapter 8} introduces the spatiotemporal forecasting pipelines that integrate graph-derived information with the temporal models. It first presents the embedding-decoupled Graph2Vec strategy and then describes the transition towards an integrated, end-to-end architecture using inductive encoders such as GCN and GAT.
+\item \textbf{Chapter 9} evaluates all embedding-decoupling methodologies compared with each other against the end-to-end inductive encoders. The evaluations conducted here are limited to smooth and erratic series data on retail demand.
+\item \textbf{Chapter 10} summarizes all findings made from the performed research. Designated future research directions are outlined at the end, primarily concerning the evaluation of alternative inductive approaches for representing cold-start products using metadata.
+\end{itemize}
+

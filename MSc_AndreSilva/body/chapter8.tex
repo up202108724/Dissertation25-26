@@ -1,0 +1,340 @@
+\chapter{Pipelines}
+
+\section{Embedding-Decoupled Strategies: Graph2Vec}
+
+The Graph2Vec-based pipeline is designed as an \emph{embedding-decoupled}, which means that the representation learning and forecasting stages are trained separately with only communication through a fixed-dimensional embedding vector. The decoupling of these stages defines the class of methods evaluated in this section; the graph encoder cannot see the downstream forecasting loss, whereas the forecaster sees the embeddings as static, external input features during training.
+
+As shown in Fig. As shown in Figure ~\ref{fig:graph2vec-comparison}, the entire system may therefore be divided into two independent pipelines, namely an offline (training) \emph{Graph2Vec pipeline} and an online (forecasting) \emph{LSTM or MLP forecasting pipeline}.
+
+\subsection{Offline stage --- Graph2Vec pipeline.}
+The first stage operates on a multivariate panel of all item-level time series. For every item \(i\), the historical demand is z-score normalized using a \texttt{StandardScaler} fitted exclusively on the training window of that item, ensuring that no information from the validation or test periods leaks into the graph construction. A sliding window of width \(w=30\) and stride \(s=1\) is then applied to the scaled series, producing, at each timestamp \(t\), a snapshot of the cross-sectional dynamics over the interval \([t-w+1,t]\).
+
+For each window, a \emph{similarity graph} \(G_t=(V,E_t)\) is built, where the node set \(V\) corresponds to the items in the catalogue, and the edge set \(E_t\) encodes pairwise relationships between their windowed sub-series. Edges are instantiated whenever a chosen similarity or distance metric (e.g., Spearman or CID) exceeds a fixed threshold. The resulting sequence \(\{G_t\}_{t=1}^{T}\) captures the evolution of the inter-item relational structure over time.
+
+Each graph \(G_t\) is subsequently passed to a \textbf{Graph2Vec} model, which combines the Weisfeiler--Lehman (WL) relabelling scheme with a Doc2Vec skip-gram objective. The WL procedure produces, for each graph, a multiset of rooted subtree patterns that serves as the analog of a ``document.” Doc2Vec then learns a continuous representation \(z_t \in \mathbb{R}^{d}\) such that graphs sharing similar substructures are mapped to points that are in proximity in the embedding space. Crucially, this stage is fully \emph{unsupervised} with respect to the forecasting task: it has no access to the target variable beyond the unsupervised similarity structure used to construct the edges.
+
+\subsection{Graph Embedding Dimensionality}
+In this pipeline, the dimensionality of the continuous graph representation was set to \(d=16\). This compact dimensionality serves as an information bottleneck. If the embedding dimension is too large, the model may overfit the specific topological noise of the training graphs or dominate the input space of the forecasting network. Conversely, if the dimension is too small, the complex structural differences between daily retail demand graphs would collapse into indistinguishable representations. 
+
+Therefore, the output of the offline stage is a temporally indexed sequence of 16-dimensional graph embeddings \(\{z_t\}\), which are computed once and cached in memory. During the training phase of the neural forecasters, these pre-computed embeddings were wrapped into single-node PyTorch Geometric (PyG) \texttt{Data} objects to maintain input compatibility with the broader graph-based training pipeline.
+
+\subsection{Integration with the LSTM Forecaster}
+The Graph2Vec-LSTM variant utilizes cached embeddings as an additional historical context for a local recurrent neural network. At each time step within the lookback window of length \(L=30\), the model concatenates three distinct feature sets as follows:
+\begin{enumerate}
+    \item The \emph{target series} for the focal item, MinMax-scaled based on the training window.
+    \item A set of \(28\) \emph{exogenous calendar features} (e.g., day-of-week, holidays, pre-/post-holiday indicators).
+    \item The corresponding \emph{graph embedding} \(z_t \in \mathbb{R}^{16}\), precisely aligned in time so that the embedding observed at step \(t\) is generated strictly from the graph of the preceding \(w\) days.
+\end{enumerate}
+This concatenation yields an input tensor of shape \((L, 1 + 28 + 16) = (30, 45)\). This sequence was fed step-by-step into an LSTM with a single recurrent layer and a hidden size of \(32\). Because the Graph2Vec embedding \(z_t\) evolves at each step, the LSTM effectively learns to condition its recurrent memory updates not only on the raw demand and calendar events but also on the shifting structural state of the entire product catalogue. The final hidden state is passed through a linear projection head (without dropout) to yield a single-step-ahead forecast.
+
+\subsection{Integration with the Time-Distributed MLP Forecaster}
+To isolate whether the benefit of graph embeddings relies on recurrent processing, the Graph2Vec-MLP variant integrates an identical 45-dimensional input sequence into a feed-forward architecture. 
+
+Instead of updating a hidden memory state, the Time-Distributed MLP applies a shared dense network with hidden dimensions of \((128, 64)\) and a dropout rate of 0.2 across each of the 30 time steps independently. The network extracts the 64-dimensional hidden representation of the most recent step (capturing recency) and concatenates it with the temporal mean of all 30 hidden representations (capturing the global window context). This combined representation was then projected to produce a forecast. By processing \(z_t\) through shared feedforward layers, this architecture tests whether the raw stepwise topology descriptors provide sufficient signal without requiring complex sequential modeling.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/Graph2VecLSTM.png}
+        \caption{Graph2Vec-LSTM architecture.}
+        \label{fig:graph2vec-lstm}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/Graph2Vec_MLP.png}
+        \caption{Graph2Vec-MLP architecture.}
+        \label{fig:graph2vec-mlp}
+    \end{subfigure}
+    \caption{Comparison of the Graph2Vec-based forecasting architectures. During training, the cached embeddings were concatenated with the target and exogenous inputs. During inference, new graphs are built dynamically from predictions and re-embedded.}
+    \label{fig:graph2vec-comparison}
+\end{figure}
+
+\subsection{Dynamic Re-inference During Recursive Forecasting}
+A critical challenge in embedding-decoupled strategies is performing multi-step recursive inference without leaking the focal item’s future demand. While the exogenous calendar features are static and known in advance, the future topology of the similarity graph depends on the unknown future demand of the catalogue.To guarantee that the forecast item never observes its own future, the pipeline employs a dynamic embedding re-inference mechanism during the testing phase. When the model predicts the demand for day $t+1$:\begin{enumerate}\item The inverse-scaled prediction $\hat{y}_{t+1}$ is appended to the model's own rolling target window. \item A new dynamic similarity graph is rebuilt from scratch for the interval $[t-w+2, t+1]$. Crucially, only the \emph{focal item's} row of this window is supplied by the model's own predictions; every other product contributes its real observed demand over the same interval. Therefore, the pairwise scores that instantiate the edges are computed between the \emph{predicted} target trajectory and the \emph{observed} neighbor trajectories. \item The previously fitted Doc2Vec model is invoked to explicitly \emph{infer} a new 16-dimensional embedding vector for this newly formed graph, using the WL subtrees extracted from the predicted topology.\item This newly inferred embedding is injected into the rolling input window for the next autoregressive step.\end{enumerate}Because the graph is re-derived in full from the predicted target window, the focal item's unobserved future never enters its own representation: the only test-period quantity the forecaster consumes about the target is its own prediction. The remaining products are treated as \emph{known covariates} whose realized demand provides the structural context against which the target is positioned. The leak-safety guarantee is thus \emph{target-local}---it removes self-leakage of the forecast item while deliberately conditioning on the observed evolution of the rest of the catalogue.
+
+
+\section{GNN-Based End-to-End Strategies}
+
+GNN-based end-to-end strategies have been designed to incorporate relational information directly into the forecasting process. Instead of relying only on the historical demand of an individual product, these approaches represent each target product as part of a dynamic graph, where the neighboring nodes correspond to products with similar temporal behaviors. This allows the model to learn not only from the target product's own demand pattern but also from the demand evolution of related products.
+
+The main motivation for this strategy is that product demand is often influenced by shared patterns across items, such as common seasonality, similar sales cycles, category-level behavior, or correlated responses to calendar effects. A purely sequential model, such as an LSTM, or a purely feature-based model, such as an MLP, may fail to explicitly capture these relationships. Using a graph neural network, the forecasting model can aggregate information from similar products and learn a representation that reflects both temporal and structural dependencies.
+
+In this study, a GNN-based strategy was implemented as an end-to-end hybrid architecture. The graph component learns a representation of the target product from its ego-graph, whereas the forecasting component combines this graph representation with the target product's recent time-series window and exogenous calendar features. The complete model is trained directly with the forecasting objective, meaning that the graph representation is optimized to improve the prediction accuracy rather than being computed as a separate, fixed embedding.
+
+During inference, the model follows a recursive-forecasting procedure. At each step, the most recent demand window is used to rebuild the graph, the model predicts the next value, and the prediction is appended to the input window for the next step. This process allows the graph structure and temporal input to evolve throughout the multi-step forecast horizon, making the approach suitable for dynamic demand-forecasting scenarios.
+
+Before the spatial convolutional layers can operate, the model requires an explicit graph topology. As detailed in Chapter \ref{chap:graph_construction}, this topology is dynamically provided at each step $t$ via an adjacency matrix $A^{(t)}$, constructed over sliding windows using thresholded similarity or distance metrics. With this dynamic structure established, the spatial features can be extracted using either convolutional or attention-based operators.
+
+\subsection{GCN}
+
+A Graph Convolutional Network (GCN) is used as the graph-learning component of the proposed end-to-end hybrid strategy. For each target product, an ego graph is constructed by connecting the target node to other products whose historical demand patterns are considered similar according to a selected similarity or distance metric. The target product is always represented as the central node, whereas the neighboring nodes provide additional contextual information about the related demand behavior.
+
+Each node in the graph contains time-series features extracted from a sliding window. The edges between the nodes are weighted according to the similarity score between the products. Therefore, stronger relationships have a greater influence on the graph convolution process.
+
+The GCN branch applies graph convolutional layers to propagate and aggregate information across an ego-graph. Through this process, the representation of the target node is updated using information from its neighboring products. The resulting target node embedding captures relational demand patterns that are not available when modelling the target series in isolation.
+
+This graph-based embedding is then combined with a separate temporal representation of the target product. The temporal branch receives the recent lookback window together with exogenous variables, such as calendar-related features, and projects them into a latent representation of the input data. The GCN embedding and temporal projection were normalized, concatenated, and passed through an MLP prediction head to produce the next-step forecast.
+
+Therefore, the role of the GCN is to enrich the forecasting model with information on structurally related products. By learning from both the target product and its dynamically selected neighbors, the model can better capture shared demand patterns and improve robustness in cases where the individual time series are noisy, sparse, or affected by irregular fluctuations.
+
+
+\subsection{GAT}
+To complement or serve as an alternative to the GCN layer, the architecture also implements a Graph Attention Network (GAT) branch. Whereas the GCN aggregates neighbor information using a fixed, static weighting based solely on the pre-computed similarity metric, the GAT branch introduces a learned, dynamic aggregation strategy by explicitly utilizing multiple parallel attention heads.  In this branch, a custom edge-weighted GAT convolutional layer was used to process the ego graph. Standard GAT implementations typically treat edge attributes as an additive bias within the attention calculation. However, to preserve the strong structural prior of the similarity network, the custom GAT multiplicatively gates its learned attention coefficients using explicit edge weights. Specifically, the multi-head attention mechanism calculates softmax-normalized coefficients, which are then multiplied by the non-negative similarity edge weights and normalized for each target node. This ensures that inherently low-similarity neighbors are heavily down-weighted regardless of the network's learned attention score, effectively combining data-driven feature attention with the explicit graph topology. Furthermore, self-loops were strictly enforced with a maximum weight of 1.0, guaranteeing that the target product's own historical signal was maximally trusted and preserved during aggregation.  The GAT encoder is structured into two primary layers to process these relationships. In the first convolutional layer, the outputs from multiple attention heads are concatenated to capture a wide and diverse array of relational features. A subsequent layer then aggregates these representations using a single attention head, averaging the outputs rather than concatenating them to project the final target node embedding to the required latent dimension. Similar to the GCN branch, this refined attention-driven graph embedding is subsequently concatenated with the temporal and exogenous features before being passed through the recurrent layers and the final prediction head.  
+
+\subsection{GCN vs GAT implementations}
+Although both the GCN and GAT branches are designed to map the per-window ego-graphs into a target-node embedding of dimension $d_g$, their aggregation mechanisms and layer architectures differ fundamentally. The GCN branch employs a standard PyTorch Geometric GCNConv layer, which uses pre-computed similarity scores as static, explicit edge weights during neighborhood aggregation. In contrast, the GAT branch utilizes a custom EdgeWeightedGATConv layer to combine data-driven attention with an explicit graph topology. Standard GAT implementations typically use edge attributes merely as an additive bias; however, this custom implementation multiplicatively gates the learned softmax-normalized attention coefficients using the structural similarity weights, followed by per-node renormalization. Architecturally, the GAT branch deploys a multi-head mechanism in its first layer that concatenates the representations from parallel attention heads, requiring ELU activation to preserve negative values. The second layer then averages the multi-head outputs to the target dimension. The GCN branch, which is simpler, applies a single projection per layer, followed by a standard ReLU activation. 
+
+\begin{table}[htpb]
+\centering
+\caption{Architectural and implementation differences between the GCN and GAT branches.}
+\label{tab:gcn_vs_gat}
+\begin{tabular}{@{} l p{5cm} p{6.5cm} @{}}
+\toprule
+\textbf{Feature} & \textbf{GCN Branch} & \textbf{GAT Branch} \\
+\midrule
+\textbf{Base PyG Module} & \texttt{GCNConv} & Custom \texttt{EdgeWeightedGATConv} (extends \texttt{GATConv}) \\
+\addlinespace
+\textbf{Edge Weighting} & Uses similarity scores directly as static \texttt{edge\_weight} during aggregation. & Multiplicatively gates learned attention coefficients with similarity scores (\texttt{edge\_attr}), then renormalizes. \\
+\addlinespace
+\textbf{Layer 1 Structure} & Single projection. & Multi-head attention (four heads); outputs are concatenated (\texttt{concat=True}). \\
+\addlinespace
+\textbf{Layer 2 Structure} & Single projection to dimension $d_g$. & Single head: outputs are averaged (\texttt{concat=False}) to dimension $d_g$. \\
+\addlinespace
+\textbf{Activation Function} & ReLU (\texttt{nn.ReLU}). & ELU (\texttt{nn.ELU}) to preserve negative values from the concatenated attention heads. \\
+\addlinespace
+\textbf{Self-Loops} & Added automatically by \texttt{GCNConv}. & Explicitly forced to a maximum similarity value of 1.0 (\texttt{fill\_value=1.0}) so that the target node strongly trusts its own signal. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Node Feature Computation}
+
+A central design choice in the graph branch concerns how each node in the
+ego-graph is described. The same node features are consumed by both the GCN and
+GAT encoders. In every configuration the features are extracted from
+the same sliding window of raw demand used to construct the graph: given a
+window of width $W$, each node $i$ is associated with its demand
+sub-sequence $\mathbf{x}_i \in \mathbb{R}^{W}$ over the window, written
+$\mathbf{x}_i = \bigl(x_i^{(1)},\ldots,x_i^{(W)}\bigr)$.
+
+\subsubsection{catch22 and catch24}
+
+The node-feature representation used throughout this work is based on
+\textit{catch22} (CAnonical Time-series CHaracteristics)
+\cite{Lubba2019}, a curated set of 22
+features selected for their discriminative power and low mutual redundancy
+across diverse time-series classification tasks.  The features summarise
+higher-order temporal properties of the window---autocorrelation structure,
+distribution shape, entropy, linear and non-linear predictability, and
+measures of stationarity---yielding a compact, fixed-length descriptor whose
+dimensionality does not increase with the window length $W$.
+
+A key property of \textit{catch22} is that it internally z-normalises each
+series before computing its features, so that all information about the
+absolute scale, and the level of demand is, by design, removed.  While this
+makes the representation invariant to demand magnitude and therefore more
+transferable across products with very different sales volumes, it also means
+that a node's feature vector carries no signal about how large or small the
+recent demand actually was---information that is directly relevant to
+forecasting.
+
+To address this, the \texttt{pycatch22} library exposes a \texttt{catch24}
+flag that appends two additional statistics---\texttt{DN\_Mean} (the arithmetic
+mean of the raw window) and \texttt{DN\_Spread\_Std} (its standard
+deviation)---to the 22 shape and dynamics features, producing a 24-dimensional
+descriptor.  These two statistics are computed on the original, non-normalised
+series and therefore reintroduce the scale and spread of demand that the
+\textit{catch22} normalisation had discarded.
+
+\subsubsection{Adding Explicit Scale Anchors: min, max, and last}
+
+Although \texttt{DN\_Mean} and \texttt{DN\_Spread\_Std} partially recover
+scale information, they characterise the distribution of the window in
+aggregate and do not directly expose the extremes or the most recent level of
+demand.  In practice, the minimum and maximum of the window bound the range of
+observed values and are directly interpretable by message-passing operations,
+while the last observation in the window---the value immediately preceding the
+current forecast step---provides the most recent context and is often the
+single strongest, short-term predictor.
+
+The final feature vector therefore concatenates the 24-dimensional catch24
+block with three explicit scale anchors:
+\[
+\mathbf{f}_i = \bigl[\,\underbrace{c_{i,1},\ldots,c_{i,22}}_{\text{catch22}},\;
+\underbrace{\mu_i,\;\sigma_i}_{\text{DN\_Mean/Std}},\;
+\underbrace{\min_i,\;\max_i,\;x_i^{(W)}}_{\text{scale anchors}}\,\bigr]
+\;\in\;\mathbb{R}^{27},
+\]
+where $\mu_i$ and $\sigma_i$ are the mean and standard deviation of the raw
+window (the catch24 additions), $\min_i$ and $\max_i$ its extrema, and
+$x_i^{(W)}$ is the final observed value.  This 27-dimensional representation
+combines the rich temporal shape information of \textit{catch22} with
+sufficient scale context to allow the graph convolution to propagate both the
+dynamics and demand level of each neighbor to the target node.
+
+{\small\sloppy
+\setlength{\tabcolsep}{4pt}% tighter columns
+\renewcommand{\arraystretch}{1.05}% a touch more leading
+\begin{longtable}{@{}c
+  >{\ttfamily\raggedright\arraybackslash}p{0.30\linewidth}
+  >{\raggedright\arraybackslash}p{0.18\linewidth}
+  >{\raggedright\arraybackslash}p{0.40\linewidth}
+  c@{}}
+\caption{Node-feature vector for the \texttt{catch24\_minmaxlast} mode.
+         Features 0--21 are the 22 \textit{catch22} features returned by
+         \texttt{pycatch22} in their library order; features 22--23 are the
+         two scale statistics appended by the \texttt{catch24=True} flag;
+         features 24--26 are the three explicit scale anchors added by this
+         work.  The \textit{Zeroed} column indicates whether a feature was
+         was observed as zero for the target node in the illustrative window:
+         $\circ$~=~structural zero (no outliers detected),
+         $\bullet$~=~NaN replaced by zero (numerical failure of the
+         log-linear fit on a short window).}
+\label{tab:node_features} \\
+\toprule
+\# & Feature code & Category & Description & Zeroed \\
+\midrule
+\endfirsthead
+\toprule
+\# & Feature code & Category & Description & Zeroed \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{\footnotesize Continued on next page} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
+\multicolumn{5}{l}{\textit{catch22 features (indices 0--21, scale-invariant)}} \\[2pt]
+ 0 & DN\_\allowbreak HistogramMode\_\allowbreak 5                          & Distribution shape         & Mode of 5-bin histogram of z-normalised series               & ---           \\
+ 1 & DN\_\allowbreak HistogramMode\_\allowbreak 10                         & Distribution shape         & Mode of 10-bin histogram of z-normalised series              & ---           \\
+ 2 & CO\_\allowbreak f1ecac                                    & Autocorrelation            & First $1/e$ crossing of the ACF                              & ---           \\
+ 3 & CO\_\allowbreak FirstMin\_\allowbreak ac                              & Autocorrelation            & First minimum of the ACF (lag index)                         & ---           \\
+ 4 & CO\_\allowbreak HistogramAMI\_\allowbreak even\_\allowbreak 2\_\allowbreak 5                  & Nonlinear autocorrelation  & Auto-mutual information, lag 2, 5 bins                       & ---           \\
+ 5 & CO\_\allowbreak trev\_\allowbreak 1\_\allowbreak num                              & Nonlinear autocorrelation  & Time-reversibility statistic                                 & ---           \\
+ 6 & MD\_\allowbreak hrv\_\allowbreak classic\_\allowbreak pnn40                       & Incremental differences    & Proportion of successive differences $>{0.4}\sigma$          & ---           \\
+ 7 & SB\_\allowbreak BinaryStats\_\allowbreak mean\_\allowbreak longstretch1           & Symbolic                   & Length of longest above-mean stretch                         & ---           \\
+ 8 & SB\_\allowbreak TransitionMatrix\_\allowbreak 3ac\_\allowbreak sumdiagcov         & Symbolic                   & Column variance of 3-symbol transition matrix                & ---           \\
+ 9 & PD\_\allowbreak PeriodicityWang\_\allowbreak th0\_\allowbreak 01                  & Periodicity                & Wang's periodicity metric (dominant lag)                     & ---           \\
+10 & CO\_\allowbreak Embed2\_\allowbreak Dist\_\allowbreak tau\_\allowbreak d\_\allowbreak expfit\_\allowbreak meandiff    & Nonlinear                  & Mean diff.\ of exponential fit to 2-D embedding distances    & ---           \\
+11 & IN\_\allowbreak AutoMutualInfoStats\_\allowbreak 40\_\allowbreak gaussian\_\allowbreak fmmi   & Autocorrelation structure  & First minimum lag of the AMI function                        & ---           \\
+12 & FC\_\allowbreak LocalSimple\_\allowbreak mean1\_\allowbreak tauresrat              & Forecasting                & Change in ACF timescale after first-differencing             & ---           \\
+13 & DN\_\allowbreak OutlierInclude\_\allowbreak p\_\allowbreak 001\_\allowbreak mdrmd             & Extreme event timing       & Mean deviation from median (positive outliers only)          & $\circ$       \\
+14 & DN\_\allowbreak OutlierInclude\_\allowbreak n\_\allowbreak 001\_\allowbreak mdrmd             & Extreme event timing       & Mean deviation from median (negative outliers only)          & ---           \\
+15 & SP\_\allowbreak Summaries\_\allowbreak welch\_\allowbreak rect\_\allowbreak area\_\allowbreak 5\_\allowbreak 1        & Spectral                   & Power in the lowest 20\% of frequencies (Welch)              & ---           \\
+16 & SB\_\allowbreak BinaryStats\_\allowbreak diff\_\allowbreak longstretch0           & Symbolic                   & Length of longest monotonically decreasing stretch           & ---           \\
+17 & SB\_\allowbreak MotifThree\_\allowbreak quantile\_\allowbreak hh                  & Symbolic                   & Entropy of successive pairs in quantile-symbolised series    & ---           \\
+18 & SC\_\allowbreak FluctAnal\_\allowbreak 2\_\allowbreak rsrangefit\_\allowbreak 50\_\allowbreak 1\_\allowbreak logi\_\allowbreak prop\_\allowbreak r1 & Self-affine scaling        & Rescaled-range fluctuation analysis (low-scale regime)       & $\bullet$     \\
+19 & SC\_\allowbreak FluctAnal\_\allowbreak 2\_\allowbreak dfa\_\allowbreak 50\_\allowbreak 1\_\allowbreak 2\_\allowbreak logi\_\allowbreak prop\_\allowbreak r1    & Self-affine scaling        & Detrended fluctuation analysis (low-scale regime)            & $\bullet$     \\
+20 & SP\_\allowbreak Summaries\_\allowbreak welch\_\allowbreak rect\_\allowbreak centroid          & Spectral                   & Centroid frequency of the power spectrum                     & ---           \\
+21 & FC\_\allowbreak LocalSimple\_\allowbreak mean3\_\allowbreak stderr                & Forecasting                & Residual std.\ of 3-point rolling-mean forecast              & ---           \\[4pt]
+
+\multicolumn{5}{l}{\textit{catch24 additions (indices 22--23, raw-scale)}} \\[2pt]
+22 & DN\_\allowbreak Mean                                      & Scale recovery             & Arithmetic mean of the raw window ($\mu_i$)                  & ---           \\
+23 & DN\_\allowbreak Spread\_\allowbreak Std                               & Scale recovery             & Standard deviation of the raw window ($\sigma_i$)            & ---           \\[4pt]
+
+\multicolumn{5}{l}{\textit{Explicit scale anchors (indices 24--26, raw-scale)}} \\[2pt]
+24 & min                                           & Scale anchor               & Minimum value in the raw window ($\min_i$)                   & ---           \\
+25 & max                                           & Scale anchor               & Maximum value in the raw window ($\max_i$)                   & ---           \\
+26 & last                                          & Scale anchor               & Last (most recent) value in the raw window ($x_i^{(W-1)}$)  & ---           \\
+
+\end{longtable}
+}
+
+\subsubsection{Robustness and Dynamic Recomputation}
+
+Several \textit{catch22} features are mathematically ill-defined on
+near-constant or very short windows and return \texttt{NaN}, while strictly
+constant series can additionally fail in the underlying extraction backend.
+To prevent a single degenerate node from corrupting the entire graph during
+message passing, any non-finite feature is replaced by zero and a node whose
+extraction fails entirely falls back to an all-zero feature vector.
+
+In the illustrative window detailed in Table \ref{tab:node_features}, this fallback mechanism is explicitly demonstrated by zeroing in on three specific features. The extreme event timing metric (\texttt{DN \_OutlierInclude \_p \_001 \_mdrmd}, index 13) resolves to a structural zero (\(\circ\)) because no positive outliers exist within that specific time frame. In contrast, the two self-affine scaling metrics, namely the rescaled range and detrended fluctuation analyses (indices 18 and 19), initially yield \texttt{NaN} values, which the system actively replaces with zero (\(\bullet\)). These numerical failures occur because the short length of the rolling window provides insufficient data points to compute the robust log-linear fits required across multiple scales, practically necessitating the \texttt{NaN}-to-zero safeguard during localized extraction.
+Regardless of the window, the node features are recomputed dynamically as the
+graph evolves.  During the recursive multi-step forecast the target node's
+feature row is refreshed at each step from the rolling demand window, where
+the most recent observation is replaced by the model's own prediction rather
+than the ground truth value.  The same 27-dimensional transformation is
+therefore applied consistently at both training and inference time, ensuring
+that no test-period information leaks into the node features while the graph
+structure and node descriptors are updated throughout the forecast horizon.
+
+\subsection{The Shared Graph Embedding Phase}
+
+Regardless of whether the final predictive head is an LSTM or a time-distributed MLP, and regardless of whether the spatial encoder relies on fixed graph convolutions (GCN) or learned attention mechanisms (GAT), the initial processing of structural data remains identical. The architecture employs a per-step alignment strategy, meaning that the model expects one distinct ego graph for every single day in the lookback window of length $L$.
+
+During the forward pass, a minibatch of $B$ samples, each containing $L$ temporal steps, is flattened into a single contiguous, disconnected graph structure containing $B \times L$ ego-graphs. The chosen spatial encoder processes this massive block-diagonal graph in a single sparse operation, allowing the network to compute representations across the entire batch highly efficiently, rather than iterating through time steps.
+
+After the message-passing layers propagate and aggregate neighborhood information, the model extracts updated embeddings specifically for the target products. Because the target node is consistently positioned in the first row of each subgraph, its representation is accurately recovered using batch pointer indices. This extraction yields a flat tensor of shape $(B \times L, d_g)$, where $d_g$ denotes the latent dimension of the graph embedding. 
+
+The tensor is then passed through layer normalization to stabilize the magnitude of the structural features and prevent them from overwhelming the temporal signals[ 13]. Finally, these vectors are reshaped back into a sequence tensor of shape $(B, L, d_g)$ in the exact row-major order produced by the data-collation step. This final transformation ensures that every lookback day is perfectly paired with the explicit structural embedding computed for that day, preparing the sequence for fusion with the temporal models.
+
+\subsection{Temporal Head Integration}
+
+Once the shared graph embedding phase produces the structural sequence $\mathbf{z} \in \mathbb{R}^{B \times L \times d_g}$, these vectors must be combined with the temporal inputs and processed by the forecasting model. The architecture supports two primary temporal integration strategies: a recurrent LSTM network and a time-distributed MLP.
+
+\subsubsection{Link to LSTM Training}
+
+The graph encoder and LSTM were not trained as separate stages. Instead, they form a single end-to-end network in which the spatial encoder, recurrent encoder, and prediction head are optimized jointly under one forecasting loss. The graph encoder does not produce a fixed, pre-computed embedding; rather, its parameters are updated by the same gradient signal that trains the LSTM, so that the learned graph representation is shaped specifically to improve the forecast.
+
+\paragraph{Fusion before the recurrence.}
+The graph embedding is fused with the temporal input \emph{before} the LSTM processes the input sequence. At each step the model concatenates the target value, the exogenous calendar features, and the corresponding graph embedding into a single augmented vector,
+\[
+\mathbf{x}_t = \big[\, y_t \;\Vert\; \mathbf{e}_t \;\Vert\; \mathbf{z}_t \,\big]
+\in \mathbb{R}^{1 + n_\text{exog} + d_g},
+\]
+The resulting sequence $(\mathbf{x}_1, \dots, \mathbf{x}_L)$ is fed to the LSTM. Because the relational signal enters the recurrence as additional input features at every step, the LSTM can integrate structural information from related products with the target’s temporal dynamics, rather than treating the graph embedding as a static side input. The hidden state of the final step is passed through a dropout and linear head to produce the next-step prediction.
+
+\paragraph{Backpropagation through both branches.}
+Training minimizes a single forecasting loss (mean squared error) between the final-step prediction and the ground-truth target, with the same metric used for validation and early stopping. The optimizer is bound to all model parameters at once; therefore, a single call to backpropagation propagates gradients from the prediction head, back through the LSTM, through the concatenation that fused the two branches, and into the graph convolutional layers and the layer normalization. Concatenation is the point at which the error signal splits: part of it flows along the temporal path into the LSTM weights, and part flows along the structural path into the graph encoder's weights and shapes how neighbor information is aggregated. Therefore, the graph representation is learned discriminatively for the forecasting objective, not as an unsupervised or pretext embedding.
+
+\paragraph{Training stabilisation and diagnostics.}
+Several mechanisms maintain the stability of joint optimization. Layer normalization on $\mathbf{z}$ prevents the magnitude of the graph embedding from dominating or collapsing relative to the temporal features at the fusion point. Global gradient-norm clipping bounds the combined gradient before each optimizer update, and dropout is applied in the graph encoder, LSTM, and head to limit overfitting. To monitor the relative contribution of the two branches during training, the loop separately accumulates the gradient norms of the graph-related parameters and LSTM parameters, logging their ratio together with the mean norm and variance of the captured $\mathbf{z}$ embeddings. These diagnostics make it possible to verify that the graph branch is actually receiving and using a meaningful share of the learning signal. An ablation switch is also provided that zeroes the graph embedding before fusion, reducing the architecture to a purely temporal LSTM and allowing the contribution of the spatial branch to be measured directly.
+
+\paragraph{Recursive inference.}
+Because the model forecasts a single step ahead, multi-step predictions are generated by recursive rollout. At inference, the model maintains a rolling deque of $L$ ego-graphs alongside the $L$-row lookback window, mirroring the per-step layout used during training. At each step, it is queried on the current (,$L$-graph deque, $L$-row temporal window,) pair to predict the next value $\hat{y}$; the lookback window is then advanced by dropping the oldest target value and appending $\hat{y}$, while the exogenous row is moved to the calendar features of the day being predicted. The graph deque is advanced by dropping the oldest graph and appending an ego-graph aligned to that same day.To keep the forecast strictly causal and free of label leakage, the ego-graph appended to the deque at each step is built dynamically. Consistently with the embedding-decoupled pipeline, the focal item's unobserved future is entirely replaced by the model's own rolling predictions. Specifically, the prediction $\hat{y}$ is inverse-scaled and re-scaled into the appropriate similarity space (z-scored for distance metrics, raw for similarity metrics) and appended to a rolling $w$-day target window. From this updated window, both the 27-dimensional node features of the target and their pairwise similarities to the observed neighbor trajectories were re-derived from scratch. Notably, at the very first forecast step, this rolling window consists entirely of the observed pre-test history; predictions only progressively replace the true observations as the horizon advances. The same own-prediction history is used to refresh any leakage-prone exogenous features, such as demand lags and rolling means. Because both the node features and the relational topology are updated dynamically from this evolving prediction window, the focal item's unobserved future never enters its own representation, preserving identical causal train- and test-time semantics over the entire forecast horizon.
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/gcn_lstm_training_architecture.pdf}
+    \caption{End-to-end training architecture of the per-step GCN + LSTM forecaster. The model is trained jointly: gradients from the forecasting loss flow back through both the temporal (LSTM) and graph (GCN) branches in a single optimization. Inputs (top row): the scaled target series augmented with exogenous calendar/holiday features ($T \times (1 + n_{\text{exog}})$); a list of per-window similarity/distance graphs (one NetworkX graph per sliding window, here built from Spearman dynamic similarity over the training period); the raw per-node window values used to compute node features (catch24 + scale/level extras); and the random seed plus train/validation/test splits. Batching: GCNTimeSeriesDataset together with the per-step collator collate\_pyg\_ts materializes each minibatch as four tensors: pyg\_batch, a flattened $B \cdot L$ ego-graphs (one ego-graph per lookback day, $B$ samples $\times L$ lookback steps, with edge\_index, edge\_attr, node features $x$); ts\_batch $(B, L, 1 + n_{\text{exog}})$; the regression targets $y_{\text{batch}}$ $(B, 1)$; and target\_idx $= \text{ptr}[:-1]$, the $(B \cdot L,)$ indices selecting each subgraph's target (ego) node within the batched node matrix. GCN branch: a two-layer encoder (GCNConv $\rightarrow$ ReLU $\rightarrow$ Dropout $\rightarrow$ GCNConv) embeds all $B \cdot L$ graphs in one sparse pass; the target-node rows are gathered via target\_idx and LayerNorm-normalized to give the per-step embeddings $z$ $(B \cdot L, d_g = 16)$, which are reshaped to $(B, L, d_g)$ in the same row-major order produced by the collator so that each lookback day is paired with its own graph embedding. Fusion: The reshaped per-step embeddings $z$ $(B, L, d_g)$ are concatenated with ts\_batch at each step, forming the per-step LSTM input of width $1 + n_{\text{exog}} + d_g$. Temporal head: A single-layer LSTM (hidden $= 32$) followed by Dropout and a Linear($\rightarrow 1$) layer maps the last hidden state to the one-step-ahead prediction $\hat{y}$ $(B, 1)$. Optimization: the prediction is compared to $y_{\text{batch}}$ under an MSE loss; parameters of both branches are updated with AdamW (gradient-norm clipping at $1.0$), the learning rate is annealed by ReduceLROnPlateau on the validation loss, with early stopping on the same signal. Line styles distinguish the forward pass (solid), backward/gradient flow (dashed; $\partial L/\partial \theta_{\text{LSTM}}$ and $\partial L/\partial \theta_{\text{GCN}}$ reach both branches, confirming end-to-end joint training) and the optimiser parameter update (dotted).}
+    \label{fig:gcn_lstm_training_architecture}
+\end{figure}
+
+\subsubsection{Link to MLP Training}
+\label{sec:gcn_mlp_link}
+
+As in the recurrent variant, the graph encoder and MLP were not trained as separate stages. They form a single end-to-end network in which the graph encoder, a shared time-distributed MLP, and the prediction head are jointly optimized under one forecasting loss. The spatial branch does not produce a fixed, pre-computed embedding; its parameters are updated by the same gradient that trains the MLP, so the learned graph representation is shaped specifically to improve the forecast.
+
+\paragraph{Fusion before the head.}
+The graph embedding is fused with the temporal input \emph{per step} before the MLP processes the sequence. At each step the model concatenates the target value, the exogenous calendar features, and the corresponding graph embedding into a single augmented vector,
+\[
+\mathbf{x}_t = \big[\, y_t \;\Vert\; \mathbf{e}_t \;\Vert\; \mathbf{z}_t \,\big]
+\in \mathbb{R}^{1 + n_\text{exog} + d_g},
+\]
+giving an augmented sequence $(\mathbf{x}_1, \dots, \mathbf{x}_L)$. Crucially, this sequence is \emph{not flattened} into one long vector, and there is no separate linear projection of the lookback: the relational signal enters as additional per-step features, exactly as in the recurrent variant, the only difference being how the augmented sequence is subsequently consumed.
+
+\paragraph{Time-distributed MLP head.}
+Instead of a recurrence, a single shared MLP (a stack of \texttt{Linear $\to$ ReLU $\to$ Dropout} blocks) is applied independently and with identical weights to each of the $L$ augmented steps, mapping $\mathbf{x}_t \mapsto \mathbf{h}_t$. This time-distributed design keeps the head invariant to the lookback length and allows the network to learn one per-step transformation that is reused across the window, rather than learning a position-specific mapping over a flattened input. The $L$ step representations are then pooled by concatenating the most recent step with the mean over all steps,
+\[
+\mathbf{g} = \big[\, \mathbf{h}_L \;\Vert\; \tfrac{1}{L}\textstyle\sum_{t=1}^{L}\mathbf{h}_t \,\big],
+\]
+combining the latest local context with a global summary of the window, and a final linear layer maps $\mathbf{g}$ to the forecast horizon $H$.
+
+\paragraph{Backpropagation through both branches.}
+Training minimizes a single forecasting loss between the final-step prediction and the ground-truth target. The optimizer is bound to all model parameters at once, so a single backward pass propagates gradients from the linear head, back through the pooled representation and the shared per-step MLP, through the concatenation that fused the two branches, and into the graph convolutional layers and layer normalization. Concatenation is the point at which the error signal splits: part flows along the temporal path into the MLP weights, and part flows along the structural path into the graph weights and, through the edge-weighted message passing, shapes how neighbor information is aggregated. Therefore, the graph representation is learned discriminatively for the forecasting objective.
+
+\paragraph{Training stabilisation and diagnostics.}
+The same stabilization mechanisms as those of the recurrent variant apply. Layer normalization on $\mathbf{z}$ prevents the magnitude of the graph embedding from dominating or collapsing relative to the temporal features at the fusion point. Global gradient-norm clipping bounds the combined gradient before each optimizer update, and dropout is applied in both the graph encoder and MLP. To monitor the relative contribution of the two branches, the training loop separately accumulates the gradient norms of the graph-related parameters and the MLP parameters, logging their ratio together with the mean norm and variance of the captured $\mathbf{z}$ embeddings. An ablation switch is also provided, which zeroes the graph embedding before fusion, reducing the architecture to a purely temporal time-distributed MLP and allowing the spatial contribution to be measured directly.
+
+\paragraph{Recursive inference.}
+At test time, the fused model is rolled out one step at a time. A deque of $L$ ego-graphs is maintained alongside the lookback window: at each step, the model predicts the next value, the prediction is appended to the lookback (and to the unscaled history used for any leakage-safe lag and rolling-mean features), and the graph deque is advanced by dropping the oldest graph and appending the graph aligned to the day just predicted from scratch dynamically. As in the recurrent variant, the target node's $w$-day time-series window is progressively populated by the model’s own rolling predictions as the forecast horizon advances (starting from a purely observed pre-test seed at step one), while neighboring nodes use ground-truth observed values. The edge weights and node features were then jointly re-extracted from this leak-safe window at every step. The same forward signature $\texttt{model}(G_t, \mathbf{s}_t) \rightarrow (B, H, 1)$ is used during training and inference, ensuring that test-time semantics remain strictly causal, target self-leakage is eliminated, and the evolving structural graph information is exploited consistently throughout the forecast horizon.
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.5\linewidth]{figures/gcn_tdmlp_architecture.pdf}
+    \caption{Architecture of the per-step GCN + time-distributed MLP forecaster (GCN--TDMLP), trained end-to-end. For each lookback day $t$ in a window of length $L=30$, an ego-graph is built around the target item and its neighbors; each node uses a 24-dimensional \texttt{catch24} feature vector. A weight-shared two-layer GCN encoder (GCNConv $24\!\to\!64$ $\to$ ReLU $\to$ Dropout $\to$ GCNConv $64\!\to\!16$ $\to$ LayerNorm) produces a target-node embedding $\mathbf{z}_t\in\mathbb{R}^{16}$. Per step, the fused input is $[\mathbf{z}_t\,\Vert\, y_t\,\Vert\, \mathbf{x}^{\text{exog}}_t]$, giving a sequence tensor of shape $(B,L,16+1+n_{\text{exog}})$, where $B$ is the mini-batch size, $y_t$ is the (scaled) target value, and $\mathbf{x}^{\text{exog}}_t\in\mathbb{R}^{n_{\text{exog}}}$ are exogenous features. A time-distributed MLP (Linear $\to$ ReLU $\to$ Dropout $\to$ Linear $\to$ ReLU $\to$ Dropout) maps each step to $(B,L,64)$, and temporal pooling forms $[\mathbf{h}_{\text{last}}\,\Vert\,\text{mean}(\mathbf{h}_{1:L})]\in\mathbb{R}^{128}$. A final linear layer outputs a one-step prediction $\hat{y}_{t+1}$ (and, in general, $H$ steps for horizon $H$). The model is trained with MSE loss $\mathcal{L}$, with gradients backpropagated through both the MLP and GCN parameters.}
+    \label{fig:gcn_tdmlp_architecture}
+\end{figure}
