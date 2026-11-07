@@ -186,6 +186,7 @@ def plot_random_sample_per_label(
     print_stats=False,
     agg_per_date="sum",
     show=True,
+    save_path=None,
 ):
     """
     Plot one random sample of each classification label.
@@ -199,6 +200,8 @@ def plot_random_sample_per_label(
     date_col : str or None
         If None, date is assumed to be the index (DatetimeIndex).
         If str, date is a column name in df.
+    save_path : str or None
+        If given, saves the figure as a PDF to this path.
     """
     if rng is None:
         rng = np.random.default_rng(seed)  # seed=None => entropy
@@ -283,6 +286,8 @@ def plot_random_sample_per_label(
 
     axes[-1].set_xlabel("Date")
     plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, format="pdf", bbox_inches="tight")
     if show:
         plt.show()
 
