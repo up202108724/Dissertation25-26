@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import holidays
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-
+from sklearn.preprocessing import MinMaxScaler
 def compute_metrics(y_test, y_pred):
     
     def POCID(y_test, y_pred):
@@ -18,48 +18,98 @@ def compute_metrics(y_test, y_pred):
     pocid = POCID(y_test, y_pred)
     return rmse, mae, bias, score, pocid
 
+def scale_exogenous_features(df, train_slice, categorical_cols=None, continuous_cols=None, binary_cols=None):
+    df_scaled = df.copy()
+    final_exog_cols = []
+    
+    cat_scaler = None
+    cont_scaler = None
+    
+    # Scale categorical columns with OneHotEncoder
+    if categorical_cols:
+        cat_train = df.iloc[train_slice][categorical_cols].values
+        cat_scaler = MinMaxScaler()  # Use MinMaxScaler to convert categories to a 0-1 range before OHE
+        cat_scaler.fit(cat_train)
+        
+        cat_full_scaled = cat_scaler.transform(df[categorical_cols].values)
+        cat_feature_names = cat_scaler.get_feature_names_out(categorical_cols)
+        
+        # Add new OHE columns and drop the originals
+        df_cat = pd.DataFrame(cat_full_scaled, columns=cat_feature_names, index=df.index)
+        df_scaled = pd.concat([df_scaled.drop(columns=categorical_cols), df_cat], axis=1)
+        final_exog_cols.extend(cat_feature_names)
+        
+    # Scale continuous columns
+    if continuous_cols:
+        cont_train = df.iloc[train_slice][continuous_cols].values
+        cont_scaler = MinMaxScaler()
+        cont_scaler.fit(cont_train)
+        
+        cont_full_scaled = cont_scaler.transform(df[continuous_cols].values)
+        df_scaled[continuous_cols] = cont_full_scaled
+        final_exog_cols.extend(continuous_cols)
+        
+    # Keep binary columns as they are
+    if binary_cols:
+        final_exog_cols.extend(binary_cols)
+        
+    return df_scaled, final_exog_cols, cat_scaler, cont_scaler
+
+def build_dynamic_exog_row(next_date, target_history, exog_cols,
+                           lag_cols=None, rolling_cols=None, df_row=None):
+    """
+    Build one RAW exogenous row for next_date using current RAW target history.
+    """
+    row = {}
+
+    if lag_cols:
+        for col in lag_cols:
+            lag = int(col.split('_')[1])
+            row[col] = target_history[-lag] if len(target_history) >= lag else 0.0
+
+    if rolling_cols:
+        for col in rolling_cols:
+            window = int(col.split('_')[2])
+            if len(target_history) >= window:
+                row[col] = float(np.mean(target_history[-window:]))
+            else:
+                row[col] = float(np.mean(target_history)) if len(target_history) > 0 else 0.0
+
+    if df_row is not None:
+        for col in exog_cols:
+            if col not in row and col in df_row.index:
+                row[col] = df_row[col]
+
+    return pd.DataFrame([[row.get(col, 0.0) for col in exog_cols]], columns=exog_cols)
 
 
 
-def select_best_seasonal_smooth(df, top_n=100, max_zero_rate=0.2, sales_col='value', item_col='item_id', label_col='item_label', labels=('seasonal','smooth'), by='total_sales'):
-    # filter seasonal / smooth
-    df_sub = df[df[label_col].isin(labels)].copy()
+def transform_exog_row(row_df, categorical_cols=None, continuous_cols=None, binary_cols=None,
+                       cat_scaler=None, cont_scaler=None, final_exog_cols=None):
+    parts = []
 
-    # ensure numeric sales
-    df_sub[sales_col] = pd.to_numeric(df_sub[sales_col], errors='coerce').fillna(0)
+    if categorical_cols:
+        # Force column order
+        cat_arr = cat_scaler.transform(row_df[categorical_cols].values)
+        cat_names = cat_scaler.get_feature_names_out(categorical_cols)
+        parts.append(pd.DataFrame(cat_arr, columns=cat_names, index=row_df.index))
 
-    # compute metrics per item
-    agg = df_sub.groupby(item_col).agg(
-        days_observed=('date', 'nunique'),
-        total_sales=(sales_col, 'sum'),
-        mean_sales=(sales_col, 'mean'),
-        median_sales=(sales_col, 'median'),
-        zeros=(sales_col, lambda x: (x==0).sum()),
-        obs_count=(sales_col, 'count')
-    ).reset_index()
+    if continuous_cols:
+        # Force column order precisely as fitted
+        cont_arr = cont_scaler.transform(row_df[continuous_cols].values)
+        parts.append(pd.DataFrame(cont_arr, columns=continuous_cols, index=row_df.index))
 
-    agg['zero_rate'] = agg['zeros'] / agg['obs_count']
-    agg['nonzero_mean'] = agg.apply(lambda r: r['total_sales'] / max(1, r['obs_count'] - r['zeros']), axis=1)
+    if binary_cols:
+        # Force column order
+        parts.append(row_df[binary_cols].copy())
 
-    # filter by zero rate
-    agg = agg[agg['zero_rate'] <= max_zero_rate]
+    out = pd.concat(parts, axis=1)
 
-    # choose sort key
-    if by == 'total_sales':
-        agg = agg.sort_values('total_sales', ascending=False)
-    elif by == 'mean_sales':
-        agg = agg.sort_values('mean_sales', ascending=False)
-    elif by == 'nonzero_mean':
-        agg = agg.sort_values('nonzero_mean', ascending=False)
-    else:
-        raise ValueError("by must be 'total_sales', 'mean_sales' or 'nonzero_mean'")
+    if final_exog_cols is not None:
+        # Reindex to ensure strictly ordered columns matching the training tensors
+        out = out.reindex(columns=final_exog_cols, fill_value=0.0)
 
-    # take top_n items and return original rows for those items
-    top_items = agg.head(top_n)[item_col].tolist()
-    return df_sub[df_sub[item_col].isin(top_items)].copy(), agg.loc[agg[item_col].isin(top_items)]
-
-# Example usage:
-# subset_rows, top_summary = select_best_seasonal_smooth(df_classified, top_n=50, max_zero_rate=0.15)
+    return out
 
 def generate_exogenous_features(df, exog_cols, date_col='date', target_col='value', group_cols=None):
     """
@@ -205,32 +255,29 @@ def generate_exogenous_features(df, exog_cols, date_col='date', target_col='valu
         elif col.startswith("rolling_mean_excl_"):
             window = int(col.split("_")[-1])
             if group_cols:
-                df[col] = df.groupby(group_cols)[target_col].transform(
-                    lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
-                ).fillna(0)
+                df[col] = df.groupby(group_cols)[target_col].transform(lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()).fillna(0)
             else:
                 df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
-
+                
         elif col.startswith("rolling_mean_"):
-            # NOTE: leak-safe version — excludes the current observation by shifting one step.
-            # The previous implementation included y_t in the mean, which leaks the target at training time.
             window = int(col.split("_")[-1])
             if group_cols:
-                df[col] = df.groupby(group_cols)[target_col].transform(
-                    lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
-                ).fillna(0)
+                df[col] = df.groupby(group_cols)[target_col].transform(lambda x: x.rolling(window=window, min_periods=1).mean()).fillna(0)
             else:
-                df[col] = df[target_col].shift(1).rolling(window=window, min_periods=1).mean().fillna(0)
+                df[col] = df[target_col].rolling(window=window, min_periods=1).mean().fillna(0)
 
         elif col == "is_bridge_day":
             _, holiday_dates = get_holiday_dates()
-            holiday_set = set(pd.to_datetime(holiday_dates).normalize())
-
-            d = df[date_col].dt.normalize()
-            prev_is_holiday = (d - pd.Timedelta(days=1)).isin(holiday_set)
-            next_is_holiday = (d + pd.Timedelta(days=1)).isin(holiday_set)
-            dow = d.dt.dayofweek
-            df[col] = ((prev_is_holiday & (dow == 4)) | (next_is_holiday & (dow == 0))).astype(int)
+            holiday_set = set(holiday_dates)
+            
+            df[col] = 0
+            for idx in df.index:
+                d = df.at[idx, date_col]
+                prev_day = d - pd.Timedelta(days=1)
+                next_day = d + pd.Timedelta(days=1)
+                if ((prev_day in holiday_set and d.dayofweek == 4) or 
+                    (next_day in holiday_set and d.dayofweek == 0)):
+                    df.at[idx, col] = 1
 
         elif col in df.columns:
             # If the column exists in the dataset natively (e.g., store_id, cat_label) and isn't a builder key, just pass
@@ -240,3 +287,4 @@ def generate_exogenous_features(df, exog_cols, date_col='date', target_col='valu
             print(f"Warning: Builder for feature '{col}' not found.")
 
     return df
+

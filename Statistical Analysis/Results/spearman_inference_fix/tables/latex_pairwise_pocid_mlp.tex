@@ -1,0 +1,17 @@
+\begin{table}[ht]
+\centering\small
+\caption{Product-level pairwise comparisons (POCID, MLP family, $N=60$ products). $\Delta$: mean improvement of the first model (positive = better), 95\% BCa CI over products; $r_{rb}$: matched-pairs rank-biserial correlation; W/L: products won/lost; $p_{W}$: Wilcoxon signed-rank, Holm-adjusted; $p_{HB}$: hierarchical bootstrap, Holm-adjusted.}
+\label{tab:pairwise_pocid_mlp}
+\begin{tabular}{lrcrcrr}
+\toprule
+Comparison & $\Delta$ & 95\% CI & $r_{rb}$ & W/L & $p_{W}$ & $p_{HB}$ \\
+\midrule
+GAT-MLP vs GCN-MLP & -0.001 & [-0.006, 0.004] & -0.17 & 24/36 & 0.258 & 0.701 \\
+GAT-MLP vs Graph2Vec-MLP & -0.007 & [-0.014, -0.000] & -0.32 & 25/34 & 0.140 & 0.160 \\
+GAT-MLP vs MLP & -0.016 & [-0.027, -0.005] & -0.45 & 22/37 & \textbf{0.012} & \textbf{0.016} \\
+GCN-MLP vs Graph2Vec-MLP & -0.006 & [-0.013, -0.000] & -0.24 & 23/36 & 0.212 & 0.160 \\
+GCN-MLP vs MLP & -0.015 & [-0.026, -0.004] & -0.46 & 20/40 & \textbf{0.011} & \textbf{0.033} \\
+Graph2Vec-MLP vs MLP & -0.009 & [-0.020, 0.002] & -0.28 & 21/39 & 0.186 & 0.229 \\
+\bottomrule
+\end{tabular}
+\end{table}

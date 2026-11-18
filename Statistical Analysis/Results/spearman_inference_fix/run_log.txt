@@ -1,0 +1,326 @@
+Loaded C:\Users\Andre Silva\Desktop\Dissertation25-26\Statistical Analysis\spearman_inference_fix.csv: 4800 rows, 60 products, 10 seeds, variants=['gat_lstm', 'gat_mlp', 'gcn_lstm', 'gcn_mlp', 'graph2vec_lstm', 'graph2vec_mlp', 'lstm_baseline', 'mlp_baseline']
+[*] MODEL FAMILY: 'lstm' -> ['lstm_baseline', 'graph2vec_lstm', 'gcn_lstm', 'gat_lstm']
+[*] STANDARD MODE: Filtered out ablate_z=True runs.
+
+============================================================
+--- Running Statistical Evaluation for MAE | TOTAL SEEDS ---
+============================================================
+Loaded 600 blocks.
+Retained 600 complete blocks after dropping missing runs.
+
+--- Average Ranks (Lower is Better) ---
+lstm_baseline             : 2.180
+graph2vec_lstm            : 2.265
+gcn_lstm                  : 2.727
+gat_lstm                  : 2.828
+
+
+--- Friedman Test Results ---
+Test Statistic: 114.0500
+P-value:        1.4744e-24
+
+Result: Reject the null hypothesis (p < 0.05).
+There is a statistically significant difference between the models.
+
+--- Post-Hoc Nemenyi Test (Pairwise p-values) ---
+                gat_lstm  gcn_lstm  graph2vec_lstm  lstm_baseline
+gat_lstm          1.0000    0.5221          0.0000         0.0000
+gcn_lstm          0.5221    1.0000          0.0000         0.0000
+graph2vec_lstm    0.0000    0.0000          1.0000         0.6645
+lstm_baseline     0.0000    0.0000          0.6645         1.0000
+
+--- Significant Pairwise Differences (p < 0.05) ---
+✅ graph2vec_lstm significantly outperforms gat_lstm (p = 0.0000)
+✅ lstm_baseline significantly outperforms gat_lstm (p = 0.0000)
+✅ graph2vec_lstm significantly outperforms gcn_lstm (p = 0.0000)
+✅ lstm_baseline significantly outperforms gcn_lstm (p = 0.0000)
+
+======================================================================
+APPROACH A | PRODUCT-LEVEL | MAE | family=lstm | N=60 products, k=4
+======================================================================
+Average ranks (1 = best):
+  lstm_baseline             1.983
+  graph2vec_lstm            2.117
+  gcn_lstm                  2.717
+  gat_lstm                  3.183
+Friedman chi2=33.400, p=2.652e-07 | Iman-Davenport F=13.442, p=6.075e-08 | Kendall's W=0.186 | Nemenyi CD=0.606
+
+Pairwise Wilcoxon (positive improvement = model_a better; Holm-adjusted):
+       model_a        model_b  mean_improvement  ci_low  ci_high  mean_rel_improvement_pct  wins_a  losses_a  rank_biserial_r  p_value  p_holm  significant
+      gat_lstm       gcn_lstm           -0.3166 -0.6807   0.0711                   -2.0623      20        40          -0.3049   0.0400  0.0800        False
+      gat_lstm graph2vec_lstm           -0.9791 -1.5494  -0.5710                   -5.7964      13        47          -0.6230   0.0000  0.0002         True
+      gat_lstm  lstm_baseline           -1.1359 -1.9389  -0.5775                   -7.1834      16        44          -0.5421   0.0003  0.0013         True
+      gcn_lstm graph2vec_lstm           -0.6625 -1.0641  -0.3466                   -3.9798      19        41          -0.4743   0.0014  0.0042         True
+      gcn_lstm  lstm_baseline           -0.8193 -1.4161  -0.4086                   -5.1478      18        42          -0.5399   0.0003  0.0013         True
+graph2vec_lstm  lstm_baseline           -0.1568 -0.4723   0.0937                   -1.0932      25        35          -0.1781   0.2302  0.2302        False
+
+======================================================================
+APPROACH B | HIERARCHICAL BOOTSTRAP | MAE | family=lstm | 60 products x 10 seeds, B=10000, resample_seeds=False
+======================================================================
+Average ranks with product-level bootstrap CIs (1 = best):
+         model  avg_rank  rank_ci_low  rank_ci_high  prob_best
+ lstm_baseline    2.1800       2.0216        2.3483     0.8292
+graph2vec_lstm    2.2650       2.1617        2.3717     0.1708
+      gcn_lstm    2.7267       2.5967        2.8583     0.0000
+      gat_lstm    2.8283       2.6733        2.9817     0.0000
+
+Pairwise (positive improvement = model_a better; Holm-adjusted):
+       model_a        model_b  mean_improvement  ci_low  ci_high  prob_a_better  rank_diff  p_boot  p_holm  significant
+      gat_lstm       gcn_lstm           -0.3166 -0.6818   0.0696         0.0538    -0.1017  0.1078  0.2156        False
+      gat_lstm graph2vec_lstm           -0.9791 -1.4824  -0.5226         0.0000    -0.5633  0.0002  0.0012         True
+      gat_lstm  lstm_baseline           -1.1359 -1.8276  -0.5109         0.0000    -0.6483  0.0002  0.0012         True
+      gcn_lstm graph2vec_lstm           -0.6625 -1.0231  -0.3227         0.0001    -0.4617  0.0004  0.0016         True
+      gcn_lstm  lstm_baseline           -0.8193 -1.3331  -0.3468         0.0003    -0.5467  0.0008  0.0024         True
+graph2vec_lstm  lstm_baseline           -0.1568 -0.4454   0.1129         0.1337    -0.0850  0.2676  0.2676        False
+[*] MODEL FAMILY: 'mlp' -> ['mlp_baseline', 'graph2vec_mlp', 'gcn_mlp', 'gat_mlp']
+[*] STANDARD MODE: Filtered out ablate_z=True runs.
+
+============================================================
+--- Running Statistical Evaluation for MAE | TOTAL SEEDS ---
+============================================================
+Loaded 600 blocks.
+Retained 600 complete blocks after dropping missing runs.
+
+--- Average Ranks (Lower is Better) ---
+mlp_baseline              : 2.178
+graph2vec_mlp             : 2.253
+gcn_mlp                   : 2.757
+gat_mlp                   : 2.812
+
+
+--- Friedman Test Results ---
+Test Statistic: 117.8380
+P-value:        2.2544e-25
+
+Result: Reject the null hypothesis (p < 0.05).
+There is a statistically significant difference between the models.
+
+--- Post-Hoc Nemenyi Test (Pairwise p-values) ---
+               gat_mlp  gcn_mlp  graph2vec_mlp  mlp_baseline
+gat_mlp         1.0000   0.8818         0.0000        0.0000
+gcn_mlp         0.8818   1.0000         0.0000        0.0000
+graph2vec_mlp   0.0000   0.0000         1.0000        0.7458
+mlp_baseline    0.0000   0.0000         0.7458        1.0000
+
+--- Significant Pairwise Differences (p < 0.05) ---
+✅ graph2vec_mlp significantly outperforms gat_mlp (p = 0.0000)
+✅ mlp_baseline significantly outperforms gat_mlp (p = 0.0000)
+✅ graph2vec_mlp significantly outperforms gcn_mlp (p = 0.0000)
+✅ mlp_baseline significantly outperforms gcn_mlp (p = 0.0000)
+
+======================================================================
+APPROACH A | PRODUCT-LEVEL | MAE | family=mlp | N=60 products, k=4
+======================================================================
+Average ranks (1 = best):
+  mlp_baseline              2.050
+  graph2vec_mlp             2.183
+  gcn_mlp                   2.783
+  gat_mlp                   2.983
+Friedman chi2=22.200, p=5.927e-05 | Iman-Davenport F=8.300, p=3.392e-05 | Kendall's W=0.123 | Nemenyi CD=0.606
+
+Pairwise Wilcoxon (positive improvement = model_a better; Holm-adjusted):
+      model_a       model_b  mean_improvement  ci_low  ci_high  mean_rel_improvement_pct  wins_a  losses_a  rank_biserial_r  p_value  p_holm  significant
+      gat_mlp       gcn_mlp           -0.1276 -0.4833   0.0194                   -0.9819      28        32          -0.2033   0.1709  0.1709        False
+      gat_mlp graph2vec_mlp           -0.6561 -1.0874  -0.3348                   -4.8797      14        46          -0.5825   0.0001  0.0004         True
+      gat_mlp  mlp_baseline           -0.8690 -1.3856  -0.4961                   -6.6161      19        41          -0.5967   0.0001  0.0004         True
+      gcn_mlp graph2vec_mlp           -0.5285 -1.0125  -0.1640                   -4.0121      22        38          -0.4579   0.0020  0.0061         True
+      gcn_mlp  mlp_baseline           -0.7414 -1.3712  -0.2585                   -5.8258      19        41          -0.4874   0.0010  0.0041         True
+graph2vec_mlp  mlp_baseline           -0.2129 -0.6200   0.2718                   -1.8678      25        35          -0.2568   0.0836  0.1673        False
+
+======================================================================
+APPROACH B | HIERARCHICAL BOOTSTRAP | MAE | family=mlp | 60 products x 10 seeds, B=10000, resample_seeds=False
+======================================================================
+Average ranks with product-level bootstrap CIs (1 = best):
+        model  avg_rank  rank_ci_low  rank_ci_high  prob_best
+ mlp_baseline    2.1783       1.9767        2.3850      0.683
+graph2vec_mlp    2.2533       2.0967        2.4150      0.317
+      gcn_mlp    2.7567       2.6150        2.8967      0.000
+      gat_mlp    2.8117       2.7000        2.9217      0.000
+
+Pairwise (positive improvement = model_a better; Holm-adjusted):
+      model_a       model_b  mean_improvement  ci_low  ci_high  prob_a_better  rank_diff  p_boot  p_holm  significant
+      gat_mlp       gcn_mlp           -0.1276 -0.3736   0.0528         0.1050    -0.0550  0.2102  0.4204        False
+      gat_mlp graph2vec_mlp           -0.6561 -1.0518  -0.3020         0.0000    -0.5583  0.0002  0.0012         True
+      gat_mlp  mlp_baseline           -0.8690 -1.3192  -0.4603         0.0000    -0.6333  0.0002  0.0012         True
+      gcn_mlp graph2vec_mlp           -0.5285 -0.9748  -0.1208         0.0042    -0.5033  0.0086  0.0258         True
+      gcn_mlp  mlp_baseline           -0.7414 -1.2970  -0.1992         0.0029    -0.5783  0.0060  0.0240         True
+graph2vec_mlp  mlp_baseline           -0.2129 -0.6262   0.2426         0.1735    -0.0750  0.3472  0.4204        False
+[*] MODEL FAMILY: 'lstm' -> ['lstm_baseline', 'graph2vec_lstm', 'gcn_lstm', 'gat_lstm']
+[*] STANDARD MODE: Filtered out ablate_z=True runs.
+
+============================================================
+--- Running Statistical Evaluation for POCID | TOTAL SEEDS ---
+============================================================
+Loaded 600 blocks.
+Retained 600 complete blocks after dropping missing runs.
+
+--- Average Ranks (Lower is Better) ---
+lstm_baseline             : 2.092
+graph2vec_lstm            : 2.363
+gcn_lstm                  : 2.657
+gat_lstm                  : 2.888
+
+
+--- Friedman Test Results ---
+Test Statistic: 135.4500
+P-value:        3.6174e-29
+
+Result: Reject the null hypothesis (p < 0.05).
+There is a statistically significant difference between the models.
+
+--- Post-Hoc Nemenyi Test (Pairwise p-values) ---
+                gat_lstm  gcn_lstm  graph2vec_lstm  lstm_baseline
+gat_lstm          1.0000    0.0102          0.0000         0.0000
+gcn_lstm          0.0102    1.0000          0.0005         0.0000
+graph2vec_lstm    0.0000    0.0005          1.0000         0.0015
+lstm_baseline     0.0000    0.0000          0.0015         1.0000
+
+--- Significant Pairwise Differences (p < 0.05) ---
+✅ gcn_lstm significantly outperforms gat_lstm (p = 0.0102)
+✅ graph2vec_lstm significantly outperforms gat_lstm (p = 0.0000)
+✅ lstm_baseline significantly outperforms gat_lstm (p = 0.0000)
+✅ graph2vec_lstm significantly outperforms gcn_lstm (p = 0.0005)
+✅ lstm_baseline significantly outperforms gcn_lstm (p = 0.0000)
+✅ lstm_baseline significantly outperforms graph2vec_lstm (p = 0.0015)
+
+======================================================================
+APPROACH A | PRODUCT-LEVEL | POCID | family=lstm | N=60 products, k=4
+======================================================================
+Average ranks (1 = best):
+  lstm_baseline             1.875
+  graph2vec_lstm            2.158
+  gcn_lstm                  2.708
+  gat_lstm                  3.258
+Friedman chi2=40.734, p=7.447e-09 | Iman-Davenport F=17.257, p=7.111e-10 | Kendall's W=0.226 | Nemenyi CD=0.606
+
+Pairwise Wilcoxon (positive improvement = model_a better; Holm-adjusted):
+       model_a        model_b  mean_improvement  ci_low  ci_high  mean_rel_improvement_pct  wins_a  losses_a  rank_biserial_r  p_value  p_holm  significant
+      gat_lstm       gcn_lstm           -0.0064 -0.0117   0.0004                   -1.0347      22        38          -0.4115   0.0056  0.0092         True
+      gat_lstm graph2vec_lstm           -0.0177 -0.0249  -0.0114                   -2.9588      12        47          -0.6955   0.0000  0.0000         True
+      gat_lstm  lstm_baseline           -0.0268 -0.0353  -0.0197                   -4.4494      10        50          -0.8333   0.0000  0.0000         True
+      gcn_lstm graph2vec_lstm           -0.0113 -0.0179  -0.0059                   -1.8857      22        37          -0.4751   0.0015  0.0045         True
+      gcn_lstm  lstm_baseline           -0.0204 -0.0285  -0.0139                   -3.3791      17        43          -0.7169   0.0000  0.0000         True
+graph2vec_lstm  lstm_baseline           -0.0090 -0.0146  -0.0044                   -1.5014      25        34          -0.4243   0.0046  0.0092         True
+
+======================================================================
+APPROACH B | HIERARCHICAL BOOTSTRAP | POCID | family=lstm | 60 products x 10 seeds, B=10000, resample_seeds=False
+======================================================================
+Average ranks with product-level bootstrap CIs (1 = best):
+         model  avg_rank  rank_ci_low  rank_ci_high  prob_best
+ lstm_baseline    2.0917       1.9666        2.2267     0.9986
+graph2vec_lstm    2.3633       2.2575        2.4683     0.0014
+      gcn_lstm    2.6567       2.5458        2.7700     0.0000
+      gat_lstm    2.8883       2.7667        3.0075     0.0000
+
+Pairwise (positive improvement = model_a better; Holm-adjusted):
+       model_a        model_b  mean_improvement  ci_low  ci_high  prob_a_better  rank_diff  p_boot  p_holm  significant
+      gat_lstm       gcn_lstm           -0.0064 -0.0121  -0.0001         0.0233    -0.2317  0.0468  0.0468         True
+      gat_lstm graph2vec_lstm           -0.0177 -0.0245  -0.0112         0.0000    -0.5250  0.0002  0.0012         True
+      gat_lstm  lstm_baseline           -0.0268 -0.0346  -0.0194         0.0000    -0.7967  0.0002  0.0012         True
+      gcn_lstm graph2vec_lstm           -0.0113 -0.0175  -0.0057         0.0001    -0.2933  0.0004  0.0012         True
+      gcn_lstm  lstm_baseline           -0.0204 -0.0279  -0.0133         0.0000    -0.5650  0.0002  0.0012         True
+graph2vec_lstm  lstm_baseline           -0.0090 -0.0142  -0.0041         0.0001    -0.2717  0.0004  0.0012         True
+[*] MODEL FAMILY: 'mlp' -> ['mlp_baseline', 'graph2vec_mlp', 'gcn_mlp', 'gat_mlp']
+[*] STANDARD MODE: Filtered out ablate_z=True runs.
+
+============================================================
+--- Running Statistical Evaluation for POCID | TOTAL SEEDS ---
+============================================================
+Loaded 600 blocks.
+Retained 600 complete blocks after dropping missing runs.
+
+--- Average Ranks (Lower is Better) ---
+mlp_baseline              : 2.269
+graph2vec_mlp             : 2.432
+gcn_mlp                   : 2.643
+gat_mlp                   : 2.657
+
+
+--- Friedman Test Results ---
+Test Statistic: 38.7331
+P-value:        1.9770e-08
+
+Result: Reject the null hypothesis (p < 0.05).
+There is a statistically significant difference between the models.
+
+--- Post-Hoc Nemenyi Test (Pairwise p-values) ---
+               gat_mlp  gcn_mlp  graph2vec_mlp  mlp_baseline
+gat_mlp         1.0000   0.9976         0.0135        0.0000
+gcn_mlp         0.9976   1.0000         0.0242        0.0000
+graph2vec_mlp   0.0135   0.0242         1.0000        0.1287
+mlp_baseline    0.0000   0.0000         0.1287        1.0000
+
+--- Significant Pairwise Differences (p < 0.05) ---
+✅ graph2vec_mlp significantly outperforms gat_mlp (p = 0.0135)
+✅ mlp_baseline significantly outperforms gat_mlp (p = 0.0000)
+✅ graph2vec_mlp significantly outperforms gcn_mlp (p = 0.0242)
+✅ mlp_baseline significantly outperforms gcn_mlp (p = 0.0000)
+
+======================================================================
+APPROACH A | PRODUCT-LEVEL | POCID | family=mlp | N=60 products, k=4
+======================================================================
+Average ranks (1 = best):
+  mlp_baseline              2.058
+  graph2vec_mlp             2.467
+  gcn_mlp                   2.675
+  gat_mlp                   2.800
+Friedman chi2=11.462, p=9.471e-03 | Iman-Davenport F=4.013, p=8.569e-03 | Kendall's W=0.064 | Nemenyi CD=0.606
+
+Pairwise Wilcoxon (positive improvement = model_a better; Holm-adjusted):
+      model_a       model_b  mean_improvement  ci_low  ci_high  mean_rel_improvement_pct  wins_a  losses_a  rank_biserial_r  p_value  p_holm  significant
+      gat_mlp       gcn_mlp           -0.0009 -0.0055   0.0044                   -0.0832      24        36          -0.1678   0.2584  0.2584        False
+      gat_mlp graph2vec_mlp           -0.0072 -0.0135  -0.0001                   -1.2798      25        34          -0.3158   0.0349  0.1395        False
+      gat_mlp  mlp_baseline           -0.0161 -0.0270  -0.0053                   -2.7499      22        37          -0.4542   0.0024  0.0121         True
+      gcn_mlp graph2vec_mlp           -0.0062 -0.0127  -0.0001                   -1.1294      23        36          -0.2418   0.1062  0.2125        False
+      gcn_mlp  mlp_baseline           -0.0152 -0.0257  -0.0043                   -2.6114      20        40          -0.4634   0.0018  0.0108         True
+graph2vec_mlp  mlp_baseline           -0.0089 -0.0202   0.0025                   -1.3437      21        39          -0.2770   0.0620  0.1860        False
+
+======================================================================
+APPROACH B | HIERARCHICAL BOOTSTRAP | POCID | family=mlp | 60 products x 10 seeds, B=10000, resample_seeds=False
+======================================================================
+Average ranks with product-level bootstrap CIs (1 = best):
+        model  avg_rank  rank_ci_low  rank_ci_high  prob_best
+ mlp_baseline    2.2692       2.1092        2.4367     0.8993
+graph2vec_mlp    2.4317       2.2908        2.5742     0.0996
+      gcn_mlp    2.6425       2.5108        2.7658     0.0010
+      gat_mlp    2.6567       2.5367        2.7717     0.0001
+
+Pairwise (positive improvement = model_a better; Holm-adjusted):
+      model_a       model_b  mean_improvement  ci_low  ci_high  prob_a_better  rank_diff  p_boot  p_holm  significant
+      gat_mlp       gcn_mlp           -0.0009 -0.0058   0.0042         0.3506    -0.0142  0.7013  0.7013        False
+      gat_mlp graph2vec_mlp           -0.0072 -0.0137  -0.0003         0.0199    -0.2250  0.0400  0.1600        False
+      gat_mlp  mlp_baseline           -0.0161 -0.0270  -0.0053         0.0012    -0.3875  0.0026  0.0156         True
+      gcn_mlp graph2vec_mlp           -0.0062 -0.0124   0.0000         0.0258    -0.2108  0.0518  0.1600        False
+      gcn_mlp  mlp_baseline           -0.0152 -0.0258  -0.0044         0.0032    -0.3733  0.0066  0.0330         True
+graph2vec_mlp  mlp_baseline           -0.0089 -0.0201   0.0021         0.0572    -0.1625  0.1146  0.2292        False
+
+======================================================================
+SIGNIFICANCE COMPARISON (does each pairwise conclusion survive?)
+======================================================================
+metric model_family        model_a        model_b  sig_nemenyi_600  sig_nemenyi_60  sig_wilcoxon_holm_60  sig_hierboot_holm  conclusion_robust
+   mae         lstm       gat_lstm       gcn_lstm            False           False                 False              False               True
+   mae         lstm       gat_lstm graph2vec_lstm             True            True                  True               True               True
+   mae         lstm       gat_lstm  lstm_baseline             True            True                  True               True               True
+   mae         lstm       gcn_lstm graph2vec_lstm             True           False                  True               True              False
+   mae         lstm       gcn_lstm  lstm_baseline             True            True                  True               True               True
+   mae         lstm graph2vec_lstm  lstm_baseline            False           False                 False              False               True
+   mae          mlp        gat_mlp        gcn_mlp            False           False                 False              False               True
+   mae          mlp        gat_mlp  graph2vec_mlp             True            True                  True               True               True
+   mae          mlp        gat_mlp   mlp_baseline             True            True                  True               True               True
+   mae          mlp        gcn_mlp  graph2vec_mlp             True           False                  True               True              False
+   mae          mlp        gcn_mlp   mlp_baseline             True            True                  True               True               True
+   mae          mlp  graph2vec_mlp   mlp_baseline            False           False                 False              False               True
+ pocid         lstm       gat_lstm       gcn_lstm             True           False                  True               True              False
+ pocid         lstm       gat_lstm graph2vec_lstm             True            True                  True               True               True
+ pocid         lstm       gat_lstm  lstm_baseline             True            True                  True               True               True
+ pocid         lstm       gcn_lstm graph2vec_lstm             True           False                  True               True              False
+ pocid         lstm       gcn_lstm  lstm_baseline             True            True                  True               True               True
+ pocid         lstm graph2vec_lstm  lstm_baseline             True           False                  True               True              False
+ pocid          mlp        gat_mlp        gcn_mlp            False           False                 False              False               True
+ pocid          mlp        gat_mlp  graph2vec_mlp             True           False                 False              False              False
+ pocid          mlp        gat_mlp   mlp_baseline             True            True                  True               True               True
+ pocid          mlp        gcn_mlp  graph2vec_mlp             True           False                 False              False              False
+ pocid          mlp        gcn_mlp   mlp_baseline             True            True                  True               True               True
+ pocid          mlp  graph2vec_mlp   mlp_baseline            False           False                 False              False               True
+
+All outputs written to: C:\Users\Andre Silva\Desktop\Dissertation25-26\Statistical Analysis\Results\spearman_inference_fix

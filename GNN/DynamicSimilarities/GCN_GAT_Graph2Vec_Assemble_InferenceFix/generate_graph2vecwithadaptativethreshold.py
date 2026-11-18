@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import time
 from tqdm.auto import tqdm
-from graph2vec import CustomGraph2Vec as Graph2Vec
+from Graph2vec.graph2vec import CustomGraph2Vec as Graph2Vec
 
 DISTANCE_METRICS = {
     'euclidean', 'hamming', 'amplitude_offset', 'slope_consistency',
@@ -218,7 +218,7 @@ def load_or_generate_embeddings(product_id, metric, window_size, step_size, thre
                 try:
                     from utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll
                 except ImportError:
-                    from GNN.Graph2vec_FixedThreshold.LSTM.utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll
+                    from Graph2vec_FixedThreshold.LSTM.utils import neighbourhood_graph, compute_distances_1vsAll, compute_similarities_1vsAll
                 
                 compute_func = compute_distances_1vsAll if metric_type == 'distance' else compute_similarities_1vsAll
                 

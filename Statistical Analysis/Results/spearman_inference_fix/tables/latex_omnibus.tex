@@ -1,0 +1,15 @@
+\begin{table}[ht]
+\centering\small
+\caption{Omnibus tests with seeds pooled ($N=600$ product$\times$seed blocks) versus product-level blocks ($N=60$, seeds averaged). $W$: Kendall's coefficient of concordance (product level).}
+\label{tab:omnibus}
+\begin{tabular}{llrrrrr}
+\toprule
+Metric & Family & $\chi^2_{600}$ & $p_{600}$ & $\chi^2_{60}$ & $p_{60}$ & $W$ \\
+\midrule
+MAE & LSTM & 114.05 & 1.47e-24 & 33.40 & 2.65e-07 & 0.186 \\
+MAE & MLP & 117.84 & 2.25e-25 & 22.20 & 5.93e-05 & 0.123 \\
+POCID & LSTM & 135.45 & 3.62e-29 & 40.73 & 7.45e-09 & 0.226 \\
+POCID & MLP & 38.73 & 1.98e-08 & 11.46 & 9.47e-03 & 0.064 \\
+\bottomrule
+\end{tabular}
+\end{table}

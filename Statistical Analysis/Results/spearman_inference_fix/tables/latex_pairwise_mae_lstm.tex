@@ -1,0 +1,17 @@
+\begin{table}[ht]
+\centering\small
+\caption{Product-level pairwise comparisons (MAE, LSTM family, $N=60$ products). $\Delta$: mean improvement of the first model (positive = better), 95\% BCa CI over products; $r_{rb}$: matched-pairs rank-biserial correlation; W/L: products won/lost; $p_{W}$: Wilcoxon signed-rank, Holm-adjusted; $p_{HB}$: hierarchical bootstrap, Holm-adjusted.}
+\label{tab:pairwise_mae_lstm}
+\begin{tabular}{lrcrcrr}
+\toprule
+Comparison & $\Delta$ & 95\% CI & $r_{rb}$ & W/L & $p_{W}$ & $p_{HB}$ \\
+\midrule
+GAT-LSTM vs GCN-LSTM & -0.317 & [-0.681, 0.071] & -0.30 & 20/40 & 0.080 & 0.216 \\
+GAT-LSTM vs Graph2Vec-LSTM & -0.979 & [-1.549, -0.571] & -0.62 & 13/47 & \textbf{$<$0.001} & \textbf{0.001} \\
+GAT-LSTM vs LSTM & -1.136 & [-1.939, -0.577] & -0.54 & 16/44 & \textbf{0.001} & \textbf{0.001} \\
+GCN-LSTM vs Graph2Vec-LSTM & -0.662 & [-1.064, -0.347] & -0.47 & 19/41 & \textbf{0.004} & \textbf{0.002} \\
+GCN-LSTM vs LSTM & -0.819 & [-1.416, -0.409] & -0.54 & 18/42 & \textbf{0.001} & \textbf{0.002} \\
+Graph2Vec-LSTM vs LSTM & -0.157 & [-0.472, 0.094] & -0.18 & 25/35 & 0.230 & 0.268 \\
+\bottomrule
+\end{tabular}
+\end{table}

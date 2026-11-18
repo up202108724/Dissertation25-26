@@ -1,0 +1,17 @@
+\begin{table}[ht]
+\centering\small
+\caption{Product-level pairwise comparisons (POCID, LSTM family, $N=60$ products). $\Delta$: mean improvement of the first model (positive = better), 95\% BCa CI over products; $r_{rb}$: matched-pairs rank-biserial correlation; W/L: products won/lost; $p_{W}$: Wilcoxon signed-rank, Holm-adjusted; $p_{HB}$: hierarchical bootstrap, Holm-adjusted.}
+\label{tab:pairwise_pocid_lstm}
+\begin{tabular}{lrcrcrr}
+\toprule
+Comparison & $\Delta$ & 95\% CI & $r_{rb}$ & W/L & $p_{W}$ & $p_{HB}$ \\
+\midrule
+GAT-LSTM vs GCN-LSTM & -0.006 & [-0.012, 0.000] & -0.41 & 22/38 & \textbf{0.009} & \textbf{0.047} \\
+GAT-LSTM vs Graph2Vec-LSTM & -0.018 & [-0.025, -0.011] & -0.70 & 12/47 & \textbf{$<$0.001} & \textbf{0.001} \\
+GAT-LSTM vs LSTM & -0.027 & [-0.035, -0.020] & -0.83 & 10/50 & \textbf{$<$0.001} & \textbf{0.001} \\
+GCN-LSTM vs Graph2Vec-LSTM & -0.011 & [-0.018, -0.006] & -0.48 & 22/37 & \textbf{0.005} & \textbf{0.001} \\
+GCN-LSTM vs LSTM & -0.020 & [-0.028, -0.014] & -0.72 & 17/43 & \textbf{$<$0.001} & \textbf{0.001} \\
+Graph2Vec-LSTM vs LSTM & -0.009 & [-0.015, -0.004] & -0.42 & 25/34 & \textbf{0.009} & \textbf{0.001} \\
+\bottomrule
+\end{tabular}
+\end{table}
